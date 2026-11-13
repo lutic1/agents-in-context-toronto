@@ -5,6 +5,8 @@ description: The open public sources DxP ingests for lung cancer diagnostics (Cl
 
 # Open data sources for DxP
 
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+
 | Source | What DxP takes | Access | Key | Rate limit | Licence or terms | Open data only |
 |---|---|---|---|---|---|---|
 | ClinicalTrials.gov API v2 | Lung trials that use or study a diagnostic | REST JSON, `GET /api/v2/studies` | None | Not published (`UNVERIFIED`); keep to 1 request per second | Site terms: free; attribute, show processing date, state modifications | Pass |

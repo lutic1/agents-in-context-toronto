@@ -5,6 +5,8 @@ description: Produce the two short HeyGen presenter clips (intro and close) for 
 
 # HeyGen for DxP
 
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+
 ## Verified
 Checked 12 November 2026 against official pages only. API **v3**, base URL `https://api.heygen.com`, auth header `X-Api-Key`. No SDK: the docs use plain HTTP. Pages: developers.heygen.com (`docs/quick-start`, `docs/api-key`, `endpoint-version-comparison`, `generate-avatar-video`, `models`, `docs/usage-limits`, `docs/error-codes`, `docs/for-ai-agents`, `reference/create-video`, `reference/get-video`, `reference/list-avatar-looks`, `reference/list-audio-voices`); heygen.com (`pricing`, `faq`, `moderation-policy`, `terms` last updated 16 Oct 2026); help.heygen.com articles 10060327 (API pricing), 15126059 (credits), 15125761 (plans), 9655503 (processing times), 12903996 (Quick Avatar Video), 11381771 (scripts), 11395771 (EU AI Act).
 

@@ -5,6 +5,8 @@ description: Claude API from Python for DxP - model IDs and prices, the fast tri
 
 # Claude API for DxP
 
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+
 ## Verified
 
 Checked 2026-11-12 against platform.claude.com/docs, PyPI and the SDK source on GitHub.

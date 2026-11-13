@@ -5,6 +5,8 @@ description: Modal for DxP - hosting the Python agents, the parallel batch over 
 
 # Modal for DxP
 
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+
 ## Verified
 
 Checked 12 November 2026 against the official docs and PyPI.
