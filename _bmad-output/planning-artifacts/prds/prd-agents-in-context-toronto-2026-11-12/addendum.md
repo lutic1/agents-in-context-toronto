@@ -1,7 +1,7 @@
 ---
 title: "PRD Addendum: DxProvida (DxP)"
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # PRD Addendum: DxProvida (DxP)
@@ -99,14 +99,47 @@ Decided 12 Nov: the wow moment is the agentic work with memory, shown in the vid
 
 Which MongoDB capability powers which behaviour, taken from the team's plan. Architecture confirms or changes each row.
 
+Names checked against MongoDB's documentation on 13 Nov, to use on camera: the product is MongoDB Atlas Agent Engine (public preview since 29 Sep 2026) and the feature is Agent Memory, with semantic, episodic, procedural and taxonomic types. Atlas Vector Search and Atlas Search are now called MongoDB Vector Search and MongoDB Search. Automated Embedding is the correct name and still carries a preview banner.
+
 | Behaviour in the PRD | MongoDB capability named in the plan |
 |---|---|
-| Resume after weeks away (FR-28) | Atlas Agent Memory, episodic |
-| Learned rule after a rejection (FR-19) | Atlas Agent Memory, procedural |
-| Synonyms: "liquid biopsy" finds ctDNA (FR-9) | Atlas Agent Memory, taxonomic; synonym search |
+| Resume after weeks away (FR-28) | Agent Memory, episodic |
+| Learned rule after a rejection (FR-19) | Agent Memory, procedural |
+| Synonyms: "liquid biopsy" finds ctDNA (FR-9) | Agent Memory, taxonomic; synonym search |
 | Plain-language query across Records (FR-21) | Automated Embedding with vector search |
 | Connected Graph view (FR-26) | Graph lookup across assay, biomarker, tumour type, trial, drug and company |
 | Alerts and the graph updating as a change lands (FR-13, FR-27) | Change streams |
 | A new kind of Diagnostic arriving with new fields | Flexible documents, no schema change |
 
 Earlier candidates, kept for the scoping session: the guardrail that rewrites itself and flags other pending Proposed changes (FR-19), and the graph redrawing as an accepted change lands (FR-26, FR-27). Both sit inside the decided wow moment. The photographed poster is out for Saturday on licensing grounds.
+
+## 4. Findings from the documentation check (13 Nov)
+
+Ten skills under `.claude/skills/dxp-*` hold the detail, each written from official documentation fetched on 12 and 13 Nov. These are the findings that change the plan. None was tested against a live paid service.
+
+### To do on Friday
+
+- **Atlas cluster.** A free cluster is not enough: without a payment method it allows 3 embedding queries a minute, 100 operations a second and 3 search indexes. Ask MongoDB staff for Flex or M10. M10 also meets the Agent Memory requirement.
+- **Agent Memory.** It is a separate platform to provision, not a cluster switch: a command-line tool, a Voyage key, a model key, a service account and IP access list entries.
+- **Claude API tier.** The 300 to 500 item batch is confirmed only for the Start tier and above, at a concurrency of 16. Limits for the lowest tier are not published. Check the key's tier.
+- **Paid plans.** HeyGen's free plan is watermarked and not licensed for a public video (Creator is USD 29 a month, or an API wallet from USD 5). ElevenLabs' free plan has no commercial licence and requires attribution (Starter is USD 6).
+- **LangSmith.** A new organisation needs an agent record and two extra environment variables; setting the old project variable sends no traces. The free plan allows 5,000 traces a month.
+
+### For architecture
+
+- **Match key (FR-3).** No identifier for a Diagnostic is shared across ClinicalTrials.gov, PubMed and FDA. The key has to be designed. Modal also retries inputs, so uniqueness must be enforced in MongoDB.
+- **Baseline and Held-back set (FR-30).** A wide lung diagnostics query returns about 3,300 Source items, not 300 to 500; the data-sources skill gives narrower query sets. The last four weeks hold about 45 trials and 90 abstracts. FDA adds almost nothing in that window, and web page dates are estimates, so the Held-back set comes from ClinicalTrials.gov and PubMed.
+- **Quotes (FR-18).** The Claude API's citations feature cannot be combined with structured output. Web search returns cleaned text, so quotes are checked against the stored snapshot of the Source item.
+- **Learned rule off-switch (FR-19).** The Agent Memory SDK has no delete or update, so switching a rule off is a flag in a DxP collection.
+- **Team memory (FR-28).** Agent Memory is scoped per user; bind the user ID to the Team. Use direct writes for the live demo, because background extraction is asynchronous.
+- **Batch and live updates (FR-4, FR-27).** Modal caps a web request at 150 seconds. The batch runs as a background job that writes progress to MongoDB, and the front end polls or reconnects.
+- **Network access.** Modal has no fixed outbound address on its free plan, so Atlas must allow any address or the team pays for a static one.
+- **Graph view (FR-26).** `react-force-graph-2d` is the recommended library, with working code in the front-end skill.
+- **Orchestration.** Agent Memory has its own SDK and does not depend on LangGraph, so LangGraph against the Claude Agent SDK is an open architecture choice. The reviewer pause that persists in MongoDB and the LangSmith trace favour LangGraph.
+
+### For the video
+
+- Render the HeyGen clips on Saturday morning; queues can be long. Only HeyGen API v3 works.
+- Give judges the production URL. Vercel preview URLs ask for a login.
+- The event page publishes no criteria for the ElevenLabs prize.
+

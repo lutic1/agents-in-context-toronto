@@ -2,7 +2,7 @@
 title: "PRD: DxProvida (DxP)"
 status: draft
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 # PRD: DxProvida (DxP)
@@ -212,12 +212,12 @@ Lung cancer only. The features in §4, apart from the requirements marked later 
 - **Evidence.** Provenance is the product. Any shortcut that shows a value without Evidence fails the PRD.
 - **Human decision.** Every agent change to a Record is a Reviewer's decision, logged.
 - **Unattended operation.** Scans, the Maturity gate and Proposed changes run with nobody logged in.
-- **Open data only.** Every Source item is openly and publicly available. Sources on Saturday are ClinicalTrials.gov, PubMed, the FDA companion diagnostics list and Provider websites found through web search. Nothing licensed or paywalled is ingested. The Held-back set is real data from these Sources.
+- **Open data only.** Every Source item is openly and publicly available. Sources on Saturday are ClinicalTrials.gov, PubMed, the FDA companion diagnostics list and Provider websites found through web search. Nothing licensed or paywalled is ingested. The Held-back set is real data from these Sources. Provider websites are scanned only from an allow-list of domains, because the web search tool does not filter out licensed pages. PubMed abstracts are public but not licensed for redistribution: DxP shows short quotes with a citation and a link, and no abstract text is committed to the public repository.
 - **Real behaviour on camera.** The video shows one memory write and read made live, and one Learned rule made live from a real rejection. Synthetic history may set the scene; it does not stand in for these two.
 - **Synthetic data.** Synthetic Team profiles, session history and Reviewer corrections are labelled as synthetic wherever they appear.
 - **Event rules.** The project must be substantially developed on the day. Data prepared beforehand is disclosed, and the demo says what was built that day.
 - **Time.** Six hours of coding, two people. Submission is due at 18:00.
-- **Agent Memory.** The team builds on Atlas Agent Memory in preview, by decision. Plain collections holding the same memory types remain the fallback.
+- **Agent Memory.** The team builds on Agent Memory, part of MongoDB Atlas Agent Engine (public preview), by decision. It needs a paid cluster and its own setup, to be done on Friday. Plain collections holding the same memory types remain the fallback.
 - **Model limits.** Before the batch in FR-4 runs, the team confirms that the Claude API key works and that its rate limits allow the batch size.
 - **MongoDB as the advantage.** The video and the project description present MongoDB's capabilities as DxP's competitive advantage, and say which capability powers which behaviour.
 
@@ -229,8 +229,7 @@ None block the build. Deferred to later development:
 2. Medical's agreement to fields beyond the ten: regulatory status (added for Saturday by the team), Performance values by tumour type and Tumour stage, and the operational fields.
 3. Licensing for congress abstracts, posters and photographs of posters, to raise with legal if the team wins.
 
-4. Whether Atlas Agent Memory offers a taxonomic memory type, as the team's plan says. Verify before it is named in the video.
-5. How the Lifecycle stage, which is not one of the extracted fields, is derived and checked for accuracy (ADV-10). For architecture.
+4. How the Lifecycle stage, which is not one of the extracted fields, is derived and checked for accuracy (ADV-10). For architecture.
 
 To check on the day: the team is working to an 18:00 submission deadline. The event's rules say 17:00 and its page says 21:00, so confirm at the opening.
 
