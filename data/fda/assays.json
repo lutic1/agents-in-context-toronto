@@ -1,0 +1,1429 @@
+{
+  "derived_by": "DxP (derived from the FDA list of companion diagnostics; not an FDA publication)",
+  "normalisation": "assay_normalised = name with (R)/(TM) marks removed, 'PD-LI' corrected to 'PD-L1', brackets and punctuation other than - + / . removed, whitespace collapsed, lower-cased. Original strings are kept in name_strings_in_list. Rows come from cdx_lung.jsonl; manufacturer is the text in the final bracket of 'Diagnostic Name (Manufacturer)'.",
+  "source_page": "https://www.fda.gov/medical-devices/in-vitro-diagnostics/list-fda-authorized-companion-diagnostic-devices-in-vitro-and-imaging-tools",
+  "page_content_current_as_of": "11/03/2026",
+  "fetched_at": "2026-11-13T05:49:49+00:00",
+  "assay_count": 20,
+  "assays": [
+    {
+      "assay_normalised": "oncomine dx express test",
+      "name_strings_in_list": [
+        "Oncomine Dx Express Test"
+      ],
+      "manufacturers": [
+        "Life Technologies Corporation"
+      ],
+      "submission_numbers": [
+        "P240040/S005",
+        "P240040"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P240040/S005:260295ce75",
+          "drug_trade_name": "HYRNUO",
+          "drug_generic_name": "sevabertinib",
+          "drug_application": "NDA 219972",
+          "biomarkers": "ERBB2 (HER2)",
+          "biomarker_details": "ERBB2/HER2 Activating mutations (SNVs in exons 18-21 within the tyrosine kinase domain and exon 20 insertions)",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2026-09-09"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P240040:7faffb6618",
+          "drug_trade_name": "Zegfrovy",
+          "drug_generic_name": "sunvozertinib",
+          "drug_application": "NDA 219839",
+          "biomarkers": "EGFR",
+          "biomarker_details": "Exon 20 insertion mutations",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2025-07-02"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P240040"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 2
+    },
+    {
+      "assay_normalised": "guardant360 liquid cdx",
+      "name_strings_in_list": [
+        "Guardant360® Liquid CDx"
+      ],
+      "manufacturers": [
+        "Guardant Health, Inc."
+      ],
+      "submission_numbers": [
+        "P250027"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P250027:0ea242752f",
+          "drug_trade_name": "TAGRISSO®",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR",
+          "biomarker_details": "EGFR exon 19 deletions, L858R, and T790M*",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2026-05-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P250027:1eb4893b16",
+          "drug_trade_name": "RYBREVANT®",
+          "drug_generic_name": "amivantamab-vmjw",
+          "drug_application": "BLA 761210",
+          "biomarkers": "EGFR",
+          "biomarker_details": "EGFR exon 20 insertions",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2026-05-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P250027:f9d35d48d0",
+          "drug_trade_name": "LUMAKRAS™",
+          "drug_generic_name": "sotorasib",
+          "drug_application": "NDA 214665",
+          "biomarkers": "KRAS",
+          "biomarker_details": "KRAS G12C",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2026-05-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P250027:e87ea85773",
+          "drug_trade_name": "ENHERTU®",
+          "drug_generic_name": "fam-trastuzumab deruxtecan nxki",
+          "drug_application": "BLA 761139",
+          "biomarkers": "ERBB2/HER2",
+          "biomarker_details": "ERBB2/HER2 activating mutations (SNVs and exon 20 insertions)",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2026-05-19"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P250027"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 4
+    },
+    {
+      "assay_normalised": "guardant360 cdx",
+      "name_strings_in_list": [
+        "Guardant360 CDx"
+      ],
+      "manufacturers": [
+        "Guardant Health, Inc."
+      ],
+      "submission_numbers": [
+        "P200010/S027",
+        "P200010",
+        "P200010/S001",
+        "P200010/S002",
+        "P200010/S008"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P200010/S027:d64ad814ec",
+          "drug_trade_name": "HERNEXEOS",
+          "drug_generic_name": "zongertinib",
+          "drug_application": "NDA 219042",
+          "biomarkers": "ERBB2/HER2",
+          "biomarker_details": "ERBB2/HER2 activating mutations (SNVs in exons 18-21 within the tyrosine kinase domain and exon 20 insertions)",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2026-06-10"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P200010:188e9ca2c4",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "EGFR exon 19 deletions, EGFR exon 21 L858R, and T790M",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2020-08-07"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P200010/S001:72c74501a2",
+          "drug_trade_name": "Rybrevant",
+          "drug_generic_name": "amivantamb",
+          "drug_application": "BLA 761210",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "EGFR exon 20 insertions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2021-05-21"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P200010/S002:876dd3bdcf",
+          "drug_trade_name": "Lumakras",
+          "drug_generic_name": "sotorasib",
+          "drug_application": "NDA 214665",
+          "biomarkers": "KRAS",
+          "biomarker_details": "G12C",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2021-05-28"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P200010/S008:2a37c51694",
+          "drug_trade_name": "ENHERTU",
+          "drug_generic_name": "fam-trastuzumab deruxtecan-nxki",
+          "drug_application": "BLA 761139",
+          "biomarkers": "ERBB2",
+          "biomarker_details": "ERBB2 Activating Mutations (SNVs And Exon 20 Insertions)",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2022-08-11"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P200010"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 5
+    },
+    {
+      "assay_normalised": "foundationone cdx",
+      "name_strings_in_list": [
+        "FoundationOne CDx"
+      ],
+      "manufacturers": [
+        "Foundation Medicine, Inc.",
+        "Foundation Medicine Inc."
+      ],
+      "submission_numbers": [
+        "P170019/S067",
+        "P170019",
+        "P170019/S008",
+        "P170019/S011",
+        "P170019/S014",
+        "P170019/S039",
+        "P170019/S023"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P170019/S067:620755b119",
+          "drug_trade_name": "TEPMETKO®",
+          "drug_generic_name": "tepotinib",
+          "drug_application": "NDA 214096",
+          "biomarkers": "MET",
+          "biomarker_details": "MET single nucleotide variants and indels that lead to MET exon 14 skipping",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2026-05-12"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:ed8c3ed00c",
+          "drug_trade_name": "Gilotrif",
+          "drug_generic_name": "afatinib",
+          "drug_application": "NDA 201292",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:f877429392",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:7d72ac1b72",
+          "drug_trade_name": "Tarceva",
+          "drug_generic_name": "erlotinib",
+          "drug_application": "NDA 021743",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:288646b09a",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "T790M",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:e6ace713d0",
+          "drug_trade_name": "Alecensa",
+          "drug_generic_name": "alectinib",
+          "drug_application": "NDA 208434",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:60e7244735",
+          "drug_trade_name": "Xalkori",
+          "drug_generic_name": "crizotinib",
+          "drug_application": "NDA 202570",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:2d6d29c7af",
+          "drug_trade_name": "Zykadia",
+          "drug_generic_name": "ceritinib",
+          "drug_application": "NDA 211225",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019:1124f78bd4",
+          "drug_trade_name": "Tafinlar",
+          "drug_generic_name": "dabrafenib",
+          "drug_application": "NDA 202806",
+          "biomarkers": "BRAF",
+          "biomarker_details": "V600E",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-30"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019/S008:c82571c558",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2019-07-01"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019/S011:64fdc538d3",
+          "drug_trade_name": "Tabrecta",
+          "drug_generic_name": "capmatinib",
+          "drug_application": "NDA 213591",
+          "biomarkers": "MET",
+          "biomarker_details": "MET single nucleotide variants and indels that lead to MET exon 14 skipping",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2020-05-06"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019/S014:a9badd8187",
+          "drug_trade_name": "Rozlytrek",
+          "drug_generic_name": "entrectinib",
+          "drug_application": "NDA 212725",
+          "biomarkers": "ROS1",
+          "biomarker_details": "ROS1 fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2022-06-07"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019/S039:dd89ec75ac",
+          "drug_trade_name": "BRAFTOVI",
+          "drug_generic_name": "encorafenib",
+          "drug_application": "NDA 210496",
+          "biomarkers": "BRAF",
+          "biomarker_details": "V600E",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2023-10-11"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P170019/S023:5cf013896c",
+          "drug_trade_name": "Alunbrig",
+          "drug_generic_name": "brigatinib",
+          "drug_application": "NDA 208772",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-06-30"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P170019"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 14
+    },
+    {
+      "assay_normalised": "cobas egfr mutation test v1",
+      "name_strings_in_list": [
+        "cobas EGFR Mutation Test v1"
+      ],
+      "manufacturers": [
+        "Roche Molecular Systems, Inc."
+      ],
+      "submission_numbers": [
+        "P120019"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P120019:de3265dfc1",
+          "drug_trade_name": "Tarceva",
+          "drug_generic_name": "erlotinib",
+          "drug_application": "NDA 021743",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2013-07-15"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P120019"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "cobas egfr mutation test v2",
+      "name_strings_in_list": [
+        "cobas EGFR Mutation Test v2"
+      ],
+      "manufacturers": [
+        "Roche Molecular Systems, Inc."
+      ],
+      "submission_numbers": [
+        "P120019/S007",
+        "P120019/S016",
+        "P120019/S018",
+        "P120019/S019",
+        "P120019/S031",
+        "P150044",
+        "P150047"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P120019/S007:e59936c0bd",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "T790M",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2015-11-13"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S016:ab85f5bd17",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2018-04-18"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S018:5743c70eb1",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2018-04-18"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S019:0e3bda673a",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue or Plasma",
+          "decision_dates": [
+            "0218-08-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S031:941596936e",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue or Plasma",
+          "decision_dates": [
+            "2020-10-27"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S031:13c5fb75db",
+          "drug_trade_name": "Tarceva",
+          "drug_generic_name": "erlotinib",
+          "drug_application": "NDA 021743",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue or Plasma",
+          "decision_dates": [
+            "2020-10-27"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S031:bbe8509785",
+          "drug_trade_name": "Gilotrif",
+          "drug_generic_name": "afatinib",
+          "drug_application": "NDA 201292",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue or Plasma",
+          "decision_dates": [
+            "2020-10-27"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120019/S031:36b07b2e2a",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue or Plasma",
+          "decision_dates": [
+            "2020-10-27"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P150044:4513288663",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "T790M",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2016-09-28"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P150047:305200d1a6",
+          "drug_trade_name": "Tarceva",
+          "drug_generic_name": "erlotinib",
+          "drug_application": "NDA 021743",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2016-06-01"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P120019",
+        "P150044",
+        "P150047"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 10
+    },
+    {
+      "assay_normalised": "foundationone liquid cdx",
+      "name_strings_in_list": [
+        "FoundationOne Liquid CDx"
+      ],
+      "manufacturers": [
+        "Foundation Medicine, Inc."
+      ],
+      "submission_numbers": [
+        "P190032",
+        "P190032/S008",
+        "P190032/S011",
+        "P190032/S001",
+        "P190032/S004",
+        "P200006",
+        "P190032/S015"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P190032/S008:cfd386e524",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2020-08-26",
+            "2022-12-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S008:ef62a41b7f",
+          "drug_trade_name": "Tagrisso",
+          "drug_generic_name": "osimertinib",
+          "drug_application": "NDA 208065",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2020-08-26",
+            "2022-12-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S008:b4d4d072a9",
+          "drug_trade_name": "Tarceva",
+          "drug_generic_name": "erlotinib",
+          "drug_application": "NDA 021743",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2020-08-26",
+            "2022-12-19"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S011:e1103efccb",
+          "drug_trade_name": "BRAFTOVI",
+          "drug_generic_name": "encorafenib",
+          "drug_application": "NDA 210496",
+          "biomarkers": "BRAF",
+          "biomarker_details": "V600E",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2023-10-11"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S001:1fbeef909f",
+          "drug_trade_name": "Tabrecta",
+          "drug_generic_name": "capmatinib",
+          "drug_application": "NDA 213591",
+          "biomarkers": "MET",
+          "biomarker_details": "MET single nucleotide variants and indels that lead to MET exon 14 skipping",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2021-07-15"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S004:dbe70f45d8",
+          "drug_trade_name": "Rozlytrek",
+          "drug_generic_name": "entrectinib",
+          "drug_application": "NDA 212725",
+          "biomarkers": "ROS1",
+          "biomarker_details": "ROS1 fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2022-12-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P200006:fdd0f4e61a",
+          "drug_trade_name": "Alecensa",
+          "drug_generic_name": "alectinib",
+          "drug_application": "NDA 208434",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2020-10-26"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P190032/S015:0b18b026b7",
+          "drug_trade_name": "Tepmetko",
+          "drug_generic_name": "tepotinib",
+          "drug_application": null,
+          "biomarkers": "MET",
+          "biomarker_details": "MET single nucleotide variants and indels that lead to MET exon 14 skipping",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2024-11-14"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P190032",
+        "P200006"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 8
+    },
+    {
+      "assay_normalised": "onco/reveal dx lung colon cancer assay o/rdx-lcca",
+      "name_strings_in_list": [
+        "ONCO/Reveal Dx Lung & Colon Cancer Assay (O/RDx-LCCA)"
+      ],
+      "manufacturers": [
+        "Pillar Biosciences, Inc."
+      ],
+      "submission_numbers": [
+        "P200011"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P200011:d688bdd742",
+          "drug_trade_name": "A tyrosine kinase inhibitor approved by FDA for that indication",
+          "drug_generic_name": null,
+          "drug_application": null,
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-07-30"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P200011"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "oncomine dx target test",
+      "name_strings_in_list": [
+        "Oncomine Dx Target Test"
+      ],
+      "manufacturers": [
+        "Life Technologies Corporation"
+      ],
+      "submission_numbers": [
+        "P160045",
+        "P160045/S019",
+        "P160045/S027",
+        "P160045/S035",
+        "P160045/S031",
+        "P160045/S049",
+        "P160045/S050"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P160045:6dc149a50e",
+          "drug_trade_name": "Tafinlar",
+          "drug_generic_name": "dabrafenib",
+          "drug_application": "NDA 202806",
+          "biomarkers": "BRAF",
+          "biomarker_details": "V600E",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-06-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045:00468c3a0f",
+          "drug_trade_name": "Xalkori",
+          "drug_generic_name": "crizotinib",
+          "drug_application": "NDA 202570",
+          "biomarkers": "ROS1",
+          "biomarker_details": "ROS1 fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-06-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045:db25a89428",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-06-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S019:edeeb3324c",
+          "drug_trade_name": "Gavreto",
+          "drug_generic_name": "pralsetinib",
+          "drug_application": "NDA 213721",
+          "biomarkers": "RET",
+          "biomarker_details": "RET fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2020-09-04"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S027:7595ae54a1",
+          "drug_trade_name": "Rybrevant",
+          "drug_generic_name": "amivantamb",
+          "drug_application": "BLA 761210",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 20 insertion mutations",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-12-01"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S035:f994963ec8",
+          "drug_trade_name": "ENHERTU",
+          "drug_generic_name": "fam-trastuzumab deruxtecan-nxki",
+          "drug_application": "BLA 761139",
+          "biomarkers": "ERBB2",
+          "biomarker_details": "ERBB2 Activating Mutations (SNVs And Exon 20 Insertions)",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2022-08-11"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S031:7e60ae0039",
+          "drug_trade_name": "Retevmo",
+          "drug_generic_name": "selpercatinib",
+          "drug_application": "NDA 213246",
+          "biomarkers": "RET",
+          "biomarker_details": "RET fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2022-09-21"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S049:52a669cf65",
+          "drug_trade_name": "HERNEXEOS",
+          "drug_generic_name": "zongertinib",
+          "drug_application": "NDA 219042",
+          "biomarkers": "ERBB2 (HER2)",
+          "biomarker_details": "Activating mutations in the tyrosine kinase domain (SNVs in exons 18-21 and exon 20 insertions)",
+          "indication": "Non-Small Cell Lung cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2025-08-08"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160045/S050:3f07611bdd",
+          "drug_trade_name": "HYRNUO",
+          "drug_generic_name": "sevabertinib",
+          "drug_application": "NDA 219972",
+          "biomarkers": "ERBB2 (HER2)",
+          "biomarker_details": "ERBB2/HER2 Activating mutations in the tyrosine kinase domain (SNVs in exons 18-21 and exon 20 insertions)",
+          "indication": "Non-Small Cell Lung cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2025-11-19"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P160045"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 9
+    },
+    {
+      "assay_normalised": "pd-l1 ihc 22c3 pharmdx",
+      "name_strings_in_list": [
+        "PD-L1 IHC 22C3 pharmDx"
+      ],
+      "manufacturers": [
+        "Dako North America, Inc."
+      ],
+      "submission_numbers": [
+        "P150013",
+        "P150013/S012",
+        "P150013/S021"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P150013/S012:08a2c9b874",
+          "drug_trade_name": "Keytruda",
+          "drug_generic_name": "pembrolizumab",
+          "drug_application": "BLA 125514",
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression\n[Tumor Proportion Score (TPS) ≥ 1%]",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2015-10-02",
+            "2019-04-16"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P150013/S021:ac0be15cce",
+          "drug_trade_name": "Libtayo",
+          "drug_generic_name": "cemiplimab-rwlc",
+          "drug_application": "BLA 761097",
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression [Tumor Proportion Score (TPS) ≥ 50%]",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-02-22"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P150013"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 2
+    },
+    {
+      "assay_normalised": "pd-l1 ihc 28-8 pharmdx",
+      "name_strings_in_list": [
+        "PD-L1 IHC 28-8 pharmDx"
+      ],
+      "manufacturers": [
+        "Dako North America, Inc."
+      ],
+      "submission_numbers": [
+        "P150025/S013"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P150025/S013:31dadb974a",
+          "drug_trade_name": "Opdivo",
+          "drug_generic_name": "nivolumab",
+          "drug_application": "BLA 125554",
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression (tumor cell staining ≥1%)",
+          "indication": "Non-small cell lung cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2020-05-15"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P150025"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "therascreen egfr rgq pcr kit",
+      "name_strings_in_list": [
+        "therascreen EGFR RGQ PCR Kit"
+      ],
+      "manufacturers": [
+        "Qiagen Manchester, Ltd."
+      ],
+      "submission_numbers": [
+        "P120022",
+        "P120022/S001",
+        "P120022/S016",
+        "P120022/S018"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P120022:9767e87cd6",
+          "drug_trade_name": "Gilotrif",
+          "drug_generic_name": "afatinib",
+          "drug_application": "NDA 201292",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2013-07-12"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120022/S001:41dc868563",
+          "drug_trade_name": "Iressa",
+          "drug_generic_name": "gefitinib",
+          "drug_application": "NDA 206995",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2015-07-10"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120022/S016:22512f4206",
+          "drug_trade_name": "Gilotrif",
+          "drug_generic_name": "afatinib",
+          "drug_application": "NDA 201292",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "L861Q, G719X and S7681",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2016-01-12"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P120022/S018:592a138537",
+          "drug_trade_name": "Vizimpro",
+          "drug_generic_name": "dacomitinib",
+          "drug_application": "NDA 211288",
+          "biomarkers": "EGFR (HER1)",
+          "biomarker_details": "Exon 19 deletion or exon 21 L858R substitution mutation",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2018-09-27"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P120022"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 4
+    },
+    {
+      "assay_normalised": "therascreen kras rgq pcr kit",
+      "name_strings_in_list": [
+        "therascreen KRAS RGQ PCR Kit"
+      ],
+      "manufacturers": [
+        "Qiagen Manchester, Ltd."
+      ],
+      "submission_numbers": [
+        "P110027/S012",
+        "P110027/S013"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P110027/S012:bb45c2de87",
+          "drug_trade_name": "Lumakras",
+          "drug_generic_name": "sotorasib",
+          "drug_application": "NDA 214665",
+          "biomarkers": "KRAS",
+          "biomarker_details": "G12C",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-05-28"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P110027/S013:93256abfb0",
+          "drug_trade_name": "Krazati",
+          "drug_generic_name": "adagrasib",
+          "drug_application": "NDA 216340",
+          "biomarkers": "KRAS",
+          "biomarker_details": "KRAS G12C",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2022-12-02"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P110027"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 2
+    },
+    {
+      "assay_normalised": "ventana alk d5f3 cdx assay",
+      "name_strings_in_list": [
+        "Ventana ALK (D5F3) CDx Assay"
+      ],
+      "manufacturers": [
+        "Ventana Medical Systems, Inc."
+      ],
+      "submission_numbers": [
+        "P140025",
+        "P140025/S005",
+        "P140025/S006",
+        "P140025/S014"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P140025:c2fe9df6a1",
+          "drug_trade_name": "Xalkori",
+          "drug_generic_name": "crizotinib",
+          "drug_application": "NDA 202570",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK protein expression",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2015-06-12"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P140025/S005:1bef9adcc4",
+          "drug_trade_name": "Zykadia",
+          "drug_generic_name": "ceritinib",
+          "drug_application": "NDA 211225",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK protein expression",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-05-26"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P140025/S006:bb5eabbf6e",
+          "drug_trade_name": "Alecensa",
+          "drug_generic_name": "alectinib",
+          "drug_application": "NDA 208434",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK protein expression",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2017-11-06"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P140025/S014:ea53dee9cf",
+          "drug_trade_name": "Lorbrena",
+          "drug_generic_name": "lorlatinib",
+          "drug_application": "NDA 210868",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK protein expression",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-03-03"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P140025"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 4
+    },
+    {
+      "assay_normalised": "ventana pd-l1 sp142 assay",
+      "name_strings_in_list": [
+        "Ventana PD-L1 (SP142) Assay"
+      ],
+      "manufacturers": [
+        "Ventana Medical Systems, Inc."
+      ],
+      "submission_numbers": [
+        "P160002/S006"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P160002/S006:12ea574bbc",
+          "drug_trade_name": "Tecentriq",
+          "drug_generic_name": "atezolizumab",
+          "drug_application": "BLA 761034",
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression (PD-L1 stained ≥ 50% of tumor cells [TC ≥ 50%] or PD-L1 stained tumor-infiltrating immune cells [IC] covering ≥ 10% of the tumor area [IC ≥ 10%])",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2018-07-02"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P160002"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "ventana pd-l1 sp263 assay",
+      "name_strings_in_list": [
+        "Ventana PD-LI (SP263) Assay",
+        "Ventana PD-L1 (SP263) Assay"
+      ],
+      "manufacturers": [
+        "Ventana Medical Systems, Inc",
+        "Ventana Medical Systems, Inc."
+      ],
+      "submission_numbers": [
+        "P160046/S010",
+        "P160046/S013"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P160046/S010:074f838833",
+          "drug_trade_name": "Tecentriq",
+          "drug_generic_name": "atezolizumab",
+          "drug_application": "BLA 761034",
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression\n(PD-L1 stained ≥ 1% of tumor cells [TC ≥ 1%])",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2021-10-15"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P160046/S013:242a4257c7",
+          "drug_trade_name": "Libtayo",
+          "drug_generic_name": "cemiplimab-rwlc",
+          "drug_application": null,
+          "biomarkers": "PD-L1",
+          "biomarker_details": "PD-L1 protein expression (PD-L1 stained ≥ 50% of tumor cells [TC ≥ 50%])",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2023-03-01"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P160046"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 2
+    },
+    {
+      "assay_normalised": "vysis alk break apart fish probe kit",
+      "name_strings_in_list": [
+        "Vysis ALK Break Apart FISH Probe Kit"
+      ],
+      "manufacturers": [
+        "Abbott Molecular Inc."
+      ],
+      "submission_numbers": [
+        "P110012",
+        "P110012/S020",
+        "P110012/S022"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P110012:3c29b0cd68",
+          "drug_trade_name": "Xalkori",
+          "drug_generic_name": "crizotinib",
+          "drug_application": "NDA 202570",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK gene rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2011-08-26"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P110012/S020:58bcb7c648",
+          "drug_trade_name": "Alunbrig",
+          "drug_generic_name": "brigatinib",
+          "drug_application": "NDA 208772",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK gene rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2020-05-22"
+          ]
+        },
+        {
+          "source_item_id": "FDA-CDX:P110012/S022:79b15a0c95",
+          "drug_trade_name": "ENSACOVE",
+          "drug_generic_name": "ensartinib",
+          "drug_application": "NDA 218171",
+          "biomarkers": "ALK",
+          "biomarker_details": "ALK gene rearrangements",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2025-08-05"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P110012"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 3
+    },
+    {
+      "assay_normalised": "agilent resolution ctdx first assay",
+      "name_strings_in_list": [
+        "Agilent Resolution ctDx FIRST assay"
+      ],
+      "manufacturers": [
+        "Resolution Bioscience, Inc."
+      ],
+      "submission_numbers": [
+        "P210040"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P210040:bfab5ec9f9",
+          "drug_trade_name": "Krazati",
+          "drug_generic_name": "adagrasib",
+          "drug_application": "NDA 216340",
+          "biomarkers": "KRAS",
+          "biomarker_details": "KRAS G12C",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Plasma",
+          "decision_dates": [
+            "2022-12-12"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P210040"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "trusight oncology comprehensive",
+      "name_strings_in_list": [
+        "TruSight Oncology Comprehensive"
+      ],
+      "manufacturers": [
+        "Illumina, Inc."
+      ],
+      "submission_numbers": [
+        "P230011"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P230011:8c6430f2c5",
+          "drug_trade_name": "Retevmo",
+          "drug_generic_name": "selpercatinib",
+          "drug_application": "NDA 213246",
+          "biomarkers": "RET",
+          "biomarker_details": "RET fusions",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2024-08-21"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P230011"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    },
+    {
+      "assay_normalised": "ventana met sp44 rxdx assay",
+      "name_strings_in_list": [
+        "VENTANA MET (SP44) RxDx Assay"
+      ],
+      "manufacturers": [
+        "Ventana Medical Systems, Inc. (Roche Tissue Diagnostics)"
+      ],
+      "submission_numbers": [
+        "P240037"
+      ],
+      "rows": [
+        {
+          "source_item_id": "FDA-CDX:P240037:74df248e14",
+          "drug_trade_name": "Emrelis",
+          "drug_generic_name": "telisotuzumab vedotin-tllv",
+          "drug_application": "BLA 761384",
+          "biomarkers": "MET",
+          "biomarker_details": "MET protein expression (>= 50% of tumor cells exhibiting strong membrane and/or cytoplasmic staining 3+)",
+          "indication": "Non-Small Cell Lung Cancer (NSCLC)",
+          "sample_type": "Tissue",
+          "decision_dates": [
+            "2025-05-14"
+          ]
+        }
+      ],
+      "pma_numbers": [
+        "P240037"
+      ],
+      "other_submission_numbers": [],
+      "row_count": 1
+    }
+  ]
+}

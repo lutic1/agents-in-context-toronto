@@ -1,0 +1,454 @@
+{
+  "oncotree_version": "oncotree_latest_stable",
+  "release_date": "2025-10-03",
+  "description": "This is the latest approved version for public use.",
+  "source_url": "https://oncotree.mskcc.org/api/tumorTypes?version=oncotree_latest_stable",
+  "node_count": 30,
+  "nodes": [
+    {
+      "code": "LUNG",
+      "name": "Lung",
+      "parent": "TISSUE",
+      "level": 1,
+      "tissue": "Lung",
+      "main_type": "Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0024109"
+        ],
+        "NCI": [
+          "C12468"
+        ]
+      }
+    },
+    {
+      "code": "CSCLC",
+      "name": "Combined Small Cell Lung Carcinoma",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0334240"
+        ],
+        "NCI": [
+          "C9137"
+        ]
+      }
+    },
+    {
+      "code": "IMTL",
+      "name": "Inflammatory Myofibroblastic Lung Tumor",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1518038"
+        ],
+        "NCI": [
+          "C39740"
+        ]
+      }
+    },
+    {
+      "code": "LAIS",
+      "name": "Lung Adenocarcinoma In Situ",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {}
+    },
+    {
+      "code": "LAM",
+      "name": "Pulmonary Lymphangiomyomatosis",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0349649"
+        ],
+        "NCI": [
+          "C38153"
+        ]
+      }
+    },
+    {
+      "code": "LNET",
+      "name": "Lung Neuroendocrine Tumor",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1334452"
+        ],
+        "NCI": [
+          "C5670"
+        ]
+      }
+    },
+    {
+      "code": "NSCLC",
+      "name": "Non-Small Cell Lung Cancer",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0007131"
+        ],
+        "NCI": [
+          "C2926"
+        ]
+      }
+    },
+    {
+      "code": "PPB",
+      "name": "Pleuropulmonary Blastoma",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1266144"
+        ],
+        "NCI": [
+          "C5669"
+        ]
+      }
+    },
+    {
+      "code": "SARCL",
+      "name": "Sarcomatoid Carcinoma of the Lung",
+      "parent": "LUNG",
+      "level": 2,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1708781"
+        ],
+        "NCI": [
+          "C45540"
+        ]
+      }
+    },
+    {
+      "code": "ALUCA",
+      "name": "Atypical Lung Carcinoid",
+      "parent": "LNET",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1708766"
+        ],
+        "NCI": [
+          "C45551"
+        ]
+      }
+    },
+    {
+      "code": "CMPT",
+      "name": "Ciliated Muconodular Papillary Tumor of the Lung",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {}
+    },
+    {
+      "code": "LCLC",
+      "name": "Large Cell Lung Carcinoma",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0345958"
+        ],
+        "NCI": [
+          "C4450"
+        ]
+      }
+    },
+    {
+      "code": "LUAD",
+      "name": "Lung Adenocarcinoma",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0152013"
+        ],
+        "NCI": [
+          "C3512"
+        ]
+      }
+    },
+    {
+      "code": "LUAS",
+      "name": "Lung Adenosquamous Carcinoma",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0279557"
+        ],
+        "NCI": [
+          "C9133"
+        ]
+      }
+    },
+    {
+      "code": "LUCA",
+      "name": "Lung Carcinoid",
+      "parent": "LNET",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0280089"
+        ],
+        "NCI": [
+          "C4038"
+        ]
+      }
+    },
+    {
+      "code": "LUNE",
+      "name": "Large Cell Neuroendocrine Carcinoma",
+      "parent": "LNET",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1265996"
+        ],
+        "NCI": [
+          "C6875"
+        ]
+      }
+    },
+    {
+      "code": "LUPC",
+      "name": "Pleomorphic Carcinoma of the Lung",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1711397"
+        ],
+        "NCI": [
+          "C45542"
+        ]
+      }
+    },
+    {
+      "code": "LUSC",
+      "name": "Lung Squamous Cell Carcinoma",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0149782"
+        ],
+        "NCI": [
+          "C3493"
+        ]
+      }
+    },
+    {
+      "code": "NSCLCPD",
+      "name": "Poorly Differentiated Non-Small Cell Lung Cancer",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {}
+    },
+    {
+      "code": "NUTCL",
+      "name": "NUT Carcinoma of the Lung",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {}
+    },
+    {
+      "code": "SCLC",
+      "name": "Small Cell Lung Cancer",
+      "parent": "LNET",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0149925"
+        ],
+        "NCI": [
+          "C4917"
+        ]
+      }
+    },
+    {
+      "code": "SGTTL",
+      "name": "Salivary Gland-Type Tumor of the Lung",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {}
+    },
+    {
+      "code": "SPCC",
+      "name": "Spindle Cell Carcinoma of the Lung",
+      "parent": "NSCLC",
+      "level": 3,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1708784"
+        ],
+        "NCI": [
+          "C45541"
+        ]
+      }
+    },
+    {
+      "code": "BLCLC",
+      "name": "Basaloid Large Cell Carcinoma of the Lung",
+      "parent": "LCLC",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1332463"
+        ],
+        "NCI": [
+          "C7266"
+        ]
+      }
+    },
+    {
+      "code": "CCLC",
+      "name": "Clear Cell Carcinoma of the Lung",
+      "parent": "LCLC",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1707407"
+        ],
+        "NCI": [
+          "C4451"
+        ]
+      }
+    },
+    {
+      "code": "GCLC",
+      "name": "Giant Cell Carcinoma of the Lung",
+      "parent": "LCLC",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C0345960"
+        ],
+        "NCI": [
+          "C4452"
+        ]
+      }
+    },
+    {
+      "code": "LECLC",
+      "name": "Lymphoepithelioma-like Carcinoma of the Lung",
+      "parent": "LCLC",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1708792"
+        ],
+        "NCI": [
+          "C45519"
+        ]
+      }
+    },
+    {
+      "code": "LUACC",
+      "name": "Adenoid Cystic Carcinoma of the Lung",
+      "parent": "SGTTL",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1334439"
+        ],
+        "NCI": [
+          "C5666"
+        ]
+      }
+    },
+    {
+      "code": "LUMEC",
+      "name": "Mucoepidermoid Carcinoma of the Lung",
+      "parent": "SGTTL",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1708778"
+        ],
+        "NCI": [
+          "C45544"
+        ]
+      }
+    },
+    {
+      "code": "RLCLC",
+      "name": "Large Cell Lung Carcinoma With Rhabdoid Phenotype",
+      "parent": "LCLC",
+      "level": 4,
+      "tissue": "Lung",
+      "main_type": "Non-Small Cell Lung Cancer",
+      "external_references": {
+        "UMLS": [
+          "C1265997"
+        ],
+        "NCI": [
+          "C6876"
+        ]
+      }
+    }
+  ]
+}

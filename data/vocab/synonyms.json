@@ -1,0 +1,1935 @@
+{
+  "purpose": "Seed synonym list for FR-9. Only terms returned by the services; NCIt and MeSH kept separate per synonym.",
+  "ncit_version": "26.10d",
+  "ncit_api": "https://api-evsrest.nci.nih.gov/api/v1",
+  "mesh_api": "https://id.nlm.nih.gov/mesh/lookup",
+  "mesh_version": "MeSH as served by id.nlm.nih.gov/mesh/lookup on fetch date (current annual release; no version field is returned)",
+  "fetched_at": "2026-11-13T05:55:35+00:00",
+  "terms": {
+    "liquid biopsy": {
+      "preferred_name": "Liquid Biopsy",
+      "ncit_concepts": [
+        {
+          "code": "C135727",
+          "name": "Liquid Biopsy",
+          "queried_label": "Liquid Biopsy",
+          "synonyms": [
+            "Liquid Biopsy",
+            "Liquid biopsy",
+            "Plasma Biopsy"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D000073890",
+          "label": "Liquid Biopsy",
+          "queried_label": "Liquid Biopsy",
+          "entry_terms": [
+            "Liquid Biopsy",
+            "Liquid Biopsies"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Liquid Biopsies",
+          "sources": [
+            "MeSH:D000073890"
+          ]
+        },
+        {
+          "text": "Liquid Biopsy",
+          "sources": [
+            "MeSH:D000073890",
+            "NCIt:C135727"
+          ]
+        },
+        {
+          "text": "Plasma Biopsy",
+          "sources": [
+            "NCIt:C135727"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Liquid Biopsy"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Liquid Biopsy"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "ctDNA": {
+      "preferred_name": "Circulating Tumor-Derived DNA",
+      "ncit_concepts": [
+        {
+          "code": "C113243",
+          "name": "Circulating Tumor-Derived DNA",
+          "queried_label": "ctDNA",
+          "synonyms": [
+            "Cell-Free Circulating Tumor DNA",
+            "Circulating Tumor DNA",
+            "Circulating Tumor-Derived DNA",
+            "Circulating tumor DNA (ctDNA)",
+            "ctDNA",
+            "ctdDNA"
+          ]
+        },
+        {
+          "code": "C183129",
+          "name": "Circulating Tumor-Derived DNA Negative",
+          "queried_label": "ctDNA",
+          "synonyms": [
+            "Circulating Tumor DNA Negative",
+            "Circulating Tumor-Derived DNA Negative",
+            "ctDNA Negative",
+            "ctDNA-",
+            "ctdDNA Negative"
+          ]
+        },
+        {
+          "code": "C183130",
+          "name": "Circulating Tumor-Derived DNA Positive",
+          "queried_label": "ctDNA",
+          "synonyms": [
+            "Circulating Tumor DNA Positive",
+            "Circulating Tumor-Derived DNA Positive",
+            "ctDNA Positive",
+            "ctDNA+",
+            "ctdDNA Positive"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D000074141",
+          "label": "Circulating Tumor DNA",
+          "queried_label": "Circulating Tumor DNA",
+          "entry_terms": [
+            "Circulating Tumor DNA",
+            "Cell-Free Tumor DNA"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Cell-Free Circulating Tumor DNA",
+          "sources": [
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "Cell-Free Tumor DNA",
+          "sources": [
+            "MeSH:D000074141"
+          ]
+        },
+        {
+          "text": "Circulating Tumor DNA",
+          "sources": [
+            "MeSH:D000074141",
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "Circulating tumor DNA (ctDNA)",
+          "sources": [
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "Circulating Tumor DNA Negative",
+          "sources": [
+            "NCIt:C183129"
+          ]
+        },
+        {
+          "text": "Circulating Tumor DNA Positive",
+          "sources": [
+            "NCIt:C183130"
+          ]
+        },
+        {
+          "text": "Circulating Tumor-Derived DNA",
+          "sources": [
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "Circulating Tumor-Derived DNA Negative",
+          "sources": [
+            "NCIt:C183129"
+          ]
+        },
+        {
+          "text": "Circulating Tumor-Derived DNA Positive",
+          "sources": [
+            "NCIt:C183130"
+          ]
+        },
+        {
+          "text": "ctdDNA",
+          "sources": [
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "ctdDNA Negative",
+          "sources": [
+            "NCIt:C183129"
+          ]
+        },
+        {
+          "text": "ctdDNA Positive",
+          "sources": [
+            "NCIt:C183130"
+          ]
+        },
+        {
+          "text": "ctDNA",
+          "sources": [
+            "NCIt:C113243"
+          ]
+        },
+        {
+          "text": "ctDNA Negative",
+          "sources": [
+            "NCIt:C183129"
+          ]
+        },
+        {
+          "text": "ctDNA Positive",
+          "sources": [
+            "NCIt:C183130"
+          ]
+        },
+        {
+          "text": "ctDNA+",
+          "sources": [
+            "NCIt:C183130"
+          ]
+        },
+        {
+          "text": "ctDNA-",
+          "sources": [
+            "NCIt:C183129"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "ctDNA",
+          "Circulating Tumor DNA"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Circulating Tumor DNA"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "cfDNA": {
+      "preferred_name": "Circulating Cell-Free DNA",
+      "ncit_concepts": [
+        {
+          "code": "C128274",
+          "name": "Circulating Cell-Free DNA",
+          "queried_label": "cfDNA",
+          "synonyms": [
+            "Cell Free Circulating DNA",
+            "Cell Free DNA",
+            "Circulating Cell Free DNA",
+            "Circulating Cell-Free DNA",
+            "Circulating DNA",
+            "cfDNA"
+          ]
+        },
+        {
+          "code": "C190394",
+          "name": "Percent of Cell Free DNA",
+          "queried_label": "cfDNA",
+          "synonyms": [
+            "% cfDNA",
+            "Percent of Cell Free DNA",
+            "Percentage of Cell Free DNA"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D000073888",
+          "label": "Cell-Free Nucleic Acids",
+          "queried_label": "Cell-Free Nucleic Acids",
+          "entry_terms": [
+            "Cell-Free Nucleic Acids",
+            "Cell-Free DNA",
+            "Cell-Free Deoxyribonucleic Acid",
+            "Cell-Free Nucleic Acid",
+            "Cell-Free RNA",
+            "Cell-Free Ribonucleic Acid",
+            "Circulating Cell-Free Nucleic Acids",
+            "Circulating Cell-Free Nucleic Acid",
+            "Circulating DNA",
+            "Circulating Nucleic Acids",
+            "Circulating Nucleic Acid",
+            "Circulating RNA",
+            "cfDNA",
+            "cfRNA",
+            "cirDNA",
+            "cirRNA"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "% cfDNA",
+          "sources": [
+            "NCIt:C190394"
+          ]
+        },
+        {
+          "text": "Cell Free Circulating DNA",
+          "sources": [
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "Cell Free DNA",
+          "sources": [
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "Cell-Free Deoxyribonucleic Acid",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Cell-Free DNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Cell-Free Nucleic Acid",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Cell-Free Nucleic Acids",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Cell-Free Ribonucleic Acid",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Cell-Free RNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "cfDNA",
+          "sources": [
+            "MeSH:D000073888",
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "cfRNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Circulating Cell Free DNA",
+          "sources": [
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "Circulating Cell-Free DNA",
+          "sources": [
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "Circulating Cell-Free Nucleic Acid",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Circulating Cell-Free Nucleic Acids",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Circulating DNA",
+          "sources": [
+            "MeSH:D000073888",
+            "NCIt:C128274"
+          ]
+        },
+        {
+          "text": "Circulating Nucleic Acid",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Circulating Nucleic Acids",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Circulating RNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "cirDNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "cirRNA",
+          "sources": [
+            "MeSH:D000073888"
+          ]
+        },
+        {
+          "text": "Percent of Cell Free DNA",
+          "sources": [
+            "NCIt:C190394"
+          ]
+        },
+        {
+          "text": "Percentage of Cell Free DNA",
+          "sources": [
+            "NCIt:C190394"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "cfDNA",
+          "Cell-free DNA"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Cell-Free Nucleic Acids"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "circulating tumor cells": {
+      "preferred_name": "Circulating Tumor Cell",
+      "ncit_concepts": [
+        {
+          "code": "C63797",
+          "name": "Circulating Tumor Cell",
+          "queried_label": "Circulating Tumor Cell",
+          "synonyms": [
+            "CIRCULATING TUMOR CELL",
+            "CTC",
+            "Circulating Tumor Cell"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D009360",
+          "label": "Neoplastic Cells, Circulating",
+          "queried_label": "Neoplastic Cells, Circulating",
+          "entry_terms": [
+            "Neoplastic Cells, Circulating",
+            "Cells, Neoplasm Circulating",
+            "Circulating Cells, Neoplasm",
+            "Circulating Neoplastic Cells",
+            "Circulating Tumor Cells",
+            "Embolic Tumor Cells",
+            "Embolism, Tumor",
+            "Neoplasm Circulating Cells",
+            "Tumor Cells, Embolic"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Cells, Neoplasm Circulating",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Circulating Cells, Neoplasm",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Circulating Neoplastic Cells",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Circulating Tumor Cell",
+          "sources": [
+            "NCIt:C63797"
+          ]
+        },
+        {
+          "text": "Circulating Tumor Cells",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "CTC",
+          "sources": [
+            "NCIt:C63797"
+          ]
+        },
+        {
+          "text": "Embolic Tumor Cells",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Embolism, Tumor",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Neoplasm Circulating Cells",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Neoplastic Cells, Circulating",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        },
+        {
+          "text": "Tumor Cells, Embolic",
+          "sources": [
+            "MeSH:D009360"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Circulating Tumor Cell"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Neoplastic Cells, Circulating"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "MRD": {
+      "preferred_name": "AML Minimal Residual Disease Table",
+      "ncit_concepts": [
+        {
+          "code": "C173236",
+          "name": "AML Minimal Residual Disease Table",
+          "queried_label": "MRD",
+          "synonyms": [
+            "AML Minimal Residual Disease Table",
+            "Acute Myeloid Leukemia Minimal Residual Disease Table",
+            "MRD",
+            "Minimal Residual Disease Table"
+          ]
+        },
+        {
+          "code": "C3896",
+          "name": "Measurable Residual Disease",
+          "queried_label": "MRD",
+          "synonyms": [
+            "Detectable Residual Disease",
+            "MRD",
+            "Measurable Residual Disease",
+            "Minimal Residual Disease"
+          ]
+        },
+        {
+          "code": "C67349",
+          "name": "Megarad",
+          "queried_label": "MRD",
+          "synonyms": [
+            "MRAD",
+            "Megarad",
+            "Mrad",
+            "Mrd"
+          ]
+        },
+        {
+          "code": "C185298",
+          "name": "Measurable Residual Disease Assessment",
+          "queried_label": "Minimal Residual Disease",
+          "synonyms": [
+            "MRD Assessment",
+            "Measurable Residual Disease Assessment",
+            "Minimal Residual Disease",
+            "Minimal Residual Disease Assessment"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D018365",
+          "label": "Neoplasm, Residual",
+          "queried_label": "Neoplasm, Residual",
+          "entry_terms": [
+            "Neoplasm, Residual",
+            "Minimal Disease, Residual",
+            "Minimal Residual Disease",
+            "Residual Cancer",
+            "Residual Disease, Minimal",
+            "Residual Neoplasm",
+            "Residual Tumor",
+            "Residual Tumour"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Acute Myeloid Leukemia Minimal Residual Disease Table",
+          "sources": [
+            "NCIt:C173236"
+          ]
+        },
+        {
+          "text": "AML Minimal Residual Disease Table",
+          "sources": [
+            "NCIt:C173236"
+          ]
+        },
+        {
+          "text": "Detectable Residual Disease",
+          "sources": [
+            "NCIt:C3896"
+          ]
+        },
+        {
+          "text": "Measurable Residual Disease",
+          "sources": [
+            "NCIt:C3896"
+          ]
+        },
+        {
+          "text": "Measurable Residual Disease Assessment",
+          "sources": [
+            "NCIt:C185298"
+          ]
+        },
+        {
+          "text": "Megarad",
+          "sources": [
+            "NCIt:C67349"
+          ]
+        },
+        {
+          "text": "Minimal Disease, Residual",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Minimal Residual Disease",
+          "sources": [
+            "MeSH:D018365",
+            "NCIt:C185298",
+            "NCIt:C3896"
+          ]
+        },
+        {
+          "text": "Minimal Residual Disease Assessment",
+          "sources": [
+            "NCIt:C185298"
+          ]
+        },
+        {
+          "text": "Minimal Residual Disease Table",
+          "sources": [
+            "NCIt:C173236"
+          ]
+        },
+        {
+          "text": "MRAD",
+          "sources": [
+            "NCIt:C67349"
+          ]
+        },
+        {
+          "text": "MRD",
+          "sources": [
+            "NCIt:C173236",
+            "NCIt:C3896",
+            "NCIt:C67349"
+          ]
+        },
+        {
+          "text": "MRD Assessment",
+          "sources": [
+            "NCIt:C185298"
+          ]
+        },
+        {
+          "text": "Neoplasm, Residual",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Residual Cancer",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Residual Disease, Minimal",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Residual Neoplasm",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Residual Tumor",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        },
+        {
+          "text": "Residual Tumour",
+          "sources": [
+            "MeSH:D018365"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "MRD",
+          "Minimal Residual Disease"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Neoplasm, Residual"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "companion diagnostic": {
+      "preferred_name": "In Vitro Diagnostic Device",
+      "ncit_concepts": [
+        {
+          "code": "C209465",
+          "name": "In Vitro Diagnostic Device",
+          "queried_label": "Companion Diagnostic",
+          "synonyms": [
+            "Companion Diagnostic",
+            "In Vitro Diagnostic Device",
+            "in vitro diagnostic device"
+          ]
+        }
+      ],
+      "mesh_descriptors": [],
+      "synonyms": [
+        {
+          "text": "Companion Diagnostic",
+          "sources": [
+            "NCIt:C209465"
+          ]
+        },
+        {
+          "text": "In Vitro Diagnostic Device",
+          "sources": [
+            "NCIt:C209465"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Companion Diagnostic"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Companion Diagnostic Tests"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "methylation": {
+      "preferred_name": "DNA Methylation",
+      "ncit_concepts": [
+        {
+          "code": "C17961",
+          "name": "DNA Methylation",
+          "queried_label": "DNA Methylation",
+          "synonyms": [
+            "DNA Methylation",
+            "DNA Methylation Process",
+            "DNA methylation"
+          ]
+        },
+        {
+          "code": "C63328",
+          "name": "DNA Methylation Analysis",
+          "queried_label": "DNA Methylation",
+          "synonyms": [
+            "DNA Methylation",
+            "DNA Methylation Analysis"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D019175",
+          "label": "DNA Methylation",
+          "queried_label": "DNA Methylation",
+          "entry_terms": [
+            "DNA Methylation"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "DNA Methylation",
+          "sources": [
+            "MeSH:D019175",
+            "NCIt:C17961",
+            "NCIt:C63328"
+          ]
+        },
+        {
+          "text": "DNA Methylation Analysis",
+          "sources": [
+            "NCIt:C63328"
+          ]
+        },
+        {
+          "text": "DNA Methylation Process",
+          "sources": [
+            "NCIt:C17961"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "DNA Methylation"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "DNA Methylation"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "radiomics": {
+      "preferred_name": "Radiomics",
+      "ncit_concepts": [],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D000097188",
+          "label": "Radiomics",
+          "queried_label": "Radiomics",
+          "entry_terms": [
+            "Radiomics"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Radiomics",
+          "sources": [
+            "MeSH:D000097188"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Radiomics"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Radiomics"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "digital pathology": {
+      "preferred_name": "digital pathology",
+      "ncit_concepts": [],
+      "mesh_descriptors": [],
+      "synonyms": [],
+      "queries": {
+        "ncit": [
+          "Digital Pathology"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Digital Pathology"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "next-generation sequencing": {
+      "preferred_name": "Next Generation Sequencing",
+      "ncit_concepts": [
+        {
+          "code": "C101293",
+          "name": "Next Generation Sequencing",
+          "queried_label": "Next-Generation Sequencing",
+          "synonyms": [
+            "Massively Parallel DNA Sequencing",
+            "Massively Parallel Sequencing",
+            "NEXT GENERATION SEQUENCING",
+            "NGS",
+            "Next Generation Sequencing",
+            "Next Generational Sequencing",
+            "Next-Generation Sequencing"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D059014",
+          "label": "High-Throughput Nucleotide Sequencing",
+          "queried_label": "High-Throughput Nucleotide Sequencing",
+          "entry_terms": [
+            "High-Throughput Nucleotide Sequencing",
+            "Deep Sequencing",
+            "High-Throughput DNA Sequencing",
+            "High-Throughput RNA Sequencing",
+            "High-Throughput Sequencing",
+            "Illumina Sequencing",
+            "Ion Proton Sequencing",
+            "Ion Torrent Sequencing",
+            "Massively-Parallel Sequencing",
+            "Next-Generation Sequencing",
+            "Pyrosequencing"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Deep Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "High-Throughput DNA Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "High-Throughput Nucleotide Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "High-Throughput RNA Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "High-Throughput Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "Illumina Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "Ion Proton Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "Ion Torrent Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "Massively Parallel DNA Sequencing",
+          "sources": [
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "Massively Parallel Sequencing",
+          "sources": [
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "Massively-Parallel Sequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        },
+        {
+          "text": "Next Generation Sequencing",
+          "sources": [
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "Next Generational Sequencing",
+          "sources": [
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "Next-Generation Sequencing",
+          "sources": [
+            "MeSH:D059014",
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "NGS",
+          "sources": [
+            "NCIt:C101293"
+          ]
+        },
+        {
+          "text": "Pyrosequencing",
+          "sources": [
+            "MeSH:D059014"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Next-Generation Sequencing"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "High-Throughput Nucleotide Sequencing"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "immunohistochemistry": {
+      "preferred_name": "Immunohistochemical Test Category",
+      "ncit_concepts": [
+        {
+          "code": "C225797",
+          "name": "Immunohistochemical Test Category",
+          "queried_label": "Immunohistochemistry",
+          "synonyms": [
+            "IMMUNOHISTOCHEMISTRY",
+            "Immunohistochemical Test Category"
+          ]
+        },
+        {
+          "code": "C23020",
+          "name": "Immunohistochemistry Staining Method",
+          "queried_label": "Immunohistochemistry",
+          "synonyms": [
+            "Cell/Tissue, Immunohistochemistry",
+            "IHC",
+            "Immunohistochemistry",
+            "Immunohistochemistry (IHC)",
+            "Immunohistochemistry Staining Method",
+            "immunohistochemistry"
+          ]
+        },
+        {
+          "code": "C51944",
+          "name": "Immunohistochemical Test",
+          "queried_label": "Immunohistochemistry",
+          "synonyms": [
+            "IHC_TEST",
+            "Immunohistochemical Test",
+            "Immunohistochemistry"
+          ]
+        },
+        {
+          "code": "C16722",
+          "name": "Immunohistochemistry",
+          "queried_label": "Immunohistochemistry",
+          "synonyms": [
+            "Cell/Tissue, Immunohistochemistry",
+            "Immunohistochemistry"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D007150",
+          "label": "Immunohistochemistry",
+          "queried_label": "Immunohistochemistry",
+          "entry_terms": [
+            "Immunohistochemistry",
+            "Immunocytochemistry",
+            "Immunogold Technics",
+            "Immunogold Techniques",
+            "Immunogold-Silver Techniques",
+            "Immunogold-Silver Technics",
+            "Immunohistocytochemistry",
+            "Immunolabeling Techniques",
+            "Immunolabeling Technics"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Cell/Tissue, Immunohistochemistry",
+          "sources": [
+            "NCIt:C16722",
+            "NCIt:C23020"
+          ]
+        },
+        {
+          "text": "IHC",
+          "sources": [
+            "NCIt:C23020"
+          ]
+        },
+        {
+          "text": "IHC_TEST",
+          "sources": [
+            "NCIt:C51944"
+          ]
+        },
+        {
+          "text": "Immunocytochemistry",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunogold Technics",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunogold Techniques",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunogold-Silver Technics",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunogold-Silver Techniques",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunohistochemical Test",
+          "sources": [
+            "NCIt:C51944"
+          ]
+        },
+        {
+          "text": "Immunohistochemical Test Category",
+          "sources": [
+            "NCIt:C225797"
+          ]
+        },
+        {
+          "text": "IMMUNOHISTOCHEMISTRY",
+          "sources": [
+            "MeSH:D007150",
+            "NCIt:C16722",
+            "NCIt:C225797",
+            "NCIt:C23020",
+            "NCIt:C51944"
+          ]
+        },
+        {
+          "text": "Immunohistochemistry (IHC)",
+          "sources": [
+            "NCIt:C23020"
+          ]
+        },
+        {
+          "text": "Immunohistochemistry Staining Method",
+          "sources": [
+            "NCIt:C23020"
+          ]
+        },
+        {
+          "text": "Immunohistocytochemistry",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunolabeling Technics",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        },
+        {
+          "text": "Immunolabeling Techniques",
+          "sources": [
+            "MeSH:D007150"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Immunohistochemistry"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Immunohistochemistry"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "tumor mutational burden": {
+      "preferred_name": "Tumor Mutation Burden",
+      "ncit_concepts": [
+        {
+          "code": "C150128",
+          "name": "Tumor Mutation Burden",
+          "queried_label": "Tumor Mutational Burden",
+          "synonyms": [
+            "MUTATED_ALLELE",
+            "Mutated Allele",
+            "TMB",
+            "Tumor Mutation Burden",
+            "Tumor Mutational Burden"
+          ]
+        },
+        {
+          "code": "C181335",
+          "name": "Tumor Mutation Burden Assessment",
+          "queried_label": "Tumor Mutational Burden",
+          "synonyms": [
+            "TMB",
+            "Tumor Mutation Burden",
+            "Tumor Mutation Burden Assessment",
+            "Tumor Mutational Burden"
+          ]
+        }
+      ],
+      "mesh_descriptors": [],
+      "synonyms": [
+        {
+          "text": "Mutated Allele",
+          "sources": [
+            "NCIt:C150128"
+          ]
+        },
+        {
+          "text": "MUTATED_ALLELE",
+          "sources": [
+            "NCIt:C150128"
+          ]
+        },
+        {
+          "text": "TMB",
+          "sources": [
+            "NCIt:C150128",
+            "NCIt:C181335"
+          ]
+        },
+        {
+          "text": "Tumor Mutation Burden",
+          "sources": [
+            "NCIt:C150128",
+            "NCIt:C181335"
+          ]
+        },
+        {
+          "text": "Tumor Mutation Burden Assessment",
+          "sources": [
+            "NCIt:C181335"
+          ]
+        },
+        {
+          "text": "Tumor Mutational Burden",
+          "sources": [
+            "NCIt:C150128",
+            "NCIt:C181335"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Tumor Mutational Burden"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Tumor Mutational Burden"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "microsatellite instability": {
+      "preferred_name": "Microsatellite Instability",
+      "ncit_concepts": [
+        {
+          "code": "C36318",
+          "name": "Microsatellite Instability",
+          "queried_label": "Microsatellite Instability",
+          "synonyms": [
+            "MSI",
+            "MSI Positive",
+            "MSI Present",
+            "Microsatellite Instability",
+            "Microsatellite Instability Positive",
+            "Microsatellite Instability Present",
+            "microsatellite instability"
+          ]
+        },
+        {
+          "code": "C181332",
+          "name": "Microsatellite Instability Length Assessment",
+          "queried_label": "Microsatellite Instability",
+          "synonyms": [
+            "MICRISTB",
+            "Microsatellite Instability",
+            "Microsatellite Instability Length Assessment"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D053842",
+          "label": "Microsatellite Instability",
+          "queried_label": "Microsatellite Instability",
+          "entry_terms": [
+            "Microsatellite Instability",
+            "Replication Error Phenotype"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "MICRISTB",
+          "sources": [
+            "NCIt:C181332"
+          ]
+        },
+        {
+          "text": "Microsatellite Instability",
+          "sources": [
+            "MeSH:D053842",
+            "NCIt:C181332",
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "Microsatellite Instability Length Assessment",
+          "sources": [
+            "NCIt:C181332"
+          ]
+        },
+        {
+          "text": "Microsatellite Instability Positive",
+          "sources": [
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "Microsatellite Instability Present",
+          "sources": [
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "MSI",
+          "sources": [
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "MSI Positive",
+          "sources": [
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "MSI Present",
+          "sources": [
+            "NCIt:C36318"
+          ]
+        },
+        {
+          "text": "Replication Error Phenotype",
+          "sources": [
+            "MeSH:D053842"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Microsatellite Instability"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "Microsatellite Instability"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "PD-L1": {
+      "preferred_name": "PD-L1 Positive",
+      "ncit_concepts": [
+        {
+          "code": "C128554",
+          "name": "PD-L1 Positive",
+          "queried_label": "PD-L1",
+          "synonyms": [
+            "B7 Homolog 1 Positive",
+            "B7-H Positive",
+            "B7H1 Positive",
+            "CD274 Antigen Positive",
+            "CD274 Molecule Positive",
+            "CD274 Positive",
+            "Expression of PD-L1",
+            "PD-L1 Positive",
+            "PD-L1+",
+            "PDCD1L1 Positive",
+            "PDCD1LG1 Positive",
+            "PDL1 Positive",
+            "Positive",
+            "Programmed Cell Death 1 Ligand 1 Positive"
+          ]
+        },
+        {
+          "code": "C154807",
+          "name": "Programmed Death Ligand 1 Measurement",
+          "queried_label": "PD-L1",
+          "synonyms": [
+            "CD274",
+            "CD274 Measurement",
+            "PD-L1",
+            "PD-L1 Measurement",
+            "PDL1",
+            "PDL1 Measurement",
+            "Programmed Cell Death 1 Ligand 1",
+            "Programmed Death Ligand 1",
+            "Programmed Death Ligand 1 Measurement"
+          ]
+        },
+        {
+          "code": "C96022",
+          "name": "CD274 Gene",
+          "queried_label": "PD-L1",
+          "synonyms": [
+            "CD274",
+            "CD274 Gene",
+            "CD274 Molecule Gene",
+            "PD-L1",
+            "PDL1"
+          ]
+        },
+        {
+          "code": "C96023",
+          "name": "CD274 wt Allele",
+          "queried_label": "PD-L1",
+          "synonyms": [
+            "B7-H",
+            "B7H1",
+            "CD274 Antigen Gene",
+            "CD274 Molecule wt Allele",
+            "CD274 wt Allele",
+            "MGC142294",
+            "MGC142296",
+            "PD-L1",
+            "PDCD1L1",
+            "PDCD1LG1",
+            "PDL1",
+            "Programmed Cell Death 1 Ligand 1 Gene"
+          ]
+        },
+        {
+          "code": "C96024",
+          "name": "Programmed Cell Death 1 Ligand 1",
+          "queried_label": "PD-L1",
+          "synonyms": [
+            "B7 Homolog 1",
+            "B7-H1",
+            "CD Antigen CD274",
+            "CD274",
+            "CD274 Antigen",
+            "PD-L1",
+            "PDL1",
+            "Pdcd1 Ligand 1",
+            "Programmed Cell Death 1 Ligand 1",
+            "Programmed Death Ligand 1"
+          ]
+        }
+      ],
+      "mesh_descriptors": [
+        {
+          "descriptor": "D060890",
+          "label": "B7-H1 Antigen",
+          "queried_label": "B7-H1 Antigen",
+          "entry_terms": [
+            "B7-H1 Antigen",
+            "Antigens, CD274",
+            "B7-H1 Immune Costimulatory Protein",
+            "B7H1 Immune Costimulatory Protein",
+            "CD274 Antigen",
+            "PD-L1 Costimulatory Protein",
+            "PD-L1 Protein",
+            "Programmed Cell Death 1 Ligand 1",
+            "Programmed Cell Death 1 Ligand 1 Protein",
+            "Programmed Death Ligand 1"
+          ]
+        }
+      ],
+      "synonyms": [
+        {
+          "text": "Antigens, CD274",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "B7 Homolog 1",
+          "sources": [
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "B7 Homolog 1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "B7-H",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "B7-H Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "B7-H1",
+          "sources": [
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "B7-H1 Antigen",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "B7-H1 Immune Costimulatory Protein",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "B7H1",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "B7H1 Immune Costimulatory Protein",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "B7H1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "CD Antigen CD274",
+          "sources": [
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "CD274",
+          "sources": [
+            "NCIt:C154807",
+            "NCIt:C96022",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "CD274 Antigen",
+          "sources": [
+            "MeSH:D060890",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "CD274 Antigen Gene",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "CD274 Antigen Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "CD274 Gene",
+          "sources": [
+            "NCIt:C96022"
+          ]
+        },
+        {
+          "text": "CD274 Measurement",
+          "sources": [
+            "NCIt:C154807"
+          ]
+        },
+        {
+          "text": "CD274 Molecule Gene",
+          "sources": [
+            "NCIt:C96022"
+          ]
+        },
+        {
+          "text": "CD274 Molecule Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "CD274 Molecule wt Allele",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "CD274 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "CD274 wt Allele",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "Expression of PD-L1",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "MGC142294",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "MGC142296",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "PD-L1",
+          "sources": [
+            "NCIt:C154807",
+            "NCIt:C96022",
+            "NCIt:C96023",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "PD-L1 Costimulatory Protein",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "PD-L1 Measurement",
+          "sources": [
+            "NCIt:C154807"
+          ]
+        },
+        {
+          "text": "PD-L1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "PD-L1 Protein",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "PD-L1+",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "Pdcd1 Ligand 1",
+          "sources": [
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "PDCD1L1",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "PDCD1L1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "PDCD1LG1",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "PDCD1LG1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "PDL1",
+          "sources": [
+            "NCIt:C154807",
+            "NCIt:C96022",
+            "NCIt:C96023",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "PDL1 Measurement",
+          "sources": [
+            "NCIt:C154807"
+          ]
+        },
+        {
+          "text": "PDL1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "Programmed Cell Death 1 Ligand 1",
+          "sources": [
+            "MeSH:D060890",
+            "NCIt:C154807",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "Programmed Cell Death 1 Ligand 1 Gene",
+          "sources": [
+            "NCIt:C96023"
+          ]
+        },
+        {
+          "text": "Programmed Cell Death 1 Ligand 1 Positive",
+          "sources": [
+            "NCIt:C128554"
+          ]
+        },
+        {
+          "text": "Programmed Cell Death 1 Ligand 1 Protein",
+          "sources": [
+            "MeSH:D060890"
+          ]
+        },
+        {
+          "text": "Programmed Death Ligand 1",
+          "sources": [
+            "MeSH:D060890",
+            "NCIt:C154807",
+            "NCIt:C96024"
+          ]
+        },
+        {
+          "text": "Programmed Death Ligand 1 Measurement",
+          "sources": [
+            "NCIt:C154807"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "PD-L1"
+        ],
+        "ncit_match_type": "match",
+        "mesh": [
+          "B7-H1 Antigen"
+        ],
+        "mesh_match_type": "exact"
+      }
+    },
+    "Guardant360": {
+      "preferred_name": "Guardant360 Profiling System",
+      "ncit_concepts": [
+        {
+          "code": "C153090",
+          "name": "Guardant360 Profiling System",
+          "queried_label": "Guardant360",
+          "synonyms": [
+            "Guardant360",
+            "Guardant360 Genomic Profiling",
+            "Guardant360 Profiling System"
+          ]
+        },
+        {
+          "code": "C172874",
+          "name": "Guardant360 Genomic Profiling",
+          "queried_label": "Guardant360",
+          "synonyms": [
+            "Guardant360",
+            "Guardant360 Genomic Profiling"
+          ]
+        }
+      ],
+      "mesh_descriptors": [],
+      "synonyms": [
+        {
+          "text": "Guardant360",
+          "sources": [
+            "NCIt:C153090",
+            "NCIt:C172874"
+          ]
+        },
+        {
+          "text": "Guardant360 Genomic Profiling",
+          "sources": [
+            "NCIt:C153090",
+            "NCIt:C172874"
+          ]
+        },
+        {
+          "text": "Guardant360 Profiling System",
+          "sources": [
+            "NCIt:C153090"
+          ]
+        }
+      ],
+      "queries": {
+        "ncit": [
+          "Guardant360"
+        ],
+        "ncit_match_type": "contains",
+        "mesh": [],
+        "mesh_match_type": "exact"
+      }
+    }
+  },
+  "liquid_biopsy_to_ctdna_check": {
+    "shared_synonym_texts": [],
+    "ncit_direct_parent_child_link_between_them": false,
+    "ncit_parents_children": {
+      "C135727": {
+        "parents": [
+          {
+            "code": "C15189",
+            "name": "Biopsy Procedure"
+          }
+        ],
+        "children": [
+          {
+            "code": "C151934",
+            "name": "Serial Liquid Biopsy"
+          }
+        ]
+      },
+      "C113243": {
+        "parents": [
+          {
+            "code": "C128274",
+            "name": "Circulating Cell-Free DNA"
+          },
+          {
+            "code": "C129665",
+            "name": "Tumor DNA"
+          }
+        ],
+        "children": [
+          {
+            "code": "C191959",
+            "name": "Circulating Tumor HPV DNA"
+          },
+          {
+            "code": "C190206",
+            "name": "Methylated Circulating Tumor-Derived DNA"
+          },
+          {
+            "code": "C179394",
+            "name": "Plasma Tumor DNA"
+          }
+        ]
+      }
+    },
+    "conclusion": "No link in downloaded synonyms or one-step NCIt parent/child: the team must add liquid biopsy -> ctDNA by hand (curated, labelled as such)."
+  }
+}

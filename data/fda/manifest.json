@@ -1,0 +1,153 @@
+{
+  "source": "U.S. FDA: List of FDA-Authorized Companion Diagnostic Devices (HTML page) and openFDA device/pma",
+  "fetched_at": "2026-11-13T05:49:49+00:00",
+  "data_timestamps": {
+    "fda_list_content_current_as_of": "11/03/2026",
+    "openfda_meta_last_updated": "2026-11-02"
+  },
+  "queries": {
+    "fda_list_url": "https://www.fda.gov/medical-devices/in-vitro-diagnostics/list-fda-authorized-companion-diagnostic-devices-in-vitro-and-imaging-tools",
+    "fda_list_parse": "first table; lung rows = indication cell matches /lung|NSCLC/i",
+    "openfda_pma_numbers": [
+      "P110012",
+      "P110027",
+      "P120019",
+      "P120022",
+      "P140025",
+      "P150013",
+      "P150025",
+      "P150044",
+      "P150047",
+      "P160002",
+      "P160045",
+      "P160046",
+      "P170019",
+      "P190032",
+      "P200006",
+      "P200010",
+      "P200011",
+      "P210040",
+      "P230011",
+      "P240037",
+      "P240040",
+      "P250027"
+    ],
+    "openfda_baseline_filter": "decision_date:[1976-01-01 TO 2026-10-16]",
+    "openfda_heldback_filter": "decision_date:[2026-10-17 TO 2026-11-14]",
+    "openfda_request_urls": [
+      "https://api.fda.gov/device/pma.json?search=(pma_number:P110012+OR+pma_number:P110027+OR+pma_number:P120019+OR+pma_number:P120022+OR+pma_number:P140025+OR+pma_number:P150013+OR+pma_number:P150025+OR+pma_number:P150044+OR+pma_number:P150047+OR+pma_number:P160002+OR+pma_number:P160045+OR+pma_number:P160046+OR+pma_number:P170019+OR+pma_number:P190032+OR+pma_number:P200006+OR+pma_number:P200010+OR+pma_number:P200011+OR+pma_number:P210040+OR+pma_number:P230011+OR+pma_number:P240037+OR+pma_number:P240040+OR+pma_number:P250027)+AND+decision_date:[1976-01-01+TO+2026-10-16]&sort=decision_date:asc&limit=1000&skip=0",
+      "https://api.fda.gov/device/pma.json?search=(pma_number:P110012+OR+pma_number:P110027+OR+pma_number:P120019+OR+pma_number:P120022+OR+pma_number:P140025+OR+pma_number:P150013+OR+pma_number:P150025+OR+pma_number:P150044+OR+pma_number:P150047+OR+pma_number:P160002+OR+pma_number:P160045+OR+pma_number:P160046+OR+pma_number:P170019+OR+pma_number:P190032+OR+pma_number:P200006+OR+pma_number:P200010+OR+pma_number:P200011+OR+pma_number:P210040+OR+pma_number:P230011+OR+pma_number:P240037+OR+pma_number:P240040+OR+pma_number:P250027)+AND+decision_date:[2026-10-17+TO+2026-11-14]&sort=decision_date:asc&limit=1000&skip=0"
+    ]
+  },
+  "files": {
+    "cdx_lung.jsonl": {
+      "items": 76,
+      "sha256": "b70ae251369505797dbafa649da47fd0be45c59e3083c3c2eb2c00c0ab358008",
+      "bytes": 123283
+    },
+    "cdx_all.jsonl": {
+      "items": 235,
+      "sha256": "154d2e07cafb7874b2fa5ce9f4fcd10f9970873db28a9449a9226f806a1fbecc",
+      "bytes": 380651
+    },
+    "openfda_pma_baseline.jsonl": {
+      "items": 425,
+      "sha256": "b417f95979e0f20430eff18d16171d84d5611b983e08c5f6e2a3f9a67c9605f3",
+      "bytes": 610077
+    },
+    "openfda_pma_heldback.jsonl": {
+      "items": 2,
+      "sha256": "dfcfcdd3e2af7d7ec13b10ea624636fcd0a8e332581b250e916e0543f2f670c3",
+      "bytes": 2521
+    },
+    "assays.json": {
+      "items": 20,
+      "sha256": "be00fa97f82f95fc570afaeb0054c323437f73d913b51581ac8eaa4f0b26d52f",
+      "bytes": 47543
+    }
+  },
+  "raw_copy": {
+    "path": "raw/cdx_list.html",
+    "sha256": "ac1c953ea3110719b42a85172f90b89829a17f667ab64a3f81270b7f394d19ec",
+    "git": "ignored"
+  },
+  "id_lists": {
+    "lung_pma_numbers": [
+      "P110012",
+      "P110027",
+      "P120019",
+      "P120022",
+      "P140025",
+      "P150013",
+      "P150025",
+      "P150044",
+      "P150047",
+      "P160002",
+      "P160045",
+      "P160046",
+      "P170019",
+      "P190032",
+      "P200006",
+      "P200010",
+      "P200011",
+      "P210040",
+      "P230011",
+      "P240037",
+      "P240040",
+      "P250027"
+    ],
+    "lung_non_pma_submissions": [],
+    "pma_numbers_not_found_in_openfda": {},
+    "lung_assays_normalised": [
+      "oncomine dx express test",
+      "guardant360 liquid cdx",
+      "guardant360 cdx",
+      "foundationone cdx",
+      "cobas egfr mutation test v1",
+      "cobas egfr mutation test v2",
+      "foundationone liquid cdx",
+      "onco/reveal dx lung colon cancer assay o/rdx-lcca",
+      "oncomine dx target test",
+      "pd-l1 ihc 22c3 pharmdx",
+      "pd-l1 ihc 28-8 pharmdx",
+      "therascreen egfr rgq pcr kit",
+      "therascreen kras rgq pcr kit",
+      "ventana alk d5f3 cdx assay",
+      "ventana pd-l1 sp142 assay",
+      "ventana pd-l1 sp263 assay",
+      "vysis alk break apart fish probe kit",
+      "agilent resolution ctdx first assay",
+      "trusight oncology comprehensive",
+      "ventana met sp44 rxdx assay"
+    ]
+  },
+  "heldback_records": [
+    {
+      "pma_number": "P240037",
+      "supplement_number": "S003",
+      "decision_date": "2026-10-23",
+      "supplement_reason": "Labeling Change - PAS",
+      "trade_name": "VENTANA MET (SP44) RxDx Assay",
+      "decision_code": "APPR"
+    },
+    {
+      "pma_number": "P120019",
+      "supplement_number": "S044",
+      "decision_date": "2026-10-27",
+      "supplement_reason": "Process Change - Manufacturer/Sterilizer/Packager/Supplier",
+      "trade_name": "cobas® EGFR Mutation Test, v2.0",
+      "decision_code": "OK30"
+    }
+  ],
+  "openfda_requests_used": 2,
+  "openfda_daily_limit_without_key": 1000,
+  "licence": "FDA website content: US Government work, public domain. openFDA: CC0 1.0. Data provided by the U.S. Food and Drug Administration (https://open.fda.gov). DxP is not endorsed by FDA.",
+  "modification": "Source content is unmodified except for whitespace collapsing in the HTML table cells. assays.json is derived by DxP from the FDA list (see its 'normalisation' field).",
+  "reproduce": "uv run --python 3.12 python scripts/data/fetch_fda.py",
+  "differences_from_expected": [],
+  "notes": [
+    "Counts match the skill: 76 lung rows, 235 total, 20 assays, 22 PMA numbers, 425 baseline / 2 held-back openFDA records.",
+    "Name strings: 21 for 20 assays (Ventana PD-LI (SP263) typo kept alongside the correct form); manufacturer strings vary (Foundation Medicine, Inc. / Inc; Ventana Medical Systems, Inc / Inc.).",
+    "No lung row in the list is dated 17 Oct 2026 or later; the held-back set comes from openFDA only."
+  ]
+}

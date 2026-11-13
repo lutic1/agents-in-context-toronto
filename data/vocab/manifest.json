@@ -1,0 +1,73 @@
+{
+  "fetched_at": "2026-11-13T05:55:19+00:00",
+  "finished_at": "2026-11-13T05:55:35+00:00",
+  "command": "uv run --python 3.12 python scripts/data/fetch_vocab.py",
+  "request_counts_by_host": {
+    "storage.googleapis.com": 1,
+    "oncotree.mskcc.org": 2,
+    "api-evsrest.nci.nih.gov": 21,
+    "id.nlm.nih.gov": 25
+  },
+  "files": {
+    "raw/hgnc_complete_set.txt": {
+      "git_ignored": true,
+      "source_url": "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt",
+      "bytes": 17006236,
+      "sha256": "86cc190fcae1abcd77a13ddba9a34327150477f4e3c6bcadd7f445b26dd31246",
+      "file_date": "Tue, 10 Nov 2026 17:50:42 GMT",
+      "licence": "CC0",
+      "attribution": "HGNC, genenames.org (recommended, not required)"
+    },
+    "hgnc_genes.jsonl": {
+      "source_url": "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt",
+      "source_file_date": "Tue, 10 Nov 2026 17:50:42 GMT",
+      "count": 45387,
+      "sha256": "a23f6d6b2f5eb2d3ca27699bf04706c21b33ff5890e9665b8faffafe942486c3",
+      "licence": "CC0",
+      "attribution": "HGNC, genenames.org (recommended, not required)",
+      "modification": "Slimmed to approved genes and 6 fields; multi-value columns split into lists."
+    },
+    "oncotree_lung.json": {
+      "source_url": "https://oncotree.mskcc.org/api/tumorTypes?version=oncotree_latest_stable",
+      "oncotree_version": "oncotree_latest_stable",
+      "release_date": "2025-10-03",
+      "count": 30,
+      "sha256": "26c1b06026e88c86b7e268005825b499d97fb0878f6c29868a59b834eb6a8374",
+      "licence": "CC BY 4.0",
+      "attribution": "OncoTree (CC BY 4.0), Kundra et al., JCO Clinical Cancer Informatics 2021",
+      "modification": "Filtered to nodes with tissue = Lung; fields renamed."
+    },
+    "synonyms.json": {
+      "source_urls": [
+        "https://api-evsrest.nci.nih.gov/api/v1/concept/ncit/search",
+        "https://id.nlm.nih.gov/mesh/lookup/descriptor",
+        "https://id.nlm.nih.gov/mesh/lookup/details"
+      ],
+      "ncit_version": "26.10d",
+      "mesh_version": "MeSH as served by id.nlm.nih.gov/mesh/lookup on fetch date (current annual release; no version field is returned)",
+      "terms": 15,
+      "synonym_entries": 176,
+      "sha256": "6a83dabd2fb3a31cb6c9fb553f7ff2e2814494ecba47f243a6e94c03a6bdbadf",
+      "licences": {
+        "NCI Thesaurus": "CC BY 4.0",
+        "MeSH": "NLM MeSH terms: free; acknowledge NLM; state version"
+      },
+      "attribution": "NCI Thesaurus (NCI EVS, CC BY 4.0); MeSH, U.S. National Library of Medicine (version as stated above). Data: HGNC, OncoTree (CC BY 4.0), NCI Thesaurus (CC BY 4.0). DxP is not endorsed by these organisations.",
+      "modification": "Deduplicated by case-insensitive text; per-source codes kept. This is a derived list, not NCI Thesaurus itself.",
+      "terms_with_no_ncit_result": [
+        "radiomics",
+        "digital pathology"
+      ],
+      "terms_with_no_mesh_result": [
+        "companion diagnostic",
+        "digital pathology",
+        "tumor mutational burden",
+        "Guardant360"
+      ],
+      "terms_with_no_result_from_either": [
+        "digital pathology"
+      ]
+    }
+  },
+  "fr9_liquid_biopsy_to_ctdna": "No link in downloaded synonyms or one-step NCIt parent/child: the team must add liquid biopsy -> ctDNA by hand (curated, labelled as such)."
+}

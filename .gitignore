@@ -27,3 +27,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Datasets: PubMed abstract text is not licensed for redistribution, so it never goes in this public repo.
+data/pubmed/*.jsonl
+data/**/raw/
