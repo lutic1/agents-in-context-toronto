@@ -3,8 +3,10 @@ export { LiveSourceLabel } from "./live-source-label";
 export {
   LIVE_LABEL,
   POLLING_LABEL,
+  SWEEP_POLL_MS,
   liveSourceLabel,
   runKeys,
+  sweepInterval,
   useLiveSource,
   type LiveEvent,
   type LiveSource,

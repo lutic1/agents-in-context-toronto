@@ -4,10 +4,11 @@ import Link from "next/link";
 import { ArrowLeft, CircleDashed, FileSearch, ScrollText, SearchX } from "lucide-react";
 import { useSWRConfig } from "swr";
 
-import { LiveSourceLabel, runKeys, useLiveSource } from "@/components/live-source";
+import { LiveSourceLabel, runKeys, sweepInterval, useLiveSource } from "@/components/live-source";
 import { ActionFeed } from "@/components/run-console/action-feed";
 import { IdentityCard } from "@/components/run-console/identity-card";
 import { runTitle } from "@/components/run-console/run-list";
+import { ScanOrder } from "@/components/run-console/scan-order";
 import { RunStatusBadge } from "@/components/run-console/status-badge";
 import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
@@ -22,13 +23,17 @@ import { cn } from "@/lib/utils";
  * One run in the Run console: identity card, stop control, the source label and the
  * action feed. It reads `GET /runs/<run_id>` and `GET /runs/<run_id>/audit` every 2
  * seconds, or, with `live_stream` on and the stream open, whenever the stream says
- * something happened (Story 9.12). The label above the feed says which.
+ * something happened (Story 9.12). The label above the feed says which. While the stream
+ * is open and the run is running or stopping, the run is still read every 10 s: that read
+ * drives the server's sweep and the `in_flight` count.
  */
 export function RunView({ runId }: { runId: string }) {
   const { mutate } = useSWRConfig();
   const source = useLiveSource(runId);
 
   const run = useApi("/runs/{run_id}", { path: { run_id: runId }, interval: source.refreshInterval });
+  // Same read as above on a slow timer, only while the stream is open: it keeps the sweep and `in_flight` moving.
+  useApi("/runs/{run_id}", { path: { run_id: runId }, interval: sweepInterval(source.mode, run.data?.status) });
   const audit = useApi("/runs/{run_id}/audit", { path: { run_id: runId }, interval: source.refreshInterval });
   const whoami = useApi("/whoami");
   const teams = useApi("/teams");
@@ -39,6 +44,10 @@ export function RunView({ runId }: { runId: string }) {
     path: { grant_id: data?.grant_id ?? "" },
     query: { version: data?.grant_version },
     enabled: Boolean(data),
+  });
+  const scope = useApi("/scopes/{scope_id}", {
+    path: { scope_id: data?.scope_id ?? "" },
+    enabled: Boolean(data?.scope_id && data.kind !== "task"),
   });
   const task = useApi("/tasks/{task_id}", {
     path: { task_id: data?.task_id ?? "" },
@@ -98,6 +107,8 @@ export function RunView({ runId }: { runId: string }) {
         task={task.data}
         entries={entries}
       />
+
+      {!followUp ? <ScanOrder run={data} scope={scope.data} /> : null}
 
       <section aria-labelledby="feed-heading" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

@@ -23,6 +23,9 @@ import { POLL_MS } from "@/lib/use-api";
  * neither miss nor repeat a row: the screen also reads once whenever the stream
  * (re)opens or says `reset`.
  *
+ * A run that is still running or stopping is also read every 10 s while the stream is
+ * open (`sweepInterval`), because that read drives the server's sweep and `in_flight`.
+ *
  * Reuse (B03): call it with the run ID and pass its `refreshInterval` to `useApi`:
  *
  *   const source = useLiveSource(runId);
@@ -34,6 +37,23 @@ export type LiveSourceMode = "live" | "polling";
 
 export const LIVE_LABEL = "Live (change stream)";
 export const POLLING_LABEL = "Refreshing every 2 s";
+
+/**
+ * While the stream is open the run is not polled every 2 s, but a running or stopping
+ * run is still read about every 10 s. The server does its sweep of abandoned admissions
+ * and counts `in_flight` when `GET /runs/<run_id>` is read, and the stream's events do not
+ * make that read happen when nothing else changes.
+ */
+export const SWEEP_POLL_MS = 10_000;
+
+/**
+ * The `interval` for the run read that keeps the sweep going: `SWEEP_POLL_MS` while the stream
+ * is open and the run is `running` or `stopping`, otherwise 0 (while polling, the 2-second read
+ * already does this job; a finished run has nothing left to sweep).
+ */
+export function sweepInterval(mode: LiveSourceMode, status: string | null | undefined): number {
+  return mode === "live" && (status === "running" || status === "stopping") ? SWEEP_POLL_MS : 0;
+}
 
 export function liveSourceLabel(mode: LiveSourceMode): string {
   return mode === "live" ? LIVE_LABEL : POLLING_LABEL;

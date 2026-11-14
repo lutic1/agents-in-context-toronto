@@ -4,10 +4,11 @@ import Link from "next/link";
 
 import { CopyId } from "@/components/run-console/copy-id";
 import { entryState, failedClaim, type EntryTone } from "@/components/run-console/entry-state";
-import { checkName, claimName, destinationName, kindName, sourceLabel } from "@/components/run-console/names";
+import { auditEntryHref, checkName, claimName, destinationName, kindName, sourceLabel } from "@/components/run-console/names";
+import { PersonName } from "@/components/run-console/person-name";
 import { ResolveControl } from "@/components/run-console/resolve-form";
 import type { AuditEntry } from "@/components/run-console/types";
-import { displayName, formatDate, formatPolicySetParts, formatTime } from "@/lib/format";
+import { formatDate, formatPolicySetParts, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const TONE_CLASS: Record<EntryTone, string> = {
@@ -74,7 +75,7 @@ export function ActionRow({ entry, runId, policySetVersion, policyCount, canReso
         <div className="min-w-0">
           <p className="text-table">
             <Link
-              href={`/runs/${encodeURIComponent(runId)}/audit#${entry.decision_id}`}
+              href={auditEntryHref(runId, entry.decision_id)}
               data-row-link=""
               className="rounded-sm font-semibold text-foreground underline-offset-4 hover:underline"
             >
@@ -222,7 +223,7 @@ function Detail({
     if (entry.resolution) {
       lines.push(
         <p key="resolution" className={caption}>
-          Resolved by {displayName(entry.resolution.by)} at {formatTime(entry.resolution.at)}: marked{" "}
+          Resolved by <PersonName id={entry.resolution.by} /> at {formatTime(entry.resolution.at)}: marked{" "}
           {entry.resolution.outcome}. {entry.resolution.note}
         </p>,
       );
