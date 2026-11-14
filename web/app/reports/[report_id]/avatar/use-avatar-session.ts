@@ -32,6 +32,7 @@ export function useAvatarSession(reportId: string, script: string | null) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const adapterRef = useRef<AvatarAdapter | null>(null);
+  const spokeRef = useRef(false); // true once the avatar began speaking in the current run
   const runRef = useRef(0); // bumps on every start and stop, so a late callback of an old session is ignored
   const timers = useRef<number[]>([]);
 
@@ -62,6 +63,7 @@ export function useAvatarSession(reportId: string, script: string | null) {
     }
     const run = ++runRef.current;
     const current = () => runRef.current === run;
+    spokeRef.current = false;
     setCaption("");
     setWhy(null);
     setState("starting");
@@ -90,6 +92,7 @@ export function useAvatarSession(reportId: string, script: string | null) {
       onSpeakStarted: () => {
         if (!current()) return;
         spoke = true;
+        spokeRef.current = true;
         setState("speaking");
       },
       onSpeakEnded: () => {
@@ -132,7 +135,8 @@ export function useAvatarSession(reportId: string, script: string | null) {
     );
   }, [finish, reportId, script]);
 
-  const stop = useCallback(() => finish("ended"), [finish]);
+  // Stopping before the avatar ever spoke settles in "idle", not "Avatar finished".
+  const stop = useCallback(() => finish(spokeRef.current ? "ended" : "idle"), [finish]);
 
   // Stop the session when the page is hidden for good (pagehide), and when the player unmounts.
   useEffect(() => {
