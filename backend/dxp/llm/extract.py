@@ -30,7 +30,7 @@ from typing import Any
 from dxp.evidence import quote_in_source
 from dxp.llm import _deps, client
 from dxp.llm.check import check_finding
-from dxp.llm.mentions import _get, read_mentions, resolve_mention
+from dxp.llm.mentions import _brand_tokens, _get, read_mentions, resolve_mention
 from dxp.llm.prompts import PROMPT_VERSION
 from dxp.llm.prompts import extract as extract_prompt
 from dxp.llm.prompts import triage as triage_prompt
@@ -60,9 +60,6 @@ _OUTCOME = re.compile(
     r"(was|were) associated|improv(ed|es|ement)|sensitivity|specificity|accuracy|"
     r"concordance|response rate|outcomes? (was|were)|detected\b.*\b\d+(\.\d+)? ?%|proved|confirmed)\b",
     re.IGNORECASE,
-)
-_GENERIC_TOKENS = frozenset(
-    {"liquid", "tissue", "assay", "assays", "test", "tests", "tumor", "tumour", "ctdna", "ngs", "cdx", "plasma", "blood", "panel"}
 )
 
 
@@ -128,18 +125,6 @@ def _has_results(item: Any) -> bool | None:
 # --------------------------------------------------------------------------
 
 
-def _brand_tokens(names: Sequence[str]) -> set[str]:
-    tokens: set[str] = set()
-    for name in names:
-        for tok in re.findall(r"[A-Za-z0-9]+", name):
-            low = tok.lower()
-            if low in _GENERIC_TOKENS:
-                continue
-            if len(tok) >= 8 or any(ch.isdigit() for ch in tok) or (tok[1:] != tok[1:].lower() and len(tok) >= 4):
-                tokens.add(low)
-    return tokens
-
-
 def summary_is_safe(summary: str, *, has_results: bool | None, names: Sequence[str]) -> bool:
     """False if the summary names a product the record mentions, or states an
     outcome for a record without posted results."""
@@ -168,7 +153,11 @@ def _record_summary(model_summary: str | None, item: Any, *, names: Sequence[str
     summary = (model_summary or "").strip()
     if not summary_is_safe(summary, has_results=has_results, names=names):
         title = _get(item, "title", "brief_title", "official_title")
-        summary = f"{title.strip().rstrip('.')}." if isinstance(title, str) and title.strip() else "Clinical trial record."
+        summary = "Clinical trial record."
+        if isinstance(title, str) and title.strip():
+            candidate = f"{title.strip().rstrip('.')}."
+            if summary_is_safe(candidate, has_results=has_results, names=names):
+                summary = candidate
     return f"{summary} {_status_sentence(status, has_results)}"
 
 
@@ -348,7 +337,7 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
             (
                 "system",
                 extract_prompt.SYSTEM.format(
-                    fields=", ".join(EXTRACTABLE_FIELDS),
+                    fields="\n".join(_deps.field_guide(f) for f in EXTRACTABLE_FIELDS),
                     stages=", ".join(_deps.stage_names()),
                     seeded_names="\n".join(f"- {n}" for n in names) if names else "(none given)",
                 ),
@@ -378,7 +367,7 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
     by_dx: dict[str, dict[str, Any]] = {}
     for m in mentions:
         if m.resolution == "exact" and m.resolved_diagnostic_id:
-            by_dx.setdefault(m.resolved_diagnostic_id, {"mentions": [], "fields": []})["mentions"].append(m)
+            by_dx.setdefault(m.resolved_diagnostic_id, {"mentions": []})["mentions"].append(m)
 
     for i, assay in enumerate(out.assays):
         written = (assay.name_as_written or "").strip()
@@ -402,10 +391,9 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
         if not any(_same_mention(mention, m) for m in result.mentions):
             result.mentions.append(mention)
         if mention.resolution == "exact" and mention.resolved_diagnostic_id:
-            group = by_dx.setdefault(mention.resolved_diagnostic_id, {"mentions": [], "fields": []})
+            group = by_dx.setdefault(mention.resolved_diagnostic_id, {"mentions": []})
             if not any(_same_mention(mention, m) for m in group["mentions"]):
                 group["mentions"].append(mention)
-            group["fields"].extend(assay.fields)
 
     mention_names = [m.name for m in result.mentions]
     common = {
@@ -431,8 +419,9 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
     )
     findings = [record_finding]
 
+    # A Diagnostic Finding records the mention only: a name in the record is
+    # never evidence about the product, so it carries no field values (V37).
     for dx_id, group in by_dx.items():
-        dx_failures: list[LLMFailure] = []
         findings.append(
             Finding(
                 id=_deps.derive("f_", version_id, dx_id),
@@ -440,8 +429,7 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
                 target="diagnostic",
                 mentions=group["mentions"],
                 summary=_mention_summary(group["mentions"], nct_id),
-                values=_values(group["fields"], dx_failures),
-                failures=dx_failures,
+                values=[],
                 **common,
             )
         )

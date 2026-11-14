@@ -13,7 +13,8 @@ Names (strict):
   Never map a shortened, partial or similar name to a seeded name: for example
   "FoundationOne Liquid" is not "FoundationOne Liquid CDx".
 - A name in an intervention's other names is only a name present in the record,
-  not evidence that the trial used that product.
+  not evidence that the trial used that product. Return assays as names only:
+  never attach values to a named product.
 
 Summary (strict):
 - One or two plain sentences on what the record investigates and its design.
@@ -22,7 +23,9 @@ Summary (strict):
 - If the record has no posted results, do not state or imply results, findings,
   performance or outcomes; describe only what is planned or under way.
 
-Allowed field keys for `record_fields` and assay `fields`:
+Allowed fields for `record_fields`, with the values each accepts. For a field
+with a list of values, `raw_value` must be one of those values exactly; leave
+the field out if none fits:
 {fields}
 Allowed lifecycle stages for `stage_evidence` (at most one, only if the record
 states it): {stages}

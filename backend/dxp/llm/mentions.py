@@ -10,6 +10,7 @@ uncertainties (never mapped to an approved product, never `new`).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -18,6 +19,24 @@ from dxp.llm.types import LLMFailure, NameMention
 
 # Intervention types whose unresolved names are assay candidates. A drug's
 # brand name (for example "Opdivo") is not an unresolved assay.
+_GENERIC_TOKENS = frozenset(
+    {"liquid", "tissue", "assay", "assays", "test", "tests", "tumor", "tumour", "ctdna", "ngs", "cdx", "plasma", "blood", "panel"}
+)
+
+
+def _brand_tokens(names: Sequence[str]) -> set[str]:
+    tokens: set[str] = set()
+    for name in names:
+        for tok in re.findall(r"[A-Za-z0-9]+", name):
+            low = tok.lower()
+            if low in _GENERIC_TOKENS:
+                continue
+            if len(tok) >= 8 or any(ch.isdigit() for ch in tok) or (tok[1:] != tok[1:].lower() and len(tok) >= 4):
+                tokens.add(low)
+    return tokens
+
+
+TEST_TYPES = frozenset({"DIAGNOSTIC_TEST", "DEVICE"})
 ASSAY_LIKE_TYPES = frozenset({"DIAGNOSTIC_TEST", "DEVICE", "GENETIC", "OTHER", "PROCEDURE"})
 
 
@@ -73,7 +92,16 @@ async def read_mentions(item: Any) -> tuple[list[NameMention], list[str], list[L
             # The intervention's own name is its wording, not a product name:
             # keep it as a mention only when it resolves exactly.
             is_other_name = field.endswith("]") and ".otherNames[" in field
-            if mention.resolution == "exact" or (assay_like and is_other_name) or mention.resolution == "error":
+            # An unresolved intervention name is kept only when the intervention
+            # is a test or device and its name looks like a product name (for
+            # example "Guardant360"); generic wording such as "ctDNA, tumor NGS"
+            # is the intervention text, not an assay name.
+            test_named = (iv["type"] or "").upper() in TEST_TYPES and bool(_brand_tokens([name]))
+            if (
+                mention.resolution in ("exact", "error")
+                or (assay_like and is_other_name)
+                or (test_named and not is_other_name)
+            ):
                 mentions.append(mention)
     return mentions, texts, failures
 

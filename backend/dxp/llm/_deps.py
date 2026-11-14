@@ -41,6 +41,20 @@ def stage_names() -> tuple[str, ...]:
     return tuple(s for s in registry.STAGE_ORDER if s != registry.NOT_DETERMINED)
 
 
+def field_guide(field: str) -> str:
+    """One prompt line per field: its registry key and the values it accepts."""
+    f = registry.get_field(field)
+    if f.enum:
+        return f"- {field}: one of {', '.join(f.enum)}"
+    hints = {
+        "text": "the supporting sentence",
+        "normalised_name": "the name as written",
+        "nct_id": "an NCT ID (NCT followed by 8 digits)",
+        "generic_name": "the drug's generic name",
+    }
+    return f"- {field}: {hints.get(f.canonical_form, 'free text')}"
+
+
 def diagnostic_id_of(result: Any) -> str | None:
     if result is None:
         return None

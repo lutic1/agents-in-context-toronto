@@ -48,8 +48,8 @@ def anchor_extraction(**overrides):
         ],
         stage_evidence=None,
         assays=[
-            AssayOut(name_as_written="FoundationOne CDx", seeded_name="FoundationOne CDx", fields=[]),
-            AssayOut(name_as_written="FoundationOne Liquid", seeded_name="unresolved", fields=[]),
+            AssayOut(name_as_written="FoundationOne CDx", seeded_name="FoundationOne CDx"),
+            AssayOut(name_as_written="FoundationOne Liquid", seeded_name="unresolved"),
         ],
     )
     base.update(overrides)
@@ -124,7 +124,7 @@ def test_model_mapping_a_partial_name_is_rejected(fake_registry, fake_llm, item_
     fake_llm.script(
         "ExtractOut",
         anchor_extraction(
-            assays=[AssayOut(name_as_written="FoundationOne Liquid", seeded_name="FoundationOne Liquid CDx", fields=[])]
+            assays=[AssayOut(name_as_written="FoundationOne Liquid", seeded_name="FoundationOne Liquid CDx")]
         ),
     )
     fake_llm.script("CheckOut", all_supported(), all_supported())
@@ -140,7 +140,7 @@ def test_seeded_name_outside_the_list_is_a_failure_record(fake_registry, fake_ll
     fake_llm.script("TriageOut", relevant())
     fake_llm.script(
         "ExtractOut",
-        anchor_extraction(assays=[AssayOut(name_as_written="FoundationOne CDx", seeded_name="Foundation Medicine", fields=[])]),
+        anchor_extraction(assays=[AssayOut(name_as_written="FoundationOne CDx", seeded_name="Foundation Medicine")]),
     )
     fake_llm.script("CheckOut", all_supported(), all_supported())
 
@@ -154,7 +154,7 @@ def test_assay_name_not_in_the_record_is_rejected(fake_registry, fake_llm, item_
     fake_llm.script("TriageOut", relevant())
     fake_llm.script(
         "ExtractOut",
-        anchor_extraction(assays=[AssayOut(name_as_written="Guardant360 CDx", seeded_name="Guardant360 CDx", fields=[])]),
+        anchor_extraction(assays=[AssayOut(name_as_written="Guardant360 CDx", seeded_name="Guardant360 CDx")]),
     )
     fake_llm.script("CheckOut", all_supported(), all_supported())
 
@@ -305,3 +305,34 @@ def test_finding_ids_derive_from_the_pinned_version(fake_registry, fake_llm, ite
     record, dx = result.findings
     assert record.id == fake_derive("f_", "sv_test04712877aaaa", "-")
     assert dx.id == fake_derive("f_", "sv_test04712877aaaa", SEEDED["FoundationOne CDx"])
+
+
+def test_a_mentioned_product_carries_no_values(fake_registry, fake_llm, item_nct04712877):
+    """V37: the FoundationOne CDx Finding records the mention only; the record's
+    values (e.g. sample type blood) stay on the record-level Finding."""
+    fake_llm.script("TriageOut", relevant())
+    fake_llm.script("ExtractOut", anchor_extraction())
+    fake_llm.script("CheckOut", all_supported(), all_supported())
+    result = run(extract(item_nct04712877, SEEDED_NAMES))
+    record, dx = result.findings
+    assert dx.diagnostic_id == SEEDED["FoundationOne CDx"]
+    assert dx.values == [] and dx.stage_evidence is None
+    assert [v.field for v in record.values] == ["sample_types", "trials"]
+    assert "fields" not in AssayOut.model_fields
+
+
+def test_fallback_title_naming_a_product_is_not_used(fake_registry, fake_llm, item_nct04712877):
+    item = dict(item_nct04712877, title="FoundationOne CDx in lung cancer")
+    fake_llm.script("TriageOut", relevant())
+    fake_llm.script("ExtractOut", anchor_extraction(summary="The trial uses FoundationOne CDx."))
+    fake_llm.script("CheckOut", all_supported(), all_supported())
+    record = run(extract(item, SEEDED_NAMES)).findings[0]
+    assert "FoundationOne" not in record.summary
+    assert record.summary.startswith("Clinical trial record.")
+
+
+def test_unresolved_test_name_is_kept_for_uncertainties(fake_registry, fake_llm, item_nct04712877):
+    item = dict(item_nct04712877, interventions=[{"type": "DIAGNOSTIC_TEST", "name": "Guardant360", "otherNames": []}])
+    fake_llm.script("TriageOut", TriageOut(concerns_lung_cancer_diagnostic=False, reason="x"))
+    result = run(extract(item, SEEDED_NAMES))
+    assert result.unresolved_names == ["Guardant360"]

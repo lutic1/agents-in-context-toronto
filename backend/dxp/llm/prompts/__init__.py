@@ -4,4 +4,4 @@
 (AD-17). Change it whenever a prompt below changes.
 """
 
-PROMPT_VERSION = "a08-extract-2026-11-14.1"
+PROMPT_VERSION = "a08-extract-2026-11-14.2"

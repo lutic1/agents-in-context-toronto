@@ -119,3 +119,51 @@ def test_frozen_wrappers_return_dicts(fake_llm, fake_registry, item_nct04712877)
     fake_llm.script("dict_schema", {"raw": None, "parsed": {"a": 1}, "parsing_error": None})
     schema = {"title": "dict_schema", "type": "object", "properties": {"a": {"type": "integer"}}}
     assert run(llm.call_structured("fast", schema, [{"role": "user", "content": "hi"}])) == {"a": 1}
+
+
+def test_prompt_lists_registry_values_and_answers_pass_real_canonical(fake_llm, item_nct04712877):
+    """The prompt gives each enum field's registry values; answers in those
+    values pass the real registry.canonical(), a natural phrase does not."""
+    modality = registry.get_field("modality").enum
+    uses = registry.get_field("clinical_uses").enum
+    stages = registry.get_field("tumour_stage_or_line").enum
+    fake_llm.script("TriageOut", TriageOut(concerns_lung_cancer_diagnostic=True, reason="x"))
+    fake_llm.script(
+        "ExtractOut",
+        ExtractOut(
+            summary="This study investigates molecular profiling in lung cancer.",
+            record_fields=[
+                FieldOut(field="modality", raw_value=modality[0], quote="ctDNA, tumor NGS", confidence=0.7),
+                FieldOut(field="clinical_uses", raw_value=uses[0], quote="ctDNA, tumor NGS", confidence=0.7),
+                FieldOut(field="tumour_stage_or_line", raw_value=stages[0], quote="ctDNA, tumor NGS", confidence=0.7),
+                FieldOut(field="modality", raw_value="ctDNA", quote="ctDNA, tumor NGS", confidence=0.7),
+            ],
+            stage_evidence=None,
+            assays=[],
+        ),
+    )
+    fake_llm.script("CheckOut", CheckOut(verdicts=[VerdictOut(index=i, supported=True) for i in range(3)]), CheckOut())
+
+    result = with_aliases(lambda: run(extract_item(item_nct04712877, SEEDED_NAMES)))
+    system = fake_llm.calls_for("ExtractOut")[0]["messages"][0][1]
+    assert f"- modality: one of {', '.join(modality)}" in system
+    assert f"- clinical_uses: one of {', '.join(uses)}" in system
+    assert f"- tumour_stage_or_line: one of {', '.join(stages)}" in system
+    assert "- trials: an NCT ID" in system
+
+    record = result.findings[0]
+    good = [v for v in record.values if v.value is not None]
+    assert [(v.field, v.value) for v in good] == [
+        ("modality", modality[0]), ("clinical_uses", uses[0]), ("tumour_stage_or_line", stages[0])
+    ]
+    assert all(v.passed for v in good)
+    bad = [v for v in record.values if v.value is None]
+    assert [v.raw for v in bad] == ["ctDNA"] and not bad[0].passed
+
+
+def test_check_with_a_malformed_finding_returns_a_failure(fake_llm):
+    from dxp import llm
+
+    out = run(llm.check({"id": "f_1"}, "text"))
+    assert out["failures"][0]["code"] == "invalid_finding"
+    assert fake_llm.calls == []

@@ -218,7 +218,6 @@ class AssayOut(BaseModel):
     seeded_name: str = Field(
         description="The seeded name it equals exactly, or 'unresolved'."
     )
-    fields: list[FieldOut] = Field(default_factory=list)
 
 
 class ExtractOut(BaseModel):

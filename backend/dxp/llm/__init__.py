@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from dxp.llm import client as _client
 from dxp.llm.check import check_finding
@@ -47,7 +47,13 @@ async def extract(item: dict[str, Any], aliases: Sequence[str] | None = None) ->
 
 async def check(finding: dict[str, Any] | Finding, source_text: str) -> dict[str, Any]:
     """Check a Finding's quotes (quote_in_source) and support (one model call)."""
-    parsed = finding if isinstance(finding, Finding) else Finding.model_validate(finding)
+    try:
+        parsed = finding if isinstance(finding, Finding) else Finding.model_validate(finding)
+    except ValidationError:
+        out = dict(finding) if isinstance(finding, dict) else {}
+        failure = LLMFailure(code="invalid_finding", step="check").model_dump()
+        out["failures"] = [*(out.get("failures") or []), failure]
+        return out
     return (await check_finding(parsed, source_text)).model_dump()
 
 
