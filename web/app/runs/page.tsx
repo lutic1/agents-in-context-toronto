@@ -11,7 +11,7 @@ export default function RunsPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-title">Run console</h1>
 
-      <section aria-labelledby="start-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+      <section aria-labelledby="start-heading" className="rounded-lg bg-card p-5 shadow-sm">
         <h2 id="start-heading" className="text-heading">
           Start a scan
         </h2>
