@@ -25,6 +25,7 @@ MACHINE_KINDS = [
     "notify_slack",
     "generate_briefing",
     "generate_avatar_video",
+    "transcribe_question",  # V73
 ]
 SEED_KINDS = ["apply_value"]
 HUMAN_KINDS = [
@@ -40,14 +41,14 @@ HUMAN_KINDS = [
 ]
 # The two media kinds are machine kinds that only the Reviewer requests, on
 # demand, under `sam@v1` (V29).
-MEDIA_KINDS = ["generate_briefing", "generate_avatar_video"]
+MEDIA_KINDS = ["generate_briefing", "generate_avatar_video", "transcribe_question"]
 AGENT_GRANT_KINDS = MACHINE_KINDS
 PERSON_GRANT_KINDS = HUMAN_KINDS + MEDIA_KINDS
 TASK_GRANT_KINDS = ["search_source", "file_related_evidence"]
 ALL_KINDS = MACHINE_KINDS + SEED_KINDS + HUMAN_KINDS
 
 # External kinds use the AD-20 statuses; DxP-state kinds use queued | done | failed.
-EXTERNAL_KINDS = ["notify_slack", "search_source", "generate_briefing", "generate_avatar_video"]
+EXTERNAL_KINDS = ["notify_slack", "search_source", "generate_briefing", "generate_avatar_video", "transcribe_question"]
 DXP_STATE_KINDS = [k for k in ALL_KINDS if k not in EXTERNAL_KINDS]
 
 DESTINATIONS = [
@@ -56,6 +57,7 @@ DESTINATIONS = [
     "source:clinicaltrials.gov",
     "tts:elevenlabs",
     "video:heygen",
+    "stt:elevenlabs",  # V73
 ]
 TASK_GRANT_DESTINATIONS = ["source:clinicaltrials.gov", "ledger"]
 

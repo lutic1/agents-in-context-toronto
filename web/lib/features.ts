@@ -20,6 +20,7 @@ export const FEATURE_NAMES = [
   "revert",
   "live_stream",
   "interview",
+  "voice_input",
 ] as const;
 
 export type FeatureName = (typeof FEATURE_NAMES)[number];
