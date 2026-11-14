@@ -183,6 +183,7 @@ function EntryFooter({ entry, ctx }: { entry: AuditEntry; ctx: AuditContext }) {
           variant="outline"
           size="sm"
           aria-pressed={selected}
+          data-who-for={entry.decision_id}
           onClick={() => ctx.onWho(entry)}
         >
           <ShieldQuestion aria-hidden="true" />
@@ -337,8 +338,14 @@ function SearchSourceBlock({ entry }: { entry: AuditEntry }) {
   const from = scan?.cursor_from ?? result?.cursor_from ?? null;
   const to = scan?.cursor_to ?? result?.cursor_to ?? null;
   const refs = scan?.source_refs?.length ? scan.source_refs : (result?.source_refs ?? []);
+  const query = scan?.query ? (typeof scan.query === "string" ? scan.query : JSON.stringify(scan.query)) : null;
   return (
     <div className="flex flex-col gap-1 text-table">
+      {query ? (
+        <p>
+          Query: <Mono>{query}</Mono>
+        </p>
+      ) : null}
       <p>
         {from ? `Scanned trials updated since ${formatDate(from)}.` : "Scan cursor not recorded."}{" "}
         {to ? (

@@ -86,7 +86,12 @@ export function WhoAuthorisedDock({
 
   return (
     <Sheet open={selected !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      <SheetContent side="right" className="w-full max-w-md overflow-y-auto p-5 sm:max-w-md">
+      <SheetContent
+        side="right"
+        className="w-full max-w-md overflow-y-auto p-5 sm:max-w-md"
+        // Focus goes back to the opening button in the view's onClose, not to the page.
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader className="p-0">
           <SheetTitle className="flex items-center gap-2 text-heading">
             <ShieldQuestion className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />

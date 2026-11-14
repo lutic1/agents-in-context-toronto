@@ -40,8 +40,8 @@ export function AuditView({ runId }: { runId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const audit = feed.audit;
-  const announcement = useAnnouncement(audit);
+  const rawAudit = feed.audit;
+  const announcement = useAnnouncement(rawAudit);
 
   // j and k move between entries (EXPERIENCE "Interaction Primitives").
   const move = (step: 1 | -1) => {
@@ -53,16 +53,34 @@ export function AuditView({ runId }: { runId: string }) {
     next?.focus();
     next?.scrollIntoView({ block: "nearest" });
   };
+  // Closing "Who authorised this?" returns focus to the button that opened it
+  // (WCAG 2.4.3): the Sheet has no trigger and the dock unmounts its content.
+  const closeWho = (decisionId: string | null) => {
+    setSelectedId(null);
+    if (!decisionId) return;
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-who-for="${CSS.escape(decisionId)}"]`)?.focus();
+    });
+  };
   useHotkeys("j", () => move(1));
   useHotkeys("k", () => move(-1));
 
-  if (!audit) {
+  if (!rawAudit) {
     if (feed.error) return <AuditFailure error={feed.error} runId={runId} onRetry={feed.refresh} />;
     return <PageSkeleton rows={5} />;
   }
 
-  const entries = bySeq(audit.entries ?? []);
-  const afterRun = bySeq(audit.after_run ?? []);
+  // Normalise once so a payload that omits a list never reaches the error boundary.
+  const audit: Audit = {
+    ...rawAudit,
+    entries: rawAudit.entries ?? [],
+    after_run: rawAudit.after_run ?? [],
+    policies: rawAudit.policies ?? [],
+    sources: rawAudit.sources ?? [],
+    linked_runs: rawAudit.linked_runs ?? [],
+  };
+  const entries = bySeq(audit.entries);
+  const afterRun = bySeq(audit.after_run);
   const selected = [...entries, ...afterRun].find((e) => e.decision_id === selectedId) ?? null;
   const running = isActiveRun(audit.run.status);
 
@@ -101,6 +119,7 @@ export function AuditView({ runId }: { runId: string }) {
       <FeedSourceLabel
         source={feed.source}
         polling={feed.polling}
+        halted={feed.halted}
         updatedAt={feed.updatedAt}
         refreshing={feed.isValidating}
         onRefresh={() => void feed.refresh()}
@@ -139,7 +158,7 @@ export function AuditView({ runId }: { runId: string }) {
           </Panel>
         </div>
 
-        <WhoAuthorisedDock selected={selected} audit={ctx.audit} onClose={() => setSelectedId(null)} />
+        <WhoAuthorisedDock selected={selected} audit={ctx.audit} onClose={() => closeWho(selectedId)} />
       </div>
     </div>
   );
