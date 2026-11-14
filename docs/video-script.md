@@ -2,12 +2,12 @@
 
 Script for the 60-second submission video (Story 8.4, recorded by R1 from 16:30 to 16:50, submitted by 16:55). Timings follow V17 as amended by V25 to V48. If two decisions disagree, the higher number wins (V48 over V1 to V47; V38 to V47 over everything earlier; V33 to V37 over V25 to V27).
 
-Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), pending V49, revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is pending Luis's approval as decision V49, it is optional and it is the first supporting cut (V28). It is never part of the 60 seconds.
+Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), pending approval (proposed V70), revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is pending Luis's approval as decision V49, it is optional and it is the first supporting cut (V28). It is never part of the 60 seconds.
 
 ## Fixed rules for every take
 
 1. **Wording (V33, V37).** Both "FoundationOne CDx" and "FoundationOne Liquid" are "named in the record" or "mentioned". Never say the trial "uses", "used", "studies" or "showed" either one. Say nothing that implies any assay's performance. Never merge the two names or map "FoundationOne Liquid" to an FDA-approved product.
-2. **The anchor (V36).** The script uses the trial the live API returned at 10:45. [[PENDING: the anchor trial, verified at 10:45 with its update date, status and results (OD2)]] The text below is written for the expected candidate. If the anchor is another trial, rewrite segments 2 and 3 from that trial's own fields, following the V33 pattern, and recount the words.
+2. **The anchor (V36).** The script uses the trial the live API returned at 10:45. The anchor is NCT04712877, updated 2026-11-12, after the 2026-11-11 scan cursor (V49 closes OD2). Confirm its status and results in the live record before recording. The text below is written for it. If the anchor is another trial, rewrite segments 2 and 3 from that trial's own fields, following the V33 pattern, and recount the words.
 3. **Follow-up work (V39).** Narrate completed follow-up work only if the task actually ran in this take. Otherwise say "Follow-up task authorised; not run" and nothing more about it.
 4. **The rollback line (V48, never cut).** Segment 5 says, word for word: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." The agent "cannot change accepted knowledge without a human approval" is a caption (see segment 5), because the spoken line fills its window. Never claim any automatic rollback of external effects: a Slack alert that was sent stays sent.
 5. **Only what passed (D1, V29).** Show only behaviour that passed on the integrated build, built on 14 November. Never show a key, the Slack webhook address, `.env`, the Modal or Vercel secret pages, or browser developer tools.
@@ -179,7 +179,7 @@ Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail 
 Complete all items before R1 presses record. Do not skip the source check.
 
 ### Facts to resolve
-- [ ] Anchor trial confirmed from the 10:45 check, with its update date, status and results (OD2). Segments 2 and 3 match its own fields. [[PENDING: the anchor trial (OD2)]]
+- [ ] Anchor trial confirmed from the 10:45 check, with its update date, status and results (OD2). Segments 2 and 3 match its own fields. (V49: NCT04712877, updated 2026-11-12; status and results still to confirm on the day)
 - [ ] Retrieval method on the sandbox: Vector Search or text search (OD1). Tags and narration match. [[PENDING: retrieval method (OD1)]]
 - [ ] Variant A or B chosen from the `task_run` state, and the task's run is shown only if it actually ran in this take. [[PENDING: variant for this take (task_run state)]]
 - [ ] Live label read: "Live (change stream)" or "Refreshing every 2 s". Change streams are named only for the first. [[PENDING: label on the console (S5)]]
@@ -201,7 +201,7 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Second tab: Slack `#all-mango-db-hackathon`, signed in, nothing else showing.
 - [ ] Screen 1440 x 900, browser zoom 100%. The report's header, first related item, M1 chip and decisions bar fit without scrolling, or the bar is sticky.
 - [ ] No key, webhook address, `.env`, secret page or developer tools can appear in any frame, including notifications and tab titles.
-- [ ] The briefing and LiveAvatar (HeyGen), pending V49, are not part of the 60 seconds.
+- [ ] The briefing and LiveAvatar (HeyGen), pending approval (proposed V70), are not part of the 60 seconds.
 
 ### Wording check
 - [ ] No narration, caption or on-screen text says the trial "uses", "used" or "studies" either assay name, or implies how any assay performs.
