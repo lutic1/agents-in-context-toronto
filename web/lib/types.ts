@@ -387,7 +387,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Policies */
+        /**
+         * List Policies
+         * @description Without `status`, the members of the current policy set; with it, the
+         *     policies whose latest version has that status. Always the current set's version.
+         */
         get: operations["list_policies_api_v1_policies_get"];
         put?: never;
         post?: never;
@@ -2394,6 +2398,11 @@ export interface components {
             decision_id: string;
             /** Note */
             note: string | null;
+            /**
+             * Reason
+             * @description why the task was not authorised: "Follow-up task not authorised: <reason>" (V45)
+             */
+            reason: string | null;
             /** Request Id */
             request_id: string | null;
             /** Reviewer */
@@ -2424,6 +2433,11 @@ export interface components {
              * @enum {string}
              */
             action: "approve" | "reject";
+            /**
+             * Claim Kind
+             * @description tags the memory a reject or correction creates (M1: claim_performed_or_results)
+             */
+            claim_kind?: ("claim_performed_or_results" | "claim_planned" | "claim_preclinical") | null;
             /** Correction */
             correction?: string | null;
             /**
@@ -2900,6 +2914,11 @@ export interface components {
             assays: string[];
             /** Condition */
             condition: string;
+            /**
+             * Condition Aliases
+             * @description search terms for the condition only (A03 seeds them)
+             */
+            condition_aliases: string[];
             cursor: components["schemas"]["ScopeCursor"];
             /**
              * Id
@@ -2908,6 +2927,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Priority Refs
+             * @description source_refs the scan takes first (A03 seeds them)
+             */
+            priority_refs: string[];
             /**
              * Source
              * @default clinicaltrials.gov
