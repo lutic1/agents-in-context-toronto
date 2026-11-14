@@ -381,7 +381,7 @@ A review of PR #8 found that the direction is strong, but the plan is not yet a 
   - That gives **20 minutes of hard float at the 16:30 freeze**. This is the only float figure in the plan.
   - If A25 is merged by 14:30 and the loop is green by 14:30, the follow-up task joins I3 (to 15:15) and uses 15 of those 20 minutes. Otherwise A25 is cut.
 - **V31. L1 and L2 are risks with a proof step and a fallback, not assumptions.**
-  - **L1 (draft starts):** only A06 and A08 start at 10:45 as drafts, because their shapes are the most stable. A19 with A20, and A21 with A22, start after the contract (11:45).
+  - **L1 (draft starts):** only A06 and A08 start at 10:45 as drafts, because their shapes are the most stable. A19 with A20, and A21 with A22, start after the contract (11:45). (V47 amends this: both bundles now also start at 10:45 as drafts.)
     - Rework risk: each draft carries a 20-minute rebase budget after the contract freeze.
     - Any contract change after 11:45 goes through the contract keeper, with the rebase cost stated.
   - **L2 (second merge desk):** Vlad merges only PRs that are already green in CI and passed by Luis's review agent and the contract keeper, and only A05, A13, A14 and A09.
@@ -522,3 +522,20 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
   - "Memory saved" is shown only after `memory.create()` succeeds. Until then the report shows the decision without that confirmation.
   - Build the core discovery-to-review loop first. `task_run` stays off until I3b passes.
   - The crash, retry and revocation checks (A24, I3, I3b) are implementation acceptance requirements. They are planned tests, not evidence that anything has passed.
+
+- **V47. A third teammate, Gregorio, joins (approved by Luis).** Gregorio is on a Claude Max plan and does deep backend coding.
+  - **Gregorio's lane (desk L still merges).** Gregorio owns three PRs:
+    - **A19+A20:** stories 10.2, 10.3, 10.4. Embeddings, indexes and retrieval; relationships with quotes; report assembly, including the text script (V41).
+    - **A21+A22:** stories 10.5, 10.6. Reviewer memory.
+    - **A25:** story 10.9, stretch, behind `task_run`.
+  - **Ownership.**
+    - Luis keeps everything else on the backend and the integration work: A01 to A10, A13, A14, A24, I1, I3, A16.
+    - Vlad keeps the B PRs and desk V.
+    - Gregorio's agents review his PRs first. Luis's desk L still merges them, in the planned order, and the contract keeper checks contract changes.
+  - **Start at 10:45 (amends V31, which started A19+A20 and A21+A22 at 11:45).**
+    - A19+A20 and A21+A22 start at 10:45 as draft PRs against the AD-14 shapes and Epic 10, under the same L1 rule as A06 and A08: rebase on A01 at 11:45 within a 20-minute budget.
+    - Until 11:45, Gregorio works on parts that don't depend on the contract: pure functions and their tests (relationship classification, quote checks, the script builder, memory retrieval ranking), plus index definitions.
+    - A25 starts after A24 and A19+A20 exist, as before.
+  - **OD1 check at 10:45.** Gregorio checks whether the Atlas Sandbox supports Vector Search and Automated Embedding, or whether a Voyage key is cleared. Luis and Gregorio decide by 11:45. The fallback is unchanged.
+  - **Timings are not changed.** The ready and merge forecasts stay as they are until the 12:30 proof step shows real numbers. If the bundles land earlier, the loop may pass before 14:30, which would let I3b run.
+  - **Merge risk.** More open draft PRs mean more rebases at 11:45. The 20-minute budget and the 13:00 fallback still apply.

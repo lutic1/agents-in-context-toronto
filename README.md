@@ -9,7 +9,7 @@ Built for **Agents in Context Toronto: a MongoDB Hackathon** (Cerebral Valley), 
 - Date: Saturday, 14 November 2026. Hacking runs 10:45 to 17:00 ET.
 - Location: The Quay, 100 Queens Quay E 3rd Floor, Toronto, ON M5E 1V3, Canada
 - Event page: https://cerebralvalley.ai/e/mongodb-toronto-hackathon
-- Team: Luis and Vlad
+- Team: Luis, Vlad and Gregorio
 
 ## The problem
 
@@ -145,7 +145,7 @@ Unverified dependencies, each with a fallback (details in `_bmad-output/planning
 
 | # | Dependency | Owner, due | Fallback |
 |---|---|---|---|
-| OD1 | The Atlas Sandbox supports Vector Search and Automated Embedding, or a Voyage AI key is cleared | Luis, when sandbox access arrives; decided by 11:45 | Text search, labelled "related by text search", never "Vector Search" |
+| OD1 | The Atlas Sandbox supports Vector Search and Automated Embedding, or a Voyage AI key is cleared | Gregorio and Luis; checked at 10:45, decided by 11:45 | Text search, labelled "related by text search", never "Vector Search" |
 | OD2 | The live ClinicalTrials.gov API still shows the expected demo trial (NCT04712877) as updated since the scan cursor, recruiting, with no results | Luis, 10:45 | Any in-scope trial updated since the cursor; the same policies apply |
 | OD3 | ElevenLabs key and quota | Luis, before 10:45 | The briefing is hidden |
 | OD4 | Organiser clearance: prepared data, logo, Slack channel volume | Luis, 9:00 to 10:45 | Live fetches, the text wordmark, a team channel if needed |

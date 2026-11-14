@@ -21,26 +21,26 @@ DxP is a **proactive diagnostic-evidence research agent**, entered under Stateme
 
 Which document wins:
 
-1. `sprint-change-proposal-2026-11-14-discovery-agent.md`. Within it, V25 to V32 (section 10) win over V1 to V24, V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V44 (section 12, the review of the branch; approved by Luis (14 Nov)) win over V1 to V37. This plan adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 core cut line and supporting cut order.
+1. `sprint-change-proposal-2026-11-14-discovery-agent.md`. Within it, V25 to V32 (section 10) win over V1 to V24, V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V47 (section 12 and later: the review of the branch, the build rules and Gregorio's lane; approved by Luis (14 Nov)) win over V1 to V37. This plan adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 core cut line and supporting cut order.
 2. The readiness fixes D1 to D57 (`readiness-fixes-2026-11-14.md`) and the Slack decisions S1 to S13 (`sprint-change-proposal-2026-11-14-slack.md`), wherever the discovery-agent proposal does not replace them.
 3. The architecture spine's AD-14 table is the single reference for routes and shapes (D40). Where `epics.md` and AD-14 name a route body differently (for example `POST /runs { grant_id, set }`), AD-14 wins and the contract keeper settles it in A01.
 
 Every PR below has an owner, its stories, a branch, what must be merged before it starts, what must be merged before it merges, the files it owns, the design reference for screens, and a forecast. Timing, the merge queue, milestones and fallback cuts are in `build-schedule.md`. The forecasts come from a model, not from a validated run; the milestones in `build-schedule.md` are how the day checks them.
 
-## The two lanes
+## The lanes
 
-| | Luis | Vlad |
-|---|---|---|
-| Agents | Up to 44: builders, one reviewer agent per open PR, the contract keeper and the integrator | Up to 22, Sonnet 5.5 at high effort: builders and his coordinating agent |
-| Model budget | Claude plan; the product runs on Luis's API keys (Anthropic, ElevenLabs, HeyGen, Voyage if cleared) | Claude Pro plus $300 of API credit |
-| Owns | Contract, registry and exact name matching, grants and policies, deploy, discovery scan and prior collection, ledger, gate and claim checks, runs, stop and audit API, extraction, Slack notifier, the run, setup data and reset, read model and value review, retrieval and report assembly, memory, the report decision and task authorisation, follow-up task execution, both integrations, rehearsal; `docs/clearance.md` | The web skeleton, Run console, Audit view, report page with decisions and the memory panel, the ElevenLabs briefing, the HeyGen avatar video, the submission package |
-| PRs | 17 (A01 to A10 with the bundles, A13, A14, A16, A19+A20, A21+A22, A24, A25) plus the integration PRs I1 and I3 (I3b is an optional part of I3) | 7 (B01, B02, B03, B04, B06, B07, B08) |
-| Merge desk | Luis merges 12 PRs on desk L: 11 core and A25, which is stretch (see `build-schedule.md`, merge queue) | Vlad merges his own 7 PRs after Luis's review agent passes each, and four of Luis's leaf PRs (A05, A13, A14, A09) only when each is already green in CI and passed by Luis's review agent and the contract keeper (lever L2, V31). His look is a scope and secrets check, not a back-end review. A failing CI or a conflict sends the PR back to its author |
-| Shared task | R1: record the 60-second video and submit (with Vlad); then the reset for the live demo | R1 (with Luis) |
+| | Luis | Vlad | Gregorio (V47) |
+|---|---|---|---|
+| Agents | Up to 44: builders, one reviewer agent per open PR, the contract keeper and the integrator | Up to 22, Sonnet 5.5 at high effort: builders and his coordinating agent | His own builders and a reviewer agent per open PR, which review his PRs first |
+| Model budget | Claude plan; the product runs on Luis's API keys (Anthropic, ElevenLabs, HeyGen, Voyage if cleared) | Claude Pro plus $300 of API credit | Claude Max plan; the product still runs on Luis's API keys |
+| Owns | Contract, registry and exact name matching, grants and policies, deploy, discovery scan and prior collection, ledger, gate and claim checks, runs, stop and audit API, extraction, Slack notifier, the run, setup data and reset, read model and value review, the report decision and task authorisation, both integrations, rehearsal; `docs/clearance.md` | The web skeleton, Run console, Audit view, report page with decisions and the memory panel, the ElevenLabs briefing, the HeyGen avatar video, the submission package | Retrieval, embeddings and indexes, relationships with quotes, report assembly with the text script (V41), Reviewer memory, follow-up task execution (stretch); the OD1 check at 10:45 |
+| PRs | 14 (A01 to A10 with the bundles, A13, A14, A16, A24) plus the integration PRs I1 and I3 (I3b is an optional part of I3) | 7 (B01, B02, B03, B04, B06, B07, B08) | 3 (A19+A20, A21+A22, A25) |
+| Merge desk | Luis merges 12 PRs on desk L: 11 core and A25, which is stretch, Gregorio's three among them (see `build-schedule.md`, merge queue) | Vlad merges his own 7 PRs after Luis's review agent passes each, and four of Luis's leaf PRs (A05, A13, A14, A09) only when each is already green in CI and passed by Luis's review agent and the contract keeper (lever L2, V31). His look is a scope and secrets check, not a back-end review. A failing CI or a conflict sends the PR back to its author | None: desk L merges his PRs in the planned order, and the contract keeper checks any contract change |
+| Shared task | R1: record the 60-second video and submit (with Vlad); then the reset for the live demo | R1 (with Luis) | None |
 
 **Concurrency does not remove sequential work.** Forty-four agents shorten nothing on a dependency chain: A10 cannot be wired before the modules it calls exist, I1 cannot start before its PRs merge, and each merge still needs CI (about 10 minutes with a human look) and a person to press the button. More agents add review and merge load; they do not add merge desks. The plan therefore cuts merges (bundles), staggers finishes and adds a second merge desk under a proof step (V31), rather than adding builders.
 
-PR counts are not workload: Luis's lane holds every core back-end behaviour and both integrations.
+PR counts are not workload: Luis's lane holds the contract, the gate, runs, the run and both integrations; Gregorio's lane (V47) holds retrieval, the report and memory, the two longest core bundles.
 
 ### Bundles and cuts (proposal section 7)
 
@@ -105,7 +105,7 @@ The demo order itself is in `build-schedule.md` ("Demo order") and in A16's `doc
 
 A01 and A02 start at 10:45 and merge by 11:55 (A01 at 11:45). A01 writes stubs only: every route returns 501 and every signature raises `NotImplementedError` until the PR named in the A01 card finishes it. Exceptions: `ledger.recover_applying()` and `retrieval.ensure_indexes()` are no-op stubs, because A01's startup hook calls them before their owners merge. Nothing calls the briefing or avatar functions automatically (V29), so they need no no-op stub.
 
-The shapes are already written in AD-14 and in Epic 10 of `epics.md`; A01 codifies them, it does not invent them. That is what lets the two most stable long PRs, A06 and A08, draft against them from 10:45 (lever L1, V31), as A03 already does. A19+A20 and A21+A22 start after the contract, at 11:45. Each draft carries a 20-minute rebase budget after the freeze. After 11:45 a change to any of these goes through the contract keeper in its own PR, which states the rebase cost it imposes.
+The shapes are already written in AD-14 and in Epic 10 of `epics.md`; A01 codifies them, it does not invent them. That is what lets the two most stable long PRs, A06 and A08, draft against them from 10:45 (lever L1, V31), as A03 already does. A19+A20 and A21+A22 (Gregorio, V47) also draft from 10:45 under the same rule, working first on the parts that do not depend on the contract. Each draft carries a 20-minute rebase budget after the freeze. After 11:45 a change to any of these goes through the contract keeper in its own PR, which states the rebase cost it imposes.
 
 A01, A02 and A03 freeze:
 
@@ -161,7 +161,7 @@ These six are binding on Stories 9.3 to 9.6 and on every Epic 10 story that acts
 
 Each card says two things:
 
-- **Start when merged:** what must be on `main` before the agent starts. For most PRs this is only A01. Two long PRs (A06, A08) start at 10:45 as drafts against the shapes in AD-14 and Epic 10, as A03 does, and rebase on A01 at 11:45 inside a 20-minute budget (lever L1, V31).
+- **Start when merged:** what must be on `main` before the agent starts. For most PRs this is only A01. Four long PRs (A06, A08, and Gregorio's A19+A20 and A21+A22, V47) start at 10:45 as drafts against the shapes in AD-14 and Epic 10, as A03 does, and rebase on A01 at 11:45 inside a 20-minute budget (lever L1, V31, V47).
 
 - **Merge after:** what must be on `main` before this PR merges, because it calls real code or another PR's file.
 
@@ -192,11 +192,11 @@ The feature flags live in B01's `web/lib/features.ts`, read from `NEXT_PUBLIC_DX
 
 ## How agent slots are used
 
-The forecast is about 9 builders in Luis's lane from 10:45 (A01, A02, A03, three on A06, two on A08, A04 from 11:00) rising to about 30 from 11:45, plus one reviewer agent per open PR (about 10 at the peak), the contract keeper and the integrator: about 42 of Luis's 44. Vlad's lane peaks at about 13 builders (two on B04, two each on B02, B03, B06 and B08, one on B07) plus his coordinating agent, within his 22.
+The forecast is about 9 builders in Luis's lane from 10:45 (A01, A02, A03, three on A06, two on A08, A04 from 11:00) rising to about 30 from 11:45, plus one reviewer agent per open PR (about 10 at the peak), the contract keeper and the integrator: about 42 of Luis's 44. From V47 the A19+A20, A21+A22 and A25 builders (about seven) and their reviewer agents run in Gregorio's lane, on his Claude Max plan, from 10:45, which frees those slots in Luis's. Vlad's lane peaks at about 13 builders (two on B04, two each on B02, B03, B06 and B08, one on B07) plus his coordinating agent, within his 22.
 
-- A06 gets three builders (gate and decisions, `ledger/apply.py`, `gate/claims.py`); A19+A20 three (retrieval and indexes, relationships, report assembly); A08, A21+A22, A24, A25, A07+A11, A09, A10, A13 and A14 two each (one writing the tests).
+- A06 gets three builders (gate and decisions, `ledger/apply.py`, `gate/claims.py`); A19+A20 three (retrieval and indexes, relationships, report assembly; Gregorio's); A08, A21+A22 (Gregorio's), A24, A25 (Gregorio's), A07+A11, A09, A10, A13 and A14 two each (one writing the tests).
 - One independent reviewer agent per open PR checks acceptance criteria, the required behaviours, D1 (no prepared code), owned files only, secrets, `.env` values, tokens and PubMed text.
-- The contract keeper rejects any PR that changes a frozen contract without regenerating the types, at 11:45 posts the A01 diff that the A06 and A08 drafts rebase on, passes each PR merged on desk V, and states the rebase cost of any contract change after 11:45.
+- The contract keeper rejects any PR that changes a frozen contract without regenerating the types, at 11:45 posts the A01 diff that the A06, A08, A19+A20 and A21+A22 drafts rebase on (V47), passes each PR merged on desk V, and states the rebase cost of any contract change after 11:45.
 - The integrator runs I1, I3, I3b and S1 to S3, and from 13:35 keeps a smoke test green on every merge: one discover run over a fake source with one blocked claim, one report, one alert through the fake Slack sender (merges post nothing to the channel), one memory, one audit read. It runs in `DXP_DB=dxp_smoke`, never in `dxp` (D41).
 
 People spend their attention on unclear behaviour, failures and merges, not on reading every diff.
@@ -214,7 +214,8 @@ You are building PR <ID> of DxP: <What>.
 Read first: _bmad-output/planning-artifacts/development-plan.md (card <ID>,
 "No prepared code or assets" and "Required acceptance behaviours"),
 sprint-change-proposal-2026-11-14-discovery-agent.md (the V decisions the
-card cites; V25 to V37 win over V1 to V24), readiness-fixes-2026-11-14.md, the acceptance criteria of
+card cites; V38 to V47, sections 12 and later, win over everything earlier,
+and V25 to V37 win over V1 to V24), readiness-fixes-2026-11-14.md, the acceptance criteria of
 Story <n.n> in epics.md, the architecture spine (AD rules it cites; the
 AD-14 table wins on routes and shapes), and for screens DESIGN.md and
 EXPERIENCE.md. There are no mockups: every screen is built during the event.
@@ -223,9 +224,9 @@ or run code from scripts/data/ or from any dxp-* skill; skills are
 reference documentation only. Do not load files from data/ or use the
 prepared logo unless the plan records that an organiser cleared them.
 Branch: <branch>, from the latest main. Start only when every PR under
-"Start when merged" is on main (only A06 and A08 start at 10:45 as drafts
-against the shapes in AD-14 and Epic 10, then rebase on A01 at 11:45
-within 20 minutes). Code against
+"Start when merged" is on main (only A06, A08, A19+A20 and A21+A22 (V47)
+start at 10:45 as drafts against the shapes in AD-14 and Epic 10, then
+rebase on A01 at 11:45 within 20 minutes). Code against
 the frozen contracts and signatures for anything not merged yet. Only edit
 the files this PR owns; a change in another PR's file goes in a separate
 small PR that the file's owner reviews. Do not merge until every PR under
@@ -261,9 +262,6 @@ Times are forecasts: "Ready" is when the PR is reviewed and green; "Merged" is i
 | A14 | 1.1, 1.3, 2.2, 2.3 | Read model and the accepted knowledge route, proposals read routes, value review (A18 folded in) | `story/2.3-proposals-decisions` | A01 | A06 | 11:45 | 13:15 | 13:35 (V) |
 | A10 | 1.7 | The run: scan, extract, retrieve, relate, remember, draft, gate, file, notify | `story/1.7-run` | A01 | none | 11:45 | 13:30 | 13:45 (L) |
 | A09 | 9.4 | Slack notifier, one alert per report, links to the report page | `story/9.4-slack-notify` | A01 | A03 | 11:45 | 13:30 | 13:45 (V) |
-| A19+A20 | 10.2, 10.3, 10.4 | Embeddings, vector and text indexes, related retrieval; relationship classification with quotes from both sides; report assembly (gap, uncertainties, name mentions, the text script, V41) and filing | `story/10.2-retrieval-report` | A01 (starts after the contract, V31) | A01, A06 | 11:45 | 13:45 | 13:55 (L) |
-| A21+A22 | 10.5, 10.6 | Reviewer memory: create, correct, revoke, retrieval and visible effect | `story/10.5-memory` | A01 (starts after the contract, V31) | A01, A19+A20 | 11:45 | 13:45 | 14:05 (L, last core merge) |
-| A25 | 10.9 | Follow-up task execution (stretch, V39) | `story/10.9-task-run` | A01 | A24, A07+A11, A19+A20 | 11:45 | 13:00 | 14:15 (L; must be merged by 14:30 to join I3b) |
 | I1 | 10.1, 10.4, 10.5, 10.6, 10.7, 9.4 | Integration: setup (data, M1 through the UI, snapshot), then the discovery loop | `integration/i1-discovery-loop` | step 1: A03, A04, A05, A06, A08, A13 (A19+A20 for the indexes); step 2 and loop: all core above and B04 | none | 13:35 | 14:45 | 14:45 (L) |
 | I3 | 10.8, 10.10 (and 10.9 in I3b) | Integration: approval, promotion, task authorisation and audit; optional I3b, task execution | `integration/i3-approve-task` | I1 | none | 14:45 | 15:00 (15:15 with I3b) | 15:00 (L) |
 | A16 | 8.2 | Rehearsal: pass 1 is core acceptance, pass 2, each from a reset; then the reset for the video | `story/8.2-rehearsal` | I3 | none | 15:00 (15:15 with I3b) | 16:10 (16:25 with I3b) | 16:10 (L) |
@@ -271,6 +269,18 @@ Times are forecasts: "Ready" is when the PR is reviewed and green; "Merged" is i
 Cut: A12, A15, A17 (section 7, cut 3). Folded: A18 into A14, A23 into A06, I2 into A16 pass 1. Split again: A24 and A25 (V28).
 
 **Float (V30, V36).** With these merges the rehearsal ends at 16:10, which leaves **20 minutes of hard float at the 16:30 freeze**, the only float figure in the plan (15 of them used if I3b runs). It is a forecast, conditional on the merge milestones, including the L2 proof at 12:30 and the 13:00 desk decision; otherwise the emergency path in `build-schedule.md` applies: one desk, the V28 cut line (A25, B06 and B08 out), one rehearsal pass and no float.
+
+## Gregorio's PRs
+
+Gregorio's three PRs (V47). His agents review each PR first; desk L merges them in the planned order, and the contract keeper checks any contract change. The Ready and Merged forecasts are unchanged until the 12:30 proof step shows real numbers; if the bundles land earlier, the loop may pass before 14:30, which would let I3b run. More open drafts mean more rebases at 11:45; the 20-minute budget and the 13:00 fallback still apply.
+
+| PR | Stories | What | Branch | Start when merged | Merge after | Start | Ready | Merged (desk) |
+|---|---|---|---|---|---|---|---|---|
+| A19+A20 | 10.2, 10.3, 10.4 | Embeddings, vector and text indexes, related retrieval; relationship classification with quotes from both sides; report assembly (gap, uncertainties, name mentions, the text script, V41) and filing | `story/10.2-retrieval-report` | none (draft from 10:45, L1, V47) | A01, A06 | 10:45 (draft, L1) | 13:45 | 13:55 (L) |
+| A21+A22 | 10.5, 10.6 | Reviewer memory: create, correct, revoke, retrieval and visible effect | `story/10.5-memory` | none (draft from 10:45, L1, V47) | A01, A19+A20 | 10:45 (draft, L1) | 13:45 | 14:05 (L, last core merge) |
+| A25 | 10.9 | Follow-up task execution (stretch, V39) | `story/10.9-task-run` | A01 | A24, A07+A11, A19+A20 | 11:45 | 13:00 | 14:15 (L; must be merged by 14:30 to join I3b) |
+
+Until 11:45 the two bundles build only what does not depend on the contract: pure functions and their tests (relationship classification, quote checks, the script builder, memory retrieval ranking) and the index definitions. At 10:45 Gregorio also runs the OD1 check (Vector Search and Automated Embedding on the Atlas Sandbox, or a cleared Voyage key); Luis and Gregorio decide by 11:45, and the fallback is unchanged.
 
 ## Vlad's PRs
 
@@ -468,8 +478,8 @@ Vlad's desk also merges A05 (13:05) and A13 (13:25), the two timed proof merges 
 
 ### A19+A20: Retrieval, relationships and the report
 
-- **Owner:** Luis · **Stories:** 10.2, 10.3, 10.4 · **Branch:** `story/10.2-retrieval-report` · **Forecast:** 11:45 to 13:45 (three builders: retrieval and indexes; relationships; report assembly), merged 13:55 · **Critical** (the index build in I1 step 1 waits for it)
-- **Start when merged:** A01 (starts after the contract, V31; not a draft) · **Merge after:** A01, A06
+- **Owner:** Gregorio (V47; desk L merges) · **Stories:** 10.2, 10.3, 10.4 · **Branch:** `story/10.2-retrieval-report` · **Forecast:** 10:45 to 13:45 (draft from 10:45, L1, V47; three builders: retrieval and indexes; relationships; report assembly), merged 13:55 · **Critical** (the index build in I1 step 1 waits for it)
+- **Start when merged:** nothing: drafts from 10:45 against AD-14 and Epic 10 (L1, V47; until 11:45 only the parts that do not depend on the contract: relationship classification, quote checks, the script builder and their tests, and the index definitions; rebase on A01 at 11:45 within 20 minutes) · **Merge after:** A01, A06
 - **Prepared material (D1):** none. Write every line; copy nothing from `scripts/data/` or `dxp-*` skills (`dxp-mongodb-atlas` is reference only).
 - **Scope:**
   - **Retrieval (V3, AD-15).** `retrieval.ensure_indexes()` (`retrieval/indexes.py`): vector indexes `vs_source_items`, `vs_findings`, `vs_memories` (filter fields `scope_ids`, `team_id`, `status`, `tags.assay`, `tags.claim_kind`) and the text fallback indexes. Embedding path chosen once by `DXP_EMBEDDING`: `auto` (Atlas Automated Embedding), `voyage` (`retrieval.embed()` in `retrieval/embed.py`, the only holder of `VOYAGE_API_KEY`, only with a cleared key), or `none`. `retrieval.related(scope_id, text, k, exclude)` and `retrieval.memories(team_id, text, tags, k)` (`retrieval/related.py`) return `Retrieval { method, index, top_k, filter, items[{ ref, score }] }`; a failed vector query falls back to text search with `method: text_search`. A score never enters a check, a label or a claim.
@@ -491,8 +501,8 @@ Vlad's desk also merges A05 (13:05) and A13 (13:25), the two timed proof merges 
 
 ### A21+A22: Reviewer memory
 
-- **Owner:** Luis · **Stories:** 10.5, 10.6 · **Branch:** `story/10.5-memory` · **Forecast:** 11:45 to 13:45 (two builders), merged 14:05, the last core merge · **Critical** (correct and revoke are supporting, S3)
-- **Start when merged:** A01 (starts after the contract, V31; not a draft) · **Merge after:** A01, A19+A20 (`retrieval.memories`)
+- **Owner:** Gregorio (V47; desk L merges) · **Stories:** 10.5, 10.6 · **Branch:** `story/10.5-memory` · **Forecast:** 10:45 to 13:45 (draft from 10:45, L1, V47; two builders), merged 14:05, the last core merge · **Critical** (correct and revoke are supporting, S3)
+- **Start when merged:** nothing: drafts from 10:45 against AD-14 and Epic 10 (L1, V47; until 11:45 only the parts that do not depend on the contract: memory retrieval ranking and its tests; rebase on A01 at 11:45 within 20 minutes) · **Merge after:** A01, A19+A20 (`retrieval.memories`)
 - **Prepared material (D1):** none. Write every line; copy nothing from `scripts/data/` or `dxp-*` skills (`dxp-atlas-agent-memory` describes the deferred preview SDK and is not used).
 - **Scope:** `memory.create(team_id, text, tags, source, reviewer, ctx)` (`create_memory`, under `sam@v1`; author from the key), `memory.correct()` (new version, `supersedes`, old one `corrected`) and `memory.revoke()`, each gated, recorded as a Decision with a `request_id`, conditional on the current status; `GET /memories?team_id=&status=`, `GET /memories/<memory_id>`, `POST /memories/<memory_id>/correct`, `POST /memories/<memory_id>/revoke`. `memory.retrieve(team_id, text, tags)`: only `active` versions of the Team, ranked by `retrieval.memories`. **Tag filter (V22):** M1 comes from NCT05715229 and must be retrieved for the anchor, which names different assays (and, with no aliases, may name none that resolve, V34); so retrieval filters on `claim_kind` (for example `outcome_claim_without_results`), never on `assay` (the assay tag is recorded and shown, not required to match). The before-and-after effect is computed in A19+A20's `reports.draft`, from the memories this PR retrieves. No code path reads a memory into a grant, a policy or the gate (AD-28).
 - **Required behaviours:** authority (a memory never changes permissions; the author is the key's principal); audit reconstruction (memories used and changed appear in the run audit).
@@ -518,7 +528,7 @@ Vlad's desk also merges A05 (13:05) and A13 (13:25), the two timed proof merges 
 
 ### A25: Follow-up task execution (stretch)
 
-- **Owner:** Luis · **Story:** 10.9 · **Branch:** `story/10.9-task-run` · **Forecast:** 11:45 to 13:00, merged 14:15 (desk L, after the last core merge) · **Stretch** (V39: the loop is forecast green at about 14:35, after the gate), backend flag `task_run`; joins I3b only if merged by 14:30 and the I1 loop is green by 14:30, otherwise cut and `task_run` stays off (V28, V30)
+- **Owner:** Gregorio (V47; desk L merges) · **Story:** 10.9 · **Branch:** `story/10.9-task-run` · **Forecast:** 11:45 to 13:00, merged 14:15 (desk L, after the last core merge) · **Stretch** (V39: the loop is forecast green at about 14:35, after the gate), backend flag `task_run`; joins I3b only if merged by 14:30 and the I1 loop is green by 14:30, otherwise cut and `task_run` stays off (V28, V30)
 - **Start when merged:** A01 · **Merge after:** A24 (task document and grant), A07+A11 (`task:` runs), A19+A20 (`reports.add_related`)
 - **Prepared material (D1):** none. Write every line; copy nothing from `scripts/data/` or `dxp-*` skills (reference docs only).
 - **Scope (V9, V26, V33, V38, V42):** `tasks.run(task_id)` in `tasks/run.py`, reached only through a `task:` run that A24's `tasks.dispatch_next()` started automatically after approval (no button; `initiated_by: sam`, `agent: dxp-curator`, run ID `derive("run_", task_id)`); A10 hands the run to `tasks.run`. It first moves the task `queued` → `running` by a conditional update; no match means another worker owns it, so it exits without acting. The task answers the report's gap: it searches ClinicalTrials.gov through `discovery.scan` with the task grant for early-stage NSCLC trials that combine ctDNA or plasma testing with tissue profiling, at most 5, and records `result { answer, with_posted_results[], query, searched_count, limit }`: the answer to the task's `question`, the trials with posted results among the records searched, the query, the number searched and the limit. A capped search cannot prove that no qualifying study has posted results, so an empty result is answered "No matching results found among the records searched". Its findings are filed through `reports.add_related()` as pending related evidence on the report, never accepted knowledge (V27). Each step holds an admission and passes its own gate (grant, scope, destination, limit, run authorisation); a sixth result or a step outside the scope is blocked and recorded. Stop works on the task's run. The task ends `done`, `failed`, `blocked` or `stopped`, each by a conditional update on `running`.
