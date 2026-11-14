@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CircleAlert, CircleDashed, Clock, SearchX } from "lucide-react";
 
-import { AcceptedBadge, RejectedBadge } from "@/components/report/badges";
+import { AcceptedBadge } from "@/components/report/badges";
 import { EvidenceQuote } from "@/components/report/evidence-quote";
 import { keyLabel, nctIdOf, trialUrl } from "@/components/report/labels";
 import type { components } from "@/lib/types";
@@ -45,7 +45,7 @@ export function DiagnosticView({ dxId }: { dxId: string }) {
         <div className="flex flex-col gap-6">
           <h1 className="text-title">Diagnostic not found</h1>
           <Notice icon={SearchX} title="Diagnostic not found" role="status">
-            Nothing is accepted for this Diagnostic. Open Reports to see what is pending.
+            This Diagnostic was not found. Open Reports to see what is pending.
           </Notice>
           <div>
             <Link href="/reports" className={buttonVariants({ variant: "default" })}>
@@ -134,7 +134,8 @@ export function DiagnosticView({ dxId }: { dxId: string }) {
 
       {fields.map(({ key, label, field }) => {
         const entry = dx.fields[key];
-        const values = entry?.values ?? [];
+        // Accepted knowledge shows only current values.
+        const values = (entry?.values ?? []).filter((v) => v.state === "current");
         return (
           <section
             key={key}
@@ -180,13 +181,7 @@ function ValueRow({ value: v, field, lowThreshold }: { value: Value; field: Sche
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-body break-words font-semibold">{enumLabel ?? v.value}</span>
         {enumLabel ? <span className="text-identifier text-muted-foreground">{v.value}</span> : null}
-        {v.state === "current" ? (
-          <AcceptedBadge />
-        ) : v.state === "rejected" ? (
-          <RejectedBadge />
-        ) : (
-          <span className="text-caption text-muted-foreground">Superseded</span>
-        )}
+        <AcceptedBadge />
         {v.review === "unreviewed" ? <span className="text-caption text-muted-foreground">Unreviewed</span> : null}
         {low ? (
           <span className="inline-flex items-center gap-1 text-caption text-low-confidence">

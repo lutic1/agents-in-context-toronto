@@ -88,11 +88,11 @@ export function TaskPanel({ report, taskId }: { report: Report; taskId: string }
         task.status === "queued" && "opacity-95",
       )}
     >
-      <h3 id={`task-${task.id}`} className="flex flex-wrap items-center gap-2 text-body font-semibold">
+      <h2 id={`task-${task.id}`} className="flex flex-wrap items-center gap-2 text-body font-semibold">
         <Icon className={cn("size-4", view.tone)} strokeWidth={1.75} aria-hidden="true" />
         <span>Follow-up task</span>
         <span className={cn("text-caption font-medium", view.tone)}>{view.label}</span>
-      </h3>
+      </h2>
 
       {/* Polite live region: task status announces without taking focus. */}
       <div role="status" aria-live="polite" className="mt-1 flex flex-col gap-1.5 text-body">

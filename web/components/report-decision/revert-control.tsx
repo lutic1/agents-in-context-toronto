@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { ShieldX, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 
 import { buildPath, post } from "@/lib/api";
+import { entryAnchor } from "@/components/audit/audit-entry";
 import { features } from "@/lib/features";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,7 +34,7 @@ export function RevertControl({ report }: { report: Report }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{ text: string; href: string } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const wasOpen = useRef(false);
@@ -59,7 +61,11 @@ export function RevertControl({ report }: { report: Report }) {
       if (res.decision.outcome === "blocked") {
         // A blocked revert changes nothing: the report stays accepted.
         const check = res.decision.failed_check ?? "a check";
-        setBlocked(`Revert blocked: ${check} failed. Nothing changed.`);
+        const runId = res.decision.run_id ?? report.run_id;
+        setBlocked({
+          text: `Revert blocked: ${check} failed. Nothing changed.`,
+          href: `/runs/${encodeURIComponent(runId)}/audit#${entryAnchor(res.decision.id)}`,
+        });
       } else {
         await mutate(buildPath("/reports/{report_id}", { path: { report_id: report.id } }), res.report, {
           revalidate: false,
@@ -119,7 +125,12 @@ export function RevertControl({ report }: { report: Report }) {
           {blocked ? (
             <p className="flex items-center gap-2 border-l-[3px] border-l-destructive pl-2 text-body text-destructive" role="alert">
               <ShieldX className="size-4" strokeWidth={1.75} aria-hidden="true" />
-              {blocked}
+              <span>
+                {blocked.text}{" "}
+                <Link href={blocked.href} className="underline underline-offset-2">
+                  See the blocked decision in the audit
+                </Link>
+              </span>
             </p>
           ) : null}
           {error ? (

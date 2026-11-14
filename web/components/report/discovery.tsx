@@ -73,7 +73,7 @@ export function Discovery({ report }: { report: Report }) {
       </dl>
 
       <div className="flex flex-col gap-3">
-        <h3 className="text-caption font-semibold text-muted-foreground">Intervention, as written in the record</h3>
+        <h2 className="text-caption font-semibold text-muted-foreground">Intervention, as written in the record</h2>
         {d.intervention_text ? (
           <blockquote className="evidence-quote m-0 break-words">{d.intervention_text}</blockquote>
         ) : (
@@ -102,7 +102,7 @@ export function Discovery({ report }: { report: Report }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <h3 className="text-caption font-semibold text-muted-foreground">Supporting quotes</h3>
+        <h2 className="text-caption font-semibold text-muted-foreground">Supporting quotes</h2>
         {d.quotes.length === 0 ? (
           <p className="text-body m-0 text-muted-foreground">No quotes are attached to this discovery.</p>
         ) : (

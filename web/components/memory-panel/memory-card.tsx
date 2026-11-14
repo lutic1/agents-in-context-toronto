@@ -114,9 +114,7 @@ export function MemoryCard({
 
         {memory?.status === "revoked" ? (
           <p className="text-caption text-muted-foreground">
-            Revoked{author ? ` by ${displayName(author)}` : ""}
-            {memory.created_at ? ` at ${new Date(memory.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false })}` : ""}
-            . It will not be used again.
+            Revoked. It will not be used again.
           </p>
         ) : null}
         {memory?.status === "corrected" ? (

@@ -1,4 +1,5 @@
 import type { components } from "@/lib/types";
+import { features } from "@/lib/features";
 import { displayName } from "@/lib/format";
 
 export type Report = components["schemas"]["Report"];
@@ -35,6 +36,8 @@ export function trimStop(text: string): string {
   return text.trim().replace(/[.\s]+$/, "");
 }
 
+const NOT_AUTHORISED = "Follow-up task not authorised:";
+
 /**
  * The approval sentence (V27, V38, V45, V62), built from the stored report and
  * task so it reads the same after a reload as right after the click.
@@ -44,12 +47,15 @@ export function approvalSentence(report: Report, task: Task | null | undefined):
   const head = `Approved: ${updatesPhrase(updateCount(report))} accepted.`;
   const step = report.approval?.task_step;
   if (step === "blocked") {
-    const reason = report.approval?.reason ? trimStop(report.approval.reason) : "no reason was recorded";
-    return `${head} Follow-up task not authorised: ${reason}.`;
+    const stored = report.approval?.reason?.trim() ?? "";
+    // A24 stores the full sentence ("Follow-up task not authorised: <reason>"); use it as-is then.
+    if (stored.startsWith(NOT_AUTHORISED)) return `${head} ${trimStop(stored)}.`;
+    return `${head} ${NOT_AUTHORISED} ${stored ? trimStop(stored) : "no reason was recorded"}.`;
   }
   if (step === "pending") return `${head} Follow-up task authorisation is being completed.`;
-  if (!task) return head;
-  if (task.status === "authorised") return `${head} Follow-up task authorised; not run.`;
+  // Without the task (still loading, or the read failed), word it from the `task_run` flag (V27, V38).
+  const notRun = task ? task.status === "authorised" : !features.task_run;
+  if (notRun) return `${head} Follow-up task authorised; not run.`;
   return `${head} Follow-up task authorised; its findings will be pending review.`;
 }
 
