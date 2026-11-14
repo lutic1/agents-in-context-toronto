@@ -9,6 +9,7 @@ decision_id }`. Paths, methods, parameters and response models are A01's frozen 
   needs is built here: no run, a Reviewer stamp, a server-generated request ID and the report as the cause.
 - A blocked question is not an error: it is a 200 with `refused: true`, `refusal_reason: "blocked"` and the
   blocked Decision's ID (D5).
+- `POST /reports/<report_id>/interview/transcribe` (V73, flags `interview` and `voice_input`): see `transcribe_question`.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
 from dxp.gate import policy_sets
-from dxp.interview import answer_question, repo
+from dxp.interview import answer_question, cards, repo, transcribe
 
 router = APIRouter()
 OWNER = "Interview"
@@ -75,8 +76,38 @@ async def interview_report(report_id: str, body: m.InterviewRequest, request: Re
 
 @router.post("/reports/{report_id}/interview/transcribe", response_model=m.TranscribeResponse, tags=["reports"])
 async def transcribe_question(report_id: str, request: Request) -> m.TranscribeResponse:
-    """V73 stub (A01 contract): the raw audio body (`audio/webm` or `audio/wav`) is transcribed
-    for the user to read and edit. Finished by the interview lane; 404 while `voice_input` is off."""
-    from dxp.api.errors import not_implemented
+    """V73: the raw audio body (`audio/webm` or `audio/wav`) is transcribed for the user to read and edit.
 
-    raise not_implemented("POST /reports/<report_id>/interview/transcribe", "Interview")
+    Order: both flags (404), a person (403), the report (404, 409), the content type (415), the size cap (a refusal
+    `too_long`, before the gate), then the gate and the ElevenLabs call. Nothing is submitted and nothing is stored."""
+    if not (feature_enabled("interview") and feature_enabled("voice_input")):
+        raise ApiError(404, "not_found", "Not found.")
+    principal = await auth.require_principal(request)
+    if principal.kind != "person":
+        raise ApiError(403, "person_only", "Only a person can ask a question by voice.")
+    report = await repo.get_report(report_id)
+    if report is None:
+        raise ApiError(404, "not_found", "Report not found.")
+    if not cards.is_accepted(report):
+        raise ApiError(409, "report_not_accepted", "Only an accepted report can be interviewed.")
+    mime = transcribe.normalise_mime(request.headers.get("content-type"))
+    if mime is None:
+        raise ApiError(415, "unsupported_media_type", "Send the recording as audio/webm or audio/wav.")
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > transcribe.MAX_BYTES:
+        return transcribe.too_long()
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():  # stop reading at the cap: an oversized body is never held in memory
+        size += len(chunk)
+        if size > transcribe.MAX_BYTES:
+            return transcribe.too_long()
+        chunks.append(chunk)
+    audio = b"".join(chunks)
+    if not audio:
+        raise ApiError(422, "invalid_request", "No audio was sent.")
+    ctx = await reviewer_context(request, principal, report)
+    try:
+        return await transcribe.transcribe(report_id, audio, mime, ctx, report=report)
+    except NotImplementedError as exc:
+        raise ApiError(501, "not_implemented", "The policy gate is not on main yet (A06).") from exc
