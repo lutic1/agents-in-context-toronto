@@ -51,7 +51,12 @@ async def ensure_diagnostic(name: str, ctx: Any, *, display_name: str | None = N
     dx_id = deps.derive("dx_", key)
     now = deps.now()
     alias, _ = await insert_if_absent(
-        db["aliases"], {"_id": key, "diagnostic_id": dx_id, "name": name, "created_at": now}, session=s
+        db["aliases"],
+        # created_mode: A02's identity.resolve_exact treats an alias as an FDA trade name
+        # unless it was created live, so a run's alias never resolves as one (V34).
+        {"_id": key, "diagnostic_id": dx_id, "name": name, "created_mode": ctx.mode,
+         "created_run_id": ctx.run_id, "created_at": now},
+        session=s
     )
     dx_id = alias["diagnostic_id"]
     _, created = await insert_if_absent(

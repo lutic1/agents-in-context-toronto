@@ -9,7 +9,7 @@ import pytest
 
 from dxp import ledger
 
-from .world import ANCHOR, SCOPE_ID, derive, dx
+from .world import ANCHOR, SCOPE_ID, derive, dx, normalise_name
 
 apply_mod = importlib.import_module("dxp.ledger.apply")  # the package attribute "apply" is the function
 
@@ -290,3 +290,19 @@ async def test_file_returns_one_decision_per_gated_change(world):
     out = await ledger.file("f_anchor", [scope_change(), mention_change(w)], "live", w.run_ctx(adm, report_id="rep_a"))
     assert [type(d) for d in out] == [Decision, Decision]
     assert [d.outcome for d in out] == ["allowed", "blocked"]
+
+
+async def test_an_alias_created_in_a_live_run_never_resolves_as_an_fda_trade_name(world):
+    """V34: only FDA trade names resolve; an alias a run creates is marked live."""
+    from dxp.identity import resolve_exact
+    from dxp.ledger import ensure_diagnostic
+
+    w = world
+    name = "Brand New Assay"
+    dx_id = await ensure_diagnostic(name, w.run_ctx(None))
+    alias = await w.db["aliases"].find_one({"_id": normalise_name(name)})
+    assert alias["created_mode"] == "live" and alias["created_run_id"] == w.run_id
+    assert await resolve_exact(name, aliases=w.db["aliases"]) is None
+    assert (await w.db["diagnostics"].find_one({"_id": dx_id}))["created_mode"] == "live"
+    # a seeded FDA trade name still resolves
+    assert await resolve_exact("FoundationOne Liquid CDx", aliases=w.db["aliases"]) == w.dx_f1l
