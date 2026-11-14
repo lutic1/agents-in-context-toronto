@@ -9,9 +9,11 @@ Only Governance writes `runs` (spine layer table), so the run's progress goes th
   `proposals`, `reports` and `actions` for this run); never `not_admitted`, which is
   `runs.admit`'s (AD-21). `active_items` is the whole list of `{ source_ref, step }` in
   progress and `failure_lines` the whole list of `{ source_ref, error }` (codes, never source
-  text); each call sends the full current values, so a repeat is harmless.
-- `runs.fail(run_id, error)`: `running | stopping` -> `failed`, only on an error the pipeline
-  cannot recover from (D23).
+  text); each call sends the full current values, so a repeat is harmless. Returns False once
+  the run has ended.
+- `runs.fail(run_id, error) -> Run`: `running | stopping` -> `failed` (conditional, with a
+  failure line `{ source_ref: "-", error }`), only on an error the pipeline cannot recover
+  from (D23).
 
 This module still writes what the layer table gives the ingest filters:
 `source_items.processed.<scope_id>.<version_id>` = processed_at, a timestamp (set when an item's report is filed, so a
@@ -48,8 +50,9 @@ class Progress:
     def active(self) -> list[dict[str, str]]:
         return [{"source_ref": ref, "step": s} for ref, s in self._active.items()]
 
-    async def _record(self) -> None:
-        await runs.record_progress(
+    async def _record(self) -> bool:
+        """False once the run has ended (A07+A11); nothing more is recorded then."""
+        return await runs.record_progress(
             self.run_id,
             counts=dict(self.counts),
             active_items=self.active,

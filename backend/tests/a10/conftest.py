@@ -153,22 +153,32 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         if run["status"] == "stopping" and held() == 0:
             run["status"] = "stopped"
 
-    # A07+A11's progress functions (not on main yet): merge counts, replace active and failures.
-    async def record_progress(run_id: str, *, counts: dict[str, int], active_items: list[Any],
-                              failure_lines: list[Any]) -> None:
+    # A07+A11's progress functions (PR #30, head c6a31f1), with the same types and returns.
+    from dxp.api.models import Run, RunCounts
+
+    async def record_progress(run_id: str, *, counts: dict[str, int], active_items: list[dict[str, str]],
+                              failure_lines: list[dict[str, str]]) -> bool:
         log("runs.record_progress", run_id)
-        assert "not_admitted" not in counts, "not_admitted belongs to runs.admit"
+        bad = [k for k in counts if k == "not_admitted" or k not in RunCounts.model_fields]
+        if bad:
+            raise ValueError(f"counts keys not allowed: {bad}")
         run = db["runs"].docs[run_id]
+        if run["status"] in ("done", "stopped", "failed"):
+            return False
         run.setdefault("counts", {}).update(counts)
         run["active"] = list(active_items)
         run["failures"] = list(failure_lines)
+        return True
 
-    async def fail(run_id: str, error: str) -> None:
+    async def fail(run_id: str, error: str) -> Run:
         log("runs.fail", (run_id, error))
         run = db["runs"].docs[run_id]
         if run["status"] in ("running", "stopping"):
             run["status"] = "failed"
             run["error"] = error
+            run.setdefault("failures", []).append({"source_ref": "-", "error": error})
+        return Run(id=run_id, agent="dxp-curator", initiated_by="sam", grant_id="lbdx", grant_version=1,
+                   set=run["set"], kind=run.get("kind", "discover"), status=run["status"])
 
     for name, fn in {"context": context, "admit": admit, "release": release, "finish": finish, "settle": settle,
                      "record_progress": record_progress, "fail": fail}.items():
