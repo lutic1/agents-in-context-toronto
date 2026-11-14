@@ -46,6 +46,8 @@ SEED_DATA = Path(__file__).with_name("seed_data")
 KEY_VARS = ("DXP_AGENT_KEY", "DXP_API_KEY", "DXP_SEED_KEY")
 SEED_KEY_VAR = "DXP_SEED_KEY"
 SEED_COLLECTIONS = ("grants", "policies", "policy_sets", "research_scopes")
+# Scope fields the seed owns and may change on a rerun (scan config, Luis's ruling on PR #17).
+SCOPE_SEED_CONFIG = ("condition_aliases", "priority_refs")
 
 
 class SeedError(Exception):
@@ -190,6 +192,16 @@ async def _insert_if_absent(collection: Any, doc: dict[str, Any], ignore: tuple[
     return "unchanged"
 
 
+async def _sync_scope_config(collection: Any, scope: dict[str, Any]) -> str:
+    """Set the seed-owned scan config on an existing scope; `updated` or `unchanged`."""
+    existing = await collection.find_one({"_id": scope["_id"]})
+    wanted = {k: scope[k] for k in SCOPE_SEED_CONFIG if k in scope}
+    if all(existing.get(k) == v for k, v in wanted.items()):
+        return "unchanged"
+    await collection.update_one({"_id": scope["_id"]}, {"$set": wanted})
+    return "updated"
+
+
 async def check_seed_authority(db: Any, env: Mapping[str, str]) -> None:
     """Once `seed@v1` exists, only its own key may run the seed, and only while it is active."""
     seed_grant = await policy_sets.latest_grant("seed", db)
@@ -217,10 +229,13 @@ async def seed(db: Any, env: Mapping[str, str] | None = None, data_dir: Path = S
     for policy in docs["policies"]:
         summary["policies"][policy["_id"]] = await _insert_if_absent(db["policies"], policy, ("created_at",))
     for scope in docs["research_scopes"]:
-        # The cursor and its version belong to discovery once seeded (AD-25); compare the rest.
-        summary["research_scopes"][scope["_id"]] = await _insert_if_absent(
-            db["research_scopes"], scope, ("created_at", "cursor", "version")
-        )
+        # The cursor and its version belong to discovery once seeded (AD-25). The scan
+        # config (`condition_aliases`, `priority_refs`) is seed-owned: a rerun sets it.
+        ignore = ("created_at", "cursor", "version", *SCOPE_SEED_CONFIG)
+        outcome = await _insert_if_absent(db["research_scopes"], scope, ignore)
+        if outcome == "unchanged":
+            outcome = await _sync_scope_config(db["research_scopes"], scope)
+        summary["research_scopes"][scope["_id"]] = outcome
     current = await policy_sets.record_current_set(db)
     summary["policy_set"] = policy_sets.display_policy_set(current["_id"], len(current["members"]))
     summary["policy_set_version"] = current["_id"]

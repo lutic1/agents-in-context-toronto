@@ -5,7 +5,12 @@ aliases (search terms only, never used to resolve a name, V34), condition,
 source: "clinicaltrials.gov", cursor: { last_update_post_date, set_at,
 set_by_run_id } }`. The cursor date is the ClinicalTrials.gov `YYYY-MM-DD`
 text used in `AREA[LastUpdatePostDate]RANGE[<cursor>,MAX]`; a parsed BSON date
-is also accepted. Only `discovery` (A05) moves the cursor after the seed, by a
+is also accepted.
+
+`condition_aliases` (search terms only: they widen the API condition query; the
+gate and the report judge the plain `condition`) and `priority_refs` (the
+explicit order the scan uses, so it shows in the audit) are optional,
+seed-owned scan config. Only `discovery` (A05) moves the cursor after the seed, by a
 conditional update on `version` that also increments it (seeded as 1).
 """
 
@@ -30,6 +35,8 @@ JSON_SCHEMA = document(
         "team_id": STRING,
         "assays": array_of(STRING, min_items=1, unique=True),
         "aliases": array_of(STRING, unique=True),
+        "condition_aliases": array_of(STRING, unique=True),
+        "priority_refs": array_of(pattern("^NCT[0-9]{8}$"), unique=True),
         "condition": STRING,
         "source": enum(["clinicaltrials.gov"]),
         "cursor": CURSOR,

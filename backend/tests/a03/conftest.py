@@ -61,6 +61,18 @@ class FakeCollection:
         found = await self.find(query).to_list(1)
         return found[0] if found else None
 
+    async def update_one(self, query: dict[str, Any], update: dict[str, Any]) -> None:
+        doc = await self.find_one(query)
+        if doc is None:
+            return
+        doc.update(update["$set"])
+        validator = self.db.validators.get(self.name)
+        if validator is not None:
+            problems = jsonschema_lite.validate(validator, doc)
+            if problems:
+                raise WriteError("Document failed validation: " + "; ".join(problems), 121)
+        self.docs[doc["_id"]] = doc
+
     async def insert_one(self, doc: dict[str, Any]) -> None:
         validator = self.db.validators.get(self.name)
         if validator is not None:

@@ -88,6 +88,9 @@ def test_committed_seed_data_has_the_od2_cursor_and_version():
     assert scope["version"] == 1
     assert scope["name"] == "Plasma ctDNA genotyping assays in NSCLC"
     assert scope["aliases"] == ["ctDNA", "cell-free DNA", "liquid biopsy"]  # search terms only (V34)
+    assert scope["condition"] == "non-small cell lung cancer"  # what the gate and report judge
+    assert scope["condition_aliases"] == ["NSCLC"]  # search term only
+    assert scope["priority_refs"] == ["NCT04712877"]  # the scan's explicit order
 
 
 @pytest.mark.parametrize("missing", ["DXP_AGENT_KEY", "DXP_API_KEY", "DXP_SEED_KEY"])
@@ -135,6 +138,39 @@ def test_scope_cursor_is_left_to_discovery(fake_db, tmp_path, keys):
     assert (
         fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]["cursor"]["last_update_post_date"] == "2099-01-01"
     )
+
+
+def test_seed_rerun_sets_the_seed_owned_scan_config(fake_db, tmp_path, keys):
+    data = seed_data_dir(tmp_path)
+    run(seed.seed(fake_db, keys, data))
+    stored = fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]
+    stored["cursor"]["last_update_post_date"] = "2099-01-01"  # as discovery would advance it
+    stored["version"] = 2
+    scopes_file = data / "research_scopes.json"
+    raw = json.loads(scopes_file.read_text(encoding="utf-8"))
+    raw["research_scopes"][0]["priority_refs"] = ["NCT04712877", "NCT05715229"]
+    raw["research_scopes"][0]["condition_aliases"] = ["NSCLC", "non-small cell lung carcinoma"]
+    scopes_file.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
+
+    summary = run(seed.seed(fake_db, keys, data))
+    assert summary["research_scopes"]["scope_plasma_ctdna_nsclc"] == "updated"
+    stored = fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]
+    assert stored["priority_refs"] == ["NCT04712877", "NCT05715229"]
+    assert stored["condition_aliases"] == ["NSCLC", "non-small cell lung carcinoma"]
+    assert stored["cursor"]["last_update_post_date"] == "2099-01-01" and stored["version"] == 2  # discovery's
+    again = run(seed.seed(fake_db, keys, data))
+    assert again["research_scopes"]["scope_plasma_ctdna_nsclc"] == "unchanged"
+
+
+def test_seed_still_refuses_to_change_the_scope_itself(fake_db, tmp_path, keys):
+    data = seed_data_dir(tmp_path)
+    run(seed.seed(fake_db, keys, data))
+    scopes_file = data / "research_scopes.json"
+    raw = json.loads(scopes_file.read_text(encoding="utf-8"))
+    raw["research_scopes"][0]["condition"] = "small cell lung cancer"
+    scopes_file.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(seed.SeedError, match="never edited in place"):
+        run(seed.seed(fake_db, keys, data))
 
 
 def test_seed_data_holds_no_key_or_hash():

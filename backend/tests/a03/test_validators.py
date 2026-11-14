@@ -72,6 +72,13 @@ def test_bad_document_is_rejected(collection, path, value, why):
     assert validate(schemas.validator(collection), bad_document(collection, path, value)), why
 
 
+def test_scope_scan_config_is_optional(tmp_path, keys):
+    scope = copy.deepcopy(seeded(tmp_path, keys)["research_scopes"][0])
+    assert ok("research_scopes", scope)
+    for key in ("condition_aliases", "priority_refs"):
+        assert ok("research_scopes", {k: v for k, v in scope.items() if k != key})
+
+
 def test_every_validated_collection_has_a_rejection_case():
     covered = {c[0] for c in BAD_CHANGES} | {"grants", "policies", "research_scopes"}
     assert covered == set(schemas.COLLECTIONS)
@@ -198,6 +205,10 @@ def test_bad_policy_is_rejected(tmp_path, keys, field, value, why):
         ("source", "pubmed", "a scope on another source"),
         ("assays", [], "a scope with no assays"),
         ("version", None, "a scope without its version"),
+        ("condition_aliases", "NSCLC", "condition aliases that are not a list"),
+        ("condition_aliases", [""], "an empty condition alias"),
+        ("priority_refs", ["04712877"], "a priority ref that is not an NCT ID"),
+        ("priority_refs", ["NCT04712877", "NCT04712877"], "a repeated priority ref"),
     ],
 )
 def test_bad_scope_is_rejected(tmp_path, keys, path, value, why):
