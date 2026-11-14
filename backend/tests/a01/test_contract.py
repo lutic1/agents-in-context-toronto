@@ -229,11 +229,11 @@ async def test_start_hook_order_and_no_task_start_while_task_run_is_off(monkeypa
     for module, name in (("dxp.ledger", "recover_applying"), ("dxp.retrieval", "ensure_indexes"),
                          ("dxp.reports", "recover_accepting"), ("dxp.tasks", "recover_authorisations"),
                          ("dxp.ledger", "recover_reverting"), ("dxp.reports", "recover_reverting")):
-        original = getattr(__import__(module, fromlist=[name]), name)
-
-        async def wrapped(_orig=original, _label=f"{module}.{name}"):
+        # Record the order only: once an owner finishes one of these (A06's
+        # recover_applying first), the real call needs Atlas, which this test does not.
+        async def wrapped(_label=f"{module}.{name}"):
             calls.append(_label)
-            return await _orig()
+            return None
 
         monkeypatch.setattr(__import__(module, fromlist=[name]), name, wrapped)
 
