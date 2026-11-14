@@ -29,7 +29,7 @@ async def _counts(db, names) -> dict[str, int]:
     return {n: await db[n].count_documents({}) for n in names}
 
 
-async def test_fda_rows_and_seed_are_idempotent_on_atlas(db, fda_page, fake_gate) -> None:
+async def test_fda_rows_and_seed_are_idempotent_on_atlas(db, fda_page, fake_gate, monkeypatch) -> None:
     from .conftest import FakeLedger
 
     rows = fda_cdx.lung_rows(fda_cdx.parse_rows(fda_page))
@@ -44,9 +44,16 @@ async def test_fda_rows_and_seed_are_idempotent_on_atlas(db, fda_page, fake_gate
     second = await seed_mod.seed(db, file=ledger.file)
     assert second.filed == 0 and await _counts(db, names) == before
 
-    from dxp.api import routes_teams
+    from types import SimpleNamespace
 
-    teams = await routes_teams.list_teams()
+    from dxp.api import auth, routes_teams
+    from dxp.api.models import Principal
+
+    async def resolve_actor(api_key: str) -> Principal:
+        return Principal(id="sam", name="Sam", kind="person")
+
+    monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
+    teams = await routes_teams.list_teams(SimpleNamespace(headers={"X-DxP-Key": "reviewer-key"}))
     assert {t.name for t in teams.items} == {t["name"] for t in seed_mod.TEAMS}
     assert all(t.synthetic for t in teams.items)
 
@@ -75,7 +82,7 @@ def test_reset_round_trip_keeps_validators_and_indexes(reset_demo, tmp_path) -> 
 
         snap = tmp_path / "snap"
         reset_demo.snapshot(client, src, snap, uri=uri)
-        restored = reset_demo.restore(client, dst, snap, uri=uri)
+        restored = reset_demo.restore(client, dst, snap, uri=uri, allow_other_source=True)
         assert restored["teams"] == 2 and restored["memories"] == 1
         target = client[dst]
         assert sorted(d["_id"] for d in target["teams"].find()) == ["team_a", "team_b"]

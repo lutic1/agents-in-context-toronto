@@ -150,7 +150,7 @@ def test_restore_into_another_database_maps_the_namespace(reset_demo, client, tm
     tools = FakeTools(client)
     snap = tmp_path / "snap"
     reset_demo.snapshot(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=tools)
-    reset_demo.restore(client, "dxp_test_copy", snap, uri=URI, tools=TOOLS, runner=tools)
+    reset_demo.restore(client, "dxp_test_copy", snap, uri=URI, tools=TOOLS, runner=tools, allow_other_source=True)
     argv = tools.calls[1]
     assert "--nsFrom=dxp_test_demo.*" in argv and "--nsTo=dxp_test_copy.*" in argv
     assert client.dbs["dxp_test_copy"].data["teams"] == [{"_id": "team_a"}, {"_id": "team_b"}]
@@ -218,3 +218,46 @@ def test_the_script_posts_nothing(reset_demo) -> None:
     source = (reset_demo.REPO / "scripts" / "reset_demo.py").read_text()
     for word in ("httpx", "requests", "urllib", "SLACK_WEBHOOK_URL", "dxp.actions", "hooks.slack"):
         assert word not in source
+
+
+def test_restore_refuses_another_databases_snapshot_unless_allowed(reset_demo, client, tmp_path) -> None:
+    tools = FakeTools(client)
+    snap = tmp_path / "snap"
+    reset_demo.snapshot(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=tools)
+    target = client["dxp_test_target"]
+    target.data["teams"] = [{"_id": "keep"}]
+    client.log.clear()
+    with pytest.raises(reset_demo.ResetError, match="snapshot of 'dxp_test_demo'"):
+        reset_demo.restore(client, "dxp_test_target", snap, uri=URI, tools=TOOLS, runner=tools)
+    assert target.data["teams"] == [{"_id": "keep"}]  # refused before anything was emptied
+    assert not any(entry[0] == "delete_many" for entry in client.log) and len(tools.calls) == 1
+
+
+def _write_snapshot(root: Path, name: str, db: str, taken: str) -> Path:
+    folder = root / name
+    (folder / db).mkdir(parents=True)
+    (folder / "manifest.json").write_text(json.dumps({"db": db, "taken_at": taken, "collections": {}}))
+    return folder
+
+
+def test_main_without_dir_restores_the_newest_snapshot_of_the_same_database(reset_demo, client, tmp_path, monkeypatch) -> None:
+    demo = _write_snapshot(tmp_path, "demo", "dxp_test_demo", "2026-11-14T14:00:00+00:00")
+    _write_snapshot(tmp_path, "later-test", "dxp_test_other", "2026-11-14T15:00:00+00:00")  # newer, other db
+    seen: list[tuple[str, Path, bool]] = []
+
+    def fake_restore(_client, db_name, snapshot_dir, *, uri, allow_other_source=False, **_):
+        seen.append((db_name, snapshot_dir, allow_other_source))
+        return {}
+
+    monkeypatch.setenv("MONGODB_URI", URI)
+    monkeypatch.setattr(reset_demo, "_client", lambda uri: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(reset_demo, "restore", fake_restore)
+    assert reset_demo.main(["--db", "dxp_test_demo", "--root", str(tmp_path)]) == 0
+    assert seen == [("dxp_test_demo", demo, False)]
+    # no snapshot of this database at all: refuse rather than take another database's
+    assert reset_demo.main(["--db", "dxp_test_none", "--root", str(tmp_path)]) == 2
+    assert len(seen) == 1
+    # an explicit --dir may name another database's snapshot
+    other = tmp_path / "later-test"
+    assert reset_demo.main(["--db", "dxp_test_demo", "--dir", str(other)]) == 0
+    assert seen[-1] == ("dxp_test_demo", other, True)

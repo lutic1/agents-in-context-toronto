@@ -246,22 +246,21 @@ class FakeLedger:
     db: Any
     calls: list[tuple[str, list[dict[str, Any]], str, Any]] = field(default_factory=list)
 
-    async def file(self, finding_id: str, changes: list[dict[str, Any]], mode: str, ctx: dict[str, Any]):
+    async def file(self, finding_id: str, changes: list[dict[str, Any]], mode: str, ctx: Any):
         from dxp import gate
-        from dxp.api.models import EvidenceRef, ProposedAction, Stamp, Target
+        from dxp.api.models import EvidenceRef, ProposedAction, RunContext, Target
         from dxp.identity import derive, normalise_name
 
+        # The frozen A01 signature: ctx is a RunContext, read by attribute, never a dict.
+        assert isinstance(ctx, RunContext), f"ledger.file takes a RunContext, got {type(ctx).__name__}"
         self.calls.append((finding_id, changes, mode, ctx))
         assert mode == "baseline"
+        stamp = ctx.stamp.model_dump()
         out = []
         for change in changes:
             alias = normalise_name(change["assay_name"])
             dx_id = derive("dx_", alias)
             p_id = derive("p_", finding_id, change["field"], change["value"])
-            gate_ctx = SimpleNamespace(
-                run_id=ctx["run_id"], stamp=Stamp(**ctx["stamp"]), grant_id=ctx["grant_id"],
-                grant_version=ctx["grant_version"], cause=None, request_id=None, policy_set_version=None,
-            )
             action = ProposedAction(
                 kind="apply_value", destination="ledger",
                 target=Target(diagnostic_id=dx_id, proposal_id=p_id),
@@ -271,10 +270,10 @@ class FakeLedger:
                     finding_id=finding_id, proposal_id=p_id, quote=change["evidence"]["quote"],
                 ),
             )
-            decision = await gate.evaluate(gate_ctx, action)
+            decision = await gate.evaluate(ctx, action)
             await self.db["decisions"].update_one(
                 {"_id": decision.id},
-                {"$setOnInsert": {**decision.model_dump(), "_id": decision.id, "agent": "seed", "initiated_by": "seed"}},
+                {"$setOnInsert": {**decision.model_dump(), "_id": decision.id, "agent": ctx.principal.id, "initiated_by": ctx.principal.id}},
                 upsert=True,
             )
             if decision.outcome == "blocked":
@@ -288,14 +287,14 @@ class FakeLedger:
             await self.db["diagnostics"].update_one(
                 {"_id": dx_id},
                 {"$setOnInsert": {"_id": dx_id, "name": change["diagnostic_name"], "created_mode": "baseline",
-                                  "created_run_id": None, "stamp": ctx["stamp"]}},
+                                  "created_run_id": ctx.run_id, "stamp": stamp}},
                 upsert=True,
             )
             await self.db["proposals"].update_one(
                 {"_id": p_id},
                 {"$setOnInsert": {"_id": p_id, "finding_id": finding_id, "diagnostic_id": dx_id,
                                   "field": change["field"], "value": change["value"], "status": "applied",
-                                  "mode": mode, "run_id": None, "stamp": ctx["stamp"],
+                                  "mode": mode, "run_id": ctx.run_id, "stamp": stamp,
                                   "decision_id": decision.id, "evidence": change["evidence"]}},
                 upsert=True,
             )

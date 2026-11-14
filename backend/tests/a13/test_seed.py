@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from dxp.api.models import RunContext
 from dxp.identity import derive, diagnostic_id, normalise_name, resolve_exact
 from dxp.ledger import seed as seed_mod
 from dxp.sources import fda_cdx
@@ -76,9 +77,10 @@ async def test_seed_files_every_value_through_the_ledger_in_baseline_mode(fake_d
     assert len(fake_ledger.calls) == len(plan) == len(fake_gate.calls)  # one gate evaluation per change (D46)
     for finding_id, changes, mode, ctx in fake_ledger.calls:
         assert mode == "baseline" and len(changes) == 1
-        assert ctx["stamp"] == {"kind": "seed", "principal": "seed", "run_id": None}
-        assert ctx["run_id"] is None and ctx["agent"] == "seed" and ctx["initiated_by"] == "seed"
-        assert ctx["grant_id"] == "seed" and ctx["grant_version"] == 1
+        assert isinstance(ctx, RunContext)
+        assert ctx.stamp.kind == "seed" and ctx.stamp.principal == "seed" and ctx.stamp.run_id is None
+        assert ctx.run_id is None and ctx.principal.id == "seed" and ctx.principal.kind == "seed"
+        assert ctx.grant_id == "seed" and ctx.grant_version == 1 and ctx.mode == "baseline"
     for _, action in fake_gate.calls:
         assert action.kind == "apply_value" and action.destination == "ledger"
     # the ledger was handed exact trade names, so the aliases it wrote resolve exactly (V34)
@@ -152,3 +154,28 @@ class _SyncAliases:
 
     def find_one(self, flt, *args, **kwargs):
         return self._docs.get(flt["_id"])
+
+
+def test_seed_context_is_a_frozen_runcontext() -> None:
+    ctx = seed_mod.seed_context(3)
+    assert isinstance(ctx, RunContext)
+    assert RunContext.model_validate(ctx.model_dump()) == ctx  # round-trips through the frozen model
+    assert ctx.principal.model_dump() == {"id": "seed", "name": "seed", "kind": "seed", "actions": ["apply_value"]}
+    assert ctx.stamp.model_dump(exclude_none=True) == {"kind": "seed", "principal": "seed"}
+    assert ctx.run_id is None and ctx.grant_id == "seed" and ctx.grant_version == 3 and ctx.mode == "baseline"
+    assert ctx.request_id is None and ctx.cause is None and ctx.admission_id is None
+
+
+async def test_seed_uses_the_seed_grant_version_in_force(fake_db, fda_page, fake_ledger) -> None:
+    await _stored(fake_db, fda_page)
+    await fake_db["grants"].insert_one({"_id": "seed@v1", "grant_id": "seed", "version": 1, "status": "revoked"})
+    await fake_db["grants"].insert_one({"_id": "seed@v2", "grant_id": "seed", "version": 2, "status": "active"})
+    await seed_mod.seed_diagnostics(fake_db, file=fake_ledger.file)
+    assert {call[3].grant_version for call in fake_ledger.calls} == {2}
+
+
+async def test_seed_refuses_a_dict_context(fake_db, fda_page, fake_ledger) -> None:
+    await _stored(fake_db, fda_page)
+    with pytest.raises(TypeError, match="RunContext"):
+        await seed_mod.seed_diagnostics(fake_db, file=fake_ledger.file, ctx={"grant_id": "seed"})
+    assert not fake_ledger.calls

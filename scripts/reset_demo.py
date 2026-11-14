@@ -11,7 +11,9 @@ database name and each collection's document count. Take it at the end of I1 set
 run: the script refuses when the database has no active memory or already has a discover run,
 unless told otherwise.
 
-Restore (the default): for every collection of the database named by `--db`,
+Restore (the default): without `--dir`, the newest snapshot of the same database under
+`--root`; a snapshot of another database is restored only when named with `--dir`. Then, for
+every collection of the database named by `--db`,
 `delete_many({})` (never a drop, so validators and indexes, including the Atlas Search and
 Vector Search indexes, stay), then `mongorestore` of the snapshot into that database only
 (`--nsInclude`, and `--nsFrom`/`--nsTo` when the snapshot came from another database), then a
@@ -212,16 +214,25 @@ def restore(
     uri: str,
     runner: Runner = subprocess.run,
     tools: dict[str, str] | None = None,
+    allow_other_source: bool = False,
 ) -> dict[str, int]:
     """Empty every collection of ``db_name`` (never drop), then mongorestore the snapshot into it.
 
+    A snapshot of another database is restored only with ``allow_other_source`` (on the
+    command line: only when the snapshot folder is named with ``--dir``), so a test snapshot
+    can never be poured into ``dxp`` by accident. Checked before anything is emptied.
     Returns the restored counts; raises ``ResetError`` if they differ from the manifest.
     """
     db_name = check_target(db_name)
     snapshot_dir = snapshot_dir.expanduser().resolve()
     manifest = read_manifest(snapshot_dir)
-    tools = tools or require_tools(["mongorestore"])
     source = manifest["db"]
+    if source != db_name and not allow_other_source:
+        raise ResetError(
+            f"{snapshot_dir} is a snapshot of {source!r}, not {db_name!r}: name it with --dir "
+            "to restore it into another database"
+        )
+    tools = tools or require_tools(["mongorestore"])
     db = client[db_name]
     for name in user_collections(db):
         db[name].delete_many({})
@@ -273,8 +284,9 @@ def main(argv: list[str] | None = None) -> int:
                 total = sum(manifest["collections"].values())
                 print(f"snapshot of {db_name}: {total} documents in {len(manifest['collections'])} collections -> {out_dir}")
             else:
-                snapshot_dir = args.dir or latest_snapshot(args.root.expanduser())
-                restored = restore(client, db_name, snapshot_dir, uri=uri)
+                # Without --dir, only a snapshot of this same database is ever picked.
+                snapshot_dir = args.dir or latest_snapshot(args.root.expanduser(), db_name)
+                restored = restore(client, db_name, snapshot_dir, uri=uri, allow_other_source=args.dir is not None)
                 print(f"restored {db_name} from {snapshot_dir}: {sum(restored.values())} documents")
         finally:
             client.close()

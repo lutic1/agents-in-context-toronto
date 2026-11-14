@@ -10,8 +10,8 @@ Run from the command line only, with the dedicated seed key ``DXP_SEED_KEY`` (AD
   ``aliases`` or ``diagnostics`` itself (AD-1). FoundationOne CDx (tissue) and FoundationOne
   Liquid CDx (plasma) are two Diagnostics and are never merged.
 - Every value goes through ``ledger.file(finding_id, changes, "baseline", ctx)`` under
-  ``seed@v1`` with the seed stamp ``{ kind: seed, principal: seed, run_id: null }``; the ledger
-  gates it and applies it at once as ``unreviewed`` (AD-1, AD-4).
+  ``seed@v1``, with a ``RunContext`` that carries the seed principal and the seed stamp
+  ``{ kind: seed, principal: seed, run_id: null }``; the ledger gates it and applies it at once as ``unreviewed`` (AD-1, AD-4).
 - Values are set by rule from the row, with no model call: ``lifecycle_stage`` is
   ``regulatory_approval``; ``regulatory_status`` follows the number (P: PMA, K: 510(k),
   DEN: De Novo); ``provider`` is the manufacturer; ``biomarkers``, ``linked_drugs``,
@@ -40,7 +40,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from dxp.identity import derive, diagnostic_id, normalise_name
+from dxp.api.models import Principal, RunContext, Stamp
+from dxp.identity import derive, diagnostic_id
 from dxp.schema import registry
 from dxp.sources import fda_cdx
 
@@ -65,7 +66,7 @@ SEED_GRANT_ID = "seed"
 SEED_STAMP: dict[str, Any] = {"kind": "seed", "principal": "seed", "run_id": None}
 TRIGGER = "fda_seed"
 
-FileFn = Callable[[str, list[dict[str, Any]], str, Any], Awaitable[Any]]
+FileFn = Callable[[str, list[dict[str, Any]], str, RunContext], Awaitable[Any]]
 
 
 class SeedError(RuntimeError):
@@ -143,25 +144,27 @@ async def seed_teams(db: Any, created_at: datetime | None = None) -> dict[str, i
 # ---------------------------------------------------------------------------
 
 
-def seed_context() -> dict[str, Any]:
-    """The context ``ledger.file`` receives for a seed write.
+def seed_context(grant_version: int = 1) -> RunContext:
+    """The ``RunContext`` ``ledger.file`` receives for a seed write (the frozen A01 signature).
 
-    A plain mapping, so the ledger's own context type (A06) can read it: ``kind: seed``,
-    principal ``seed``, grant ``seed`` (``seed@v1``), ``run_id`` null, ``agent`` and
-    ``initiated_by`` ``seed`` (the Decision records them), ``baseline`` mode and the seed stamp.
+    No run (``run_id`` null), the seed principal (``kind: seed``), the seed grant ``seed`` at
+    the version in force, ``baseline`` mode and the seed stamp ``{ kind: seed, principal:
+    seed, run_id: null }`` (AD-17, D19). The ledger and gate record ``agent`` and
+    ``initiated_by`` as ``seed`` on each Decision from this seed principal.
     """
-    return {
-        "kind": "seed",
-        "principal": "seed",
-        "grant_id": SEED_GRANT_ID,
-        "grant_version": 1,
-        "run_id": None,
-        "agent": "seed",
-        "initiated_by": "seed",
-        "mode": "baseline",
-        "report_id": None,
-        "stamp": dict(SEED_STAMP),
-    }
+    return RunContext(
+        run_id=None,
+        principal=Principal(id="seed", name="seed", kind="seed", actions=["apply_value"]),
+        stamp=Stamp(**SEED_STAMP),
+        grant_id=SEED_GRANT_ID,
+        grant_version=grant_version,
+        mode="baseline",
+    )
+
+
+async def seed_grant(db: Any) -> dict[str, Any] | None:
+    """The latest stored version of the seed grant, or None."""
+    return await db["grants"].find_one({"grant_id": SEED_GRANT_ID}, sort=[("version", -1)])
 
 
 # ---------------------------------------------------------------------------
@@ -342,13 +345,17 @@ def _outcomes(result: Any) -> list[str]:
     return out
 
 
-async def seed_diagnostics(db: Any, *, file: FileFn | None = None, ctx: Any = None) -> SeedReport:
+async def seed_diagnostics(db: Any, *, file: FileFn | None = None, ctx: RunContext | None = None) -> SeedReport:
     """File every planned value through the ledger, skipping proposals that already exist."""
     if file is None:
         from dxp import ledger
 
         file = ledger.file
-    ctx = ctx if ctx is not None else seed_context()
+    if ctx is None:
+        grant = await seed_grant(db)
+        ctx = seed_context(int(grant["version"]) if grant else 1)
+    if not isinstance(ctx, RunContext):
+        raise TypeError("ledger.file takes a RunContext (frozen A01 signature)")
     items = [doc async for doc in db["source_items"].find({"source": fda_cdx.SOURCE})]
     report = SeedReport(rows=len(items))
     if not items:
@@ -376,7 +383,7 @@ async def check_seed_key(db: Any, env: dict[str, str] | None = None) -> None:
     key = env.get(SEED_KEY_VAR, "")
     if not key:
         raise SeedError(f"{SEED_KEY_VAR} is not set: the seed runs only with the seed key (AD-18)")
-    grant = await db["grants"].find_one({"grant_id": SEED_GRANT_ID}, sort=[("version", -1)])
+    grant = await seed_grant(db)
     if grant is None:
         raise SeedError("no seed grant: run python -m dxp.gate.seed first")
     if grant.get("key_hash") != hashlib.sha256(key.encode("utf-8")).hexdigest():
@@ -385,7 +392,7 @@ async def check_seed_key(db: Any, env: dict[str, str] | None = None) -> None:
         raise SeedError(f"the seed grant {grant.get('_id')} is {grant.get('status')}")
 
 
-async def seed(db: Any, *, file: FileFn | None = None, ctx: Any = None) -> SeedReport:
+async def seed(db: Any, *, file: FileFn | None = None, ctx: RunContext | None = None) -> SeedReport:
     """The Diagnostics from the stored FDA rows, then the Teams. Safe to run twice."""
     report = await seed_diagnostics(db, file=file, ctx=ctx)
     report.teams = await seed_teams(db)
