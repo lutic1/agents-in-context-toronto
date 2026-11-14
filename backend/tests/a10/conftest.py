@@ -1,8 +1,10 @@
 """A10 fixtures: a fake world for every module the run calls (Story 1.7).
 
-Nothing the run calls is merged yet except A01's stubs, so each frozen signature is replaced
-here by a fake that behaves like its card says: admissions guarded on the run's status and
-released once (A07+A11), a gate that blocks an unsupported "showed" claim on a trial without
+Each frozen signature the run calls is replaced here by a fake that behaves like the module on
+main: admissions with main's `dxp/runs/admissions.py` semantics (#30): the ID is
+`derive("adm_", run_id, item_key)`, a repeat of an item_key returns the same admission while it
+is still `admitted` and None once it has been released, and a new one is guarded on the run's
+status (A07+A11); a gate that blocks an unsupported "showed" claim on a trial without
 results and a link to an out-of-scope Diagnostic (A06 inside A19+A20's `reports.file`), and a
 notifier that records one Slack post (A09). I1 proves the real modules.
 """
@@ -41,6 +43,7 @@ class World:
     admitted: dict[str, str] = field(default_factory=dict)  # admission_id -> item_key
     releases: Counter = field(default_factory=Counter)
     refused: list[str] = field(default_factory=list)
+    repeats: list[str] = field(default_factory=list)  # item_keys refused because already released
     draft1_text: str = "The study showed blood profiling detecting actionable drivers."
     draft2_text: str = "This study is recruiting; no results posted."
     redraft_text: str | None = None  # draft 2's headline on the redraft (attempt 1)
@@ -122,14 +125,23 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         return RunContext(run_id=run_id, principal=Principal(id="dxp-curator", name="dxp-curator", kind="agent"),
                           stamp=stamp, grant_id="lbdx", grant_version=1, policy_set_version="ps_0000000000000001")
 
+    from dxp.runs.admissions import admission_id as derive_admission_id
+
     async def admit(run_id: str, item_key: str) -> dict[str, Any] | None:
+        # main's runs.admit (#30): derived ID; a repeat returns the admission only while it is
+        # still admitted, and None once it was released (no not_admitted count, like main).
         log("runs.admit", item_key)
+        adm = derive_admission_id(run_id, item_key)
+        if adm in w.admitted:
+            if w.releases[adm] == 0:
+                return {"id": adm, "run_id": run_id, "item_key": item_key, "status": "admitted"}
+            w.repeats.append(item_key)
+            return None
         run = db["runs"].docs[run_id]
         if run["status"] != "running":
             w.refused.append(item_key)
             run["counts"]["not_admitted"] = run["counts"].get("not_admitted", 0) + 1
             return None
-        adm = f"adm_{len(w.admitted):04d}"
         w.admitted[adm] = item_key
         return {"id": adm, "run_id": run_id, "item_key": item_key, "status": "admitted"}
 

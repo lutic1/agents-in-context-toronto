@@ -196,10 +196,12 @@ async def test_item6_processed_only_after_the_alert_outcome(world: World, monkey
     assert "processed" not in world.db["source_items"].docs[ANCHOR]
     assert released_once(world)
 
-    # the rerun is not skipped: it sends the alert, then marks the version processed
-    world.run["status"] = "running"
-    await pipeline.run(RUN_ID)
-    assert len(world.slack) == 1
+    # the rerun (a new run: main's runs.admit refuses a released item_key in the same run) is
+    # not skipped: it sends the alert, then marks the version processed
+    rerun = "run_test0002"
+    world.db["runs"].docs[rerun] = {**world.run, "_id": rerun, "status": "running", "counts": {}}
+    await pipeline.run(rerun)
+    assert len(world.slack) == 1 and world.db["runs"].docs[rerun]["status"] == "done"
     assert list(world.db["source_items"].docs[ANCHOR]["processed"][SCOPE_ID]) == [version_id_for(ANCHOR)]
 
 
@@ -538,3 +540,86 @@ async def test_an_alert_for_a_report_with_a_diagnostic_uses_it_in_the_admission_
     assert report["diagnostic_ids"] == ["dx_g360"]
     assert list(world.admitted.values())[-1] == f"{ANCHOR}|notify_slack|dx_g360|{report['_id']}"
     assert world.slack[0]["action"].target.diagnostic_id == "dx_g360"
+
+
+# --- Redraft with main's runs.admit (#30): verifier probe P8 at f07ea67 -------------------------
+
+
+def file_calls_by_attempt(w: World) -> list[tuple[int, int, bool]]:
+    return [(c["draft"], c.get("attempt") or 0, c["final"]) for c in w.args("reports.file")]
+
+
+async def test_p8_redraft_with_real_admit_semantics(world: World) -> None:
+    """Probe P8: with main's admit (derived ID; a released item_key is refused), a redraft after a
+    blocked final draft must still be filed and alerted. The change admissions are the same
+    actions on both attempts, so they are held across the redraft and reused, never re-admitted."""
+    world.draft2_text = "It showed detection of EGFR."  # the final draft is blocked on attempt 0
+    world.redraft_text = "This study is recruiting; no results posted."  # the redraft is allowed
+    await pipeline.run(RUN_ID)
+    assert file_calls_by_attempt(world) == [(1, 0, False), (2, 0, True), (1, 1, False), (2, 1, True)]
+    assert world.repeats == [] and world.refused == []
+    report = next(iter(world.db["reports"].docs.values()))
+    assert report["draft"] == 2 and report["status"] == "pending"
+    assert report["blocked_draft_decision_id"]  # draft 1.r1 was blocked ("showed")
+    assert len(world.db["proposals"].docs) == 1  # the in-scope change; the out-of-scope one is blocked
+    assert len(world.slack) == 1 and world.run["failures"] == []
+    assert released_once(world)
+    # one admission per change action for the whole step (D22): attempt 1's final call reuses them
+    final_calls = [c for c in world.args("reports.file") if c["final"]]
+    first, second = ([u["change"]["admission_id"] for u in c["updates"]] for c in final_calls)
+    assert first == second and len(set(first)) == 2
+    assert world.run["status"] == "done" and world.run["counts"]["done"] == 1
+    assert list(world.db["source_items"].docs[ANCHOR]["processed"][SCOPE_ID]) == [version_id_for(ANCHOR)]
+
+
+async def test_the_fake_admit_copies_mains_admission_semantics(world: World) -> None:
+    """The fake must behave like main's dxp/runs/admissions.py so the tests catch collisions:
+    ID = derive("adm_", run_id, item_key); a repeat returns it while admitted, None once released."""
+    import dxp.runs
+    from dxp.runs.admissions import admission_id
+
+    key = f"{ANCHOR}|file_proposal|-|p_x"
+    first = await dxp.runs.admit(RUN_ID, key)
+    assert first["id"] == admission_id(RUN_ID, key)
+    assert (await dxp.runs.admit(RUN_ID, key))["id"] == first["id"]
+    await dxp.runs.release(first["id"])
+    assert await dxp.runs.admit(RUN_ID, key) is None
+    assert world.repeats == [key] and "not_admitted" not in world.run["counts"]
+
+
+async def test_a_refused_change_admission_while_running_fails_the_item(world: World) -> None:
+    """A refused admission while the run is still running (here: an item_key already released in
+    this run) is not a stop: the item fails with a code, nothing is filed and the version stays
+    unprocessed. It never ends as a silent 'done'."""
+    from dxp import identity
+    from dxp.runs.admissions import admission_id
+
+    finding_id = f"f_{version_id_for(ANCHOR)}_record"
+    key = f"{ANCHOR}|file_proposal|-|{identity.derive('p_', finding_id, 'evidence_collection', ANCHOR)}"
+    adm = admission_id(RUN_ID, key)
+    world.admitted[adm] = key
+    world.releases[adm] = 1  # released earlier in this run
+    await pipeline.run(RUN_ID)
+    assert world.repeats == [key]
+    assert "reports.file" not in world.names() and world.slack == []
+    assert world.run["failures"] == [{"source_ref": ANCHOR, "error": "file: not_admitted"}]
+    assert world.run["counts"]["failed"] == 1 and world.run["counts"].get("done", 0) == 0
+    assert "processed" not in world.db["source_items"].docs[ANCHOR]
+    assert world.run["status"] == "done"
+    assert all(world.releases[a] == 1 for a in world.admitted)
+
+
+async def test_a_refused_alert_admission_while_running_fails_the_item(world: World) -> None:
+    """The same rule for the alert's admission: the report is filed, but the item fails with
+    `notify: not_admitted` and the version stays unprocessed so a rerun sends the alert."""
+    from dxp.runs.admissions import admission_id
+
+    report_id = __import__("dxp.identity", fromlist=["derive"]).derive("rep_", RUN_ID, ANCHOR)
+    key = f"{ANCHOR}|notify_slack|-|{report_id}"
+    adm = admission_id(RUN_ID, key)
+    world.admitted[adm] = key
+    world.releases[adm] = 1
+    await pipeline.run(RUN_ID)
+    assert world.db["reports"].docs and world.slack == []
+    assert world.run["failures"] == [{"source_ref": ANCHOR, "error": "notify: not_admitted"}]
+    assert "processed" not in world.db["source_items"].docs[ANCHOR]
