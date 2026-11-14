@@ -1332,8 +1332,16 @@ class BriefingResponse(Shape):
 
 
 class AvatarResponse(Shape):
+    """POST /reports/{report_id}/avatar (V70: a LiveAvatar session for the interview page).
+
+    `session_token` is a short-lived LiveAvatar token for the browser. It lives only in this
+    response: never on `Media` (which is stored), never in a document, an event or a log.
+    """
+
     media: Media
     decision: Decision
+    session_token: str | None = Field(default=None, description="short-lived LiveAvatar session token; never stored or logged")
+    session_expires_at: datetime | None = None
 
 
 class ProposalDecisionResponse(Shape):

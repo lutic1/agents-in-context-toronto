@@ -74,3 +74,14 @@ def test_interview_shapes_and_kind() -> None:
     answer = m.InterviewResponse(answer="The accepted record doesn't answer that.", refused=True,
                                  refusal_reason="not_in_record", decision_id="dec_1")
     assert answer.citations == [] and answer.refused
+
+
+def test_avatar_response_carries_an_optional_session_token_that_media_never_has() -> None:
+    """V70: the LiveAvatar token rides only on the response, never on the stored Media."""
+    media = m.Media(id="media_1", report_id="rep_1", status="ready")
+    decision = m.Decision.model_construct(id="dec_1")
+    response = m.AvatarResponse.model_construct(media=media, decision=decision)
+    assert response.session_token is None and response.session_expires_at is None
+    fields = m.AvatarResponse.model_fields
+    assert not fields["session_token"].is_required() and not fields["session_expires_at"].is_required()
+    assert "session_token" not in m.Media.model_fields and "session_expires_at" not in m.Media.model_fields
