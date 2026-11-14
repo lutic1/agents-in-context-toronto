@@ -15,7 +15,7 @@ from .conftest import scope_doc
 
 pytestmark = pytest.mark.skipif(os.environ.get("DXP_LIVE_CTGOV") != "1", reason="DXP_LIVE_CTGOV=1 not set: live API checks skipped")
 
-CURSOR = os.environ.get("DXP_LIVE_CURSOR", "2026-11-01")
+CURSOR = os.environ.get("DXP_LIVE_CURSOR", "2026-11-11")
 
 
 async def test_fetch_anchor_keeps_other_names_verbatim() -> None:

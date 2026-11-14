@@ -32,18 +32,9 @@ def test_list_and_get(fakedb, keyed, api_client) -> None:
     (item,) = r.json()["items"]
     assert item["id"] == SCOPE_ID and item["name"] == "Plasma ctDNA genotyping assays in NSCLC"
     assert item["assays"][2] == "Guardant360® Liquid CDx"
-    assert item["cursor"]["last_update_post_date"] == "2026-11-01"
+    assert item["cursor"]["last_update_post_date"] == "2026-11-11"
     r = api_client.get(f"/api/v1/scopes/{SCOPE_ID}", headers={"X-DxP-Key": "good"})
     assert r.status_code == 200 and r.json()["condition"] == "non-small cell lung cancer"
-
-
-def test_title_shape_is_read_as_name(fakedb, keyed, api_client) -> None:
-    doc = scope_doc(version=1)
-    doc["title"] = doc.pop("name")
-    doc.pop("aliases")
-    fakedb["research_scopes"].docs[SCOPE_ID] = doc
-    body = api_client.get(f"/api/v1/scopes/{SCOPE_ID}", headers={"X-DxP-Key": "good"}).json()
-    assert body["name"] == "Plasma ctDNA genotyping assays in NSCLC" and body["aliases"] == []
 
 
 def test_errors(fakedb, keyed, api_client) -> None:

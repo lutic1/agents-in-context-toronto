@@ -46,7 +46,7 @@ async def test_scan_on_atlas(db, monkeypatch, events, fake_runs, ctgov_fake) -> 
     refs = await discovery.scan(SCOPE_ID, run_ctx())
     assert refs[0] == "clinicaltrials.gov:NCT04712877"
     scope = await db["research_scopes"].find_one({"_id": SCOPE_ID})
-    assert scope["cursor"]["last_update_post_date"] == "2026-11-12" and scope["version"] == 1
+    assert scope["cursor"]["last_update_post_date"] == "2026-11-12" and scope["version"] == 2
     action = await db["actions"].find_one({"_id": "act_test000000000001"})
     assert action["status"] == "delivered" and action["result"]["count"] == 2
     await _clean(db)

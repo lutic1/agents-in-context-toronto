@@ -13,7 +13,8 @@
    `filter.advanced = AREA[LastUpdatePostDate]RANGE[<cursor>,MAX]`, every page up to a fixed cap;
 5. writes each result as an immutable source version and points its `source_items` document at
    it (`sources.load.store_record`, window "discovered", `scope_ids`);
-6. advances the cursor, by one conditional update on the scope's current cursor (and `version`),
+6. advances the cursor, by one conditional update on the scope's `version` and current cursor
+   (adding 1 to `version`),
    only when every page was read and the run is still `running`; a failed, blocked or stopped
    scan leaves it where it was, so nothing is skipped;
 7. records the action `delivered` with `{ http_status, cursor_from, cursor_to, source_refs, count }`,
@@ -109,10 +110,6 @@ def build_query(scope: dict[str, Any], cursor: str) -> dict[str, str]:
         "query.cond": cond,
         "filter.advanced": ctgov.last_update_filter(cursor),
     }
-
-
-def scope_name(scope: dict[str, Any]) -> str | None:
-    return scope.get("name") or scope.get("title")
 
 
 # ---------------------------------------------------------------------------

@@ -49,7 +49,7 @@ def study(
     }
 
 
-def scope_doc(cursor: str = "2026-11-01", **extra: Any) -> dict[str, Any]:
+def scope_doc(cursor: str = "2026-11-11", **extra: Any) -> dict[str, Any]:
     doc = {
         "_id": SCOPE_ID,
         "name": "Plasma ctDNA genotyping assays in NSCLC",
@@ -59,6 +59,7 @@ def scope_doc(cursor: str = "2026-11-01", **extra: Any) -> dict[str, Any]:
         "condition": "non-small cell lung cancer",
         "source": "clinicaltrials.gov",
         "cursor": {"last_update_post_date": cursor, "set_at": None, "set_by_run_id": None},
+        "version": 1,
     }
     doc.update(extra)
     return doc

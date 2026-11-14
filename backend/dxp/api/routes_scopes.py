@@ -30,12 +30,11 @@ async def _caller(request: Request) -> m.Principal:
 
 
 def scope_from_doc(doc: dict[str, Any]) -> m.Scope:
-    """The AD-14 `Scope` from a `research_scopes` document. A document written with `title`
-    instead of `name` (the A05 card's wording) is read the same way."""
+    """The AD-14 `Scope` from a `research_scopes` document (A03's seed shape)."""
     cursor = doc.get("cursor") or {}
     return m.Scope(
         id=doc["_id"],
-        name=doc.get("name") or doc.get("title") or doc["_id"],
+        name=doc.get("name") or doc["_id"],
         team_id=doc.get("team_id") or "",
         assays=list(doc.get("assays") or []),
         aliases=list(doc.get("aliases") or []),
