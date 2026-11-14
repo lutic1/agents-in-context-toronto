@@ -49,16 +49,36 @@ def stt(monkeypatch: pytest.MonkeyPatch) -> FakeStt:
     return fake
 
 
-@pytest.fixture
-def delivered(monkeypatch: pytest.MonkeyPatch) -> list:
-    """Records every `_deliver(action_id, result)` (the success settle), so no database is needed."""
+@pytest.fixture(autouse=True)
+def transitions(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, settled: Settled) -> list:
+    """Records every AD-20 step `_transition(action_id, from, to, result)` (claim and settle), so no database is
+    needed; each settle (anything but the claim) is also added to `settled.calls` as (action_id, status, result)."""
     calls: list = []
+    if "world" in request.fixturenames:  # the real gate on A06's fake world moves the action for real
+        return calls
 
-    async def record(action_id, result):
-        calls.append((action_id, result))
+    async def record(action_id, from_status, to_status, result=None):
+        calls.append((action_id, from_status, to_status, result))
+        if to_status != "dispatching":
+            settled.calls.append((action_id, to_status, result))
+        return True
 
-    monkeypatch.setattr(transcribe, "_deliver", record)
+    monkeypatch.setattr(transcribe, "_transition", record)
     return calls
+
+
+@pytest.fixture
+def delivered(transitions: list) -> list:
+    """The success settles: (action_id, result) for each dispatching -> delivered step."""
+
+    class _View(list):
+        def __iter__(self):
+            return iter([(a, r) for (a, f, s, r) in transitions if f == "dispatching" and s == "delivered"])
+
+        def __len__(self):
+            return len(list(iter(self)))
+
+    return _View()
 
 
 @pytest.fixture
@@ -266,8 +286,8 @@ def test_success_returns_the_stripped_text_and_settles_delivered(api_client, fea
     assert set(body) == {"text", "decision_id", "refused", "refusal_reason"}
     assert body["text"] == "Is the trial recruiting?" and body["refused"] is False and body["refusal_reason"] is None
     assert stt.calls == [(AUDIO, "audio/webm")]
-    assert settled.calls == [], "no mark_action(done): A03's validator gives this external kind `delivered`"
-    [(action_id, result)] = delivered
+    assert [s for (_, s, _) in settled.calls] == ["delivered"], "claimed, then delivered: never done (external kind)"
+    [(action_id, result)] = list(delivered)
     assert action_id
     assert "recruiting" not in json.dumps(result), "the action's result never carries the transcript"
 
@@ -328,7 +348,7 @@ def test_a_vendor_failure_is_unavailable_and_settles_failed(api_client, features
     assert body["refused"] is True and body["refusal_reason"] == "unavailable" and body["text"] == ""
     assert body["decision_id"].startswith("dec_")
     [(_, status, result)] = settled.calls
-    assert status == "failed" and result["error"] == "http_500"
+    assert status == "unknown" and result["error"] == "http_500", "a 5xx may have been processed: unknown, never re-sent"
 
 
 def test_an_unexpected_vendor_exception_is_unavailable_not_a_500(api_client, features, store, stt, fake_gate, signed_in, settled: Settled) -> None:
@@ -336,7 +356,7 @@ def test_an_unexpected_vendor_exception_is_unavailable_not_a_500(api_client, fea
     stt.error = RuntimeError("secret detail from the vendor")
     response = post(api_client)
     assert response.status_code == 200 and response.json()["refusal_reason"] == "unavailable"
-    assert "secret" not in response.text and settled.calls[0][1] == "failed"
+    assert "secret" not in response.text and settled.calls[0][1] == "unknown"
 
 
 def test_a_slow_vendor_is_unavailable_at_the_deadline(api_client, features, store, fake_gate, signed_in, settled: Settled, monkeypatch) -> None:
@@ -350,7 +370,7 @@ def test_a_slow_vendor_is_unavailable_at_the_deadline(api_client, features, stor
     monkeypatch.setattr(transcribe, "DEADLINE_S", 0.05)
     features("interview", "voice_input")
     response = post(api_client)
-    assert response.json()["refusal_reason"] == "unavailable" and settled.calls[0][1] == "failed"
+    assert response.json()["refusal_reason"] == "unavailable" and settled.calls[0][1] == "unknown"
 
 
 def test_a_failure_to_settle_never_changes_the_reply(api_client, features, store, stt, fake_gate, signed_in, monkeypatch) -> None:
@@ -359,9 +379,17 @@ def test_a_failure_to_settle_never_changes_the_reply(api_client, features, store
     async def broken(*args, **kwargs):
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(dxp.gate, "mark_action", broken)
+    claims = {"n": 0}
+
+    async def claim_then_break(action_id, from_status, to_status, result=None):
+        if to_status == "dispatching":
+            claims["n"] += 1
+            return True
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(transcribe, "_transition", claim_then_break)
     features("interview", "voice_input")
-    assert post(api_client).json()["text"] == "Is the trial recruiting?"
+    assert post(api_client).json()["text"] == "Is the trial recruiting?" and claims["n"] == 1
 
 
 # --- the real vendor client (httpx faked), the key ----------------------------------------------------------------------------
@@ -399,7 +427,8 @@ def test_the_vendor_request_is_the_documented_one(api_client, features, store, f
     [call] = vendor["calls"]
     assert call["model_id"] == "scribe_v2" and call["language_code"] == "en" and call["tag_audio_events"] is False
     assert call["file"] == ("question.webm", AUDIO, "audio/webm")
-    assert set(call) == {"model_id", "file", "language_code", "tag_audio_events"}
+    assert call["request_options"] == {"max_retries": 0}, "no SDK retries: one recording, one request"
+    assert set(call) == {"model_id", "file", "language_code", "tag_audio_events", "request_options"}
 
 
 def test_a_missing_key_is_unavailable_and_settles_failed(api_client, features, store, fake_gate, signed_in, settled: Settled, monkeypatch) -> None:
@@ -411,15 +440,24 @@ def test_a_missing_key_is_unavailable_and_settles_failed(api_client, features, s
 
 
 @pytest.mark.parametrize(
-    "failure",
-    [{"raise": VendorApiError(401)}, {"raise": VendorApiError(429)}, {"raise": VendorApiError(500)}, {"raise": ConnectionError("boom")}, {"raise": TimeoutError("slow")}, {"response": SimpleNamespace(text=5)}, {"response": SimpleNamespace(transcripts=[])}],
+    ("failure", "status"),
+    [
+        ({"raise": VendorApiError(401)}, "failed"),
+        ({"raise": VendorApiError(429)}, "failed"),
+        ({"raise": VendorApiError(500)}, "unknown"),
+        ({"raise": ConnectionError("boom")}, "unknown"),
+        ({"raise": TimeoutError("slow")}, "unknown"),
+        ({"response": SimpleNamespace(text=5)}, "unknown"),
+        ({"response": SimpleNamespace(transcripts=[])}, "unknown"),
+    ],
 )
-def test_every_vendor_failure_is_unavailable(failure, api_client, features, store, fake_gate, signed_in, vendor, settled: Settled) -> None:
+def test_every_vendor_failure_is_unavailable(failure, status, api_client, features, store, fake_gate, signed_in, vendor, settled: Settled) -> None:
+    """V71/AD-20: `failed` only when nothing can have been processed (a 4xx refusal); otherwise `unknown`."""
     vendor.update(failure)
     features("interview", "voice_input")
     response = post(api_client)
     assert response.status_code == 200 and response.json()["refusal_reason"] == "unavailable"
-    assert settled.calls[0][1] == "failed"
+    assert settled.calls[0][1] == status
 
 
 def test_the_key_never_appears_in_logs_results_or_replies(api_client, features, store, fake_gate, signed_in, vendor, settled: Settled, caplog) -> None:
@@ -488,7 +526,7 @@ async def test_real_gate_vendor_failure_settles_failed(world, store) -> None:
     response = await transcribe.transcribe(REPORT_ID, AUDIO, "audio/webm", reviewer_ctx(world), report=make_report(), stt=fake)
     assert response.refused is True and response.refusal_reason == "unavailable"
     action = await world.db["actions"].find_one({"decision_id": response.decision_id})
-    assert action["status"] == "failed" and action["result"]["error"] == "http_503", action
+    assert action["status"] == "unknown" and action["result"]["error"] == "http_503", action
 
 
 async def test_real_gate_blocks_a_grant_without_the_action(world, store) -> None:
@@ -504,3 +542,33 @@ async def test_real_gate_blocks_a_revoked_grant(world, store) -> None:
     fake = FakeStt()
     response = await transcribe.transcribe(REPORT_ID, AUDIO, "audio/webm", reviewer_ctx(world, grant_version=4), report=make_report(), stt=fake)
     assert response.refusal_reason == "blocked" and fake.calls == []
+
+
+def test_an_unclaimed_action_is_never_sent(api_client, features, store, stt, fake_gate, signed_in, monkeypatch) -> None:
+    """Another worker holds it or it is already settled: the conditional claim fails and nothing is sent (AD-20)."""
+
+    async def not_claimed(action_id, from_status, to_status, result=None):
+        return False
+
+    monkeypatch.setattr(transcribe, "_transition", not_claimed)
+    features("interview", "voice_input")
+    body = post(api_client).json()
+    assert body["refused"] is True and body["refusal_reason"] == "unavailable" and stt.calls == []
+
+
+def test_the_vendor_call_turns_the_sdk_retries_off(monkeypatch) -> None:
+    """One recording, one request: the ElevenLabs SDK would retry 5xx/429 twice and could bill it three times."""
+    import asyncio
+
+    from dxp.briefing import audio as vendor_module
+
+    seen: dict = {}
+
+    class _Stt:
+        async def convert(self, **kwargs):
+            seen.update(kwargs)
+            return SimpleNamespace(text="hello")
+
+    monkeypatch.setattr(vendor_module, "_client", lambda: SimpleNamespace(speech_to_text=_Stt()))
+    assert asyncio.run(transcribe.elevenlabs_stt(b"x", "audio/webm")) == "hello"
+    assert seen["request_options"] == {"max_retries": 0}
