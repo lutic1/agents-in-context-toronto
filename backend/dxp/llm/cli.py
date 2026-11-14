@@ -24,7 +24,7 @@ from typing import Any
 
 from dxp.evidence import normalise_for_quote
 from dxp.llm import _deps
-from dxp.llm.extract import extract
+from dxp.llm.extract import extract_item
 from dxp.llm.types import Extraction
 
 CTGOV_STUDY_URL = "https://clinicaltrials.gov/api/v2/studies/{nct_id}"
@@ -142,7 +142,7 @@ async def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"{nct_id}: fetch failed ({type(exc).__name__})", file=sys.stderr)
             continue
-        result = await extract(item, args.seeded or None)
+        result = await extract_item(item, args.seeded or None)
         print(render(result))
     return 0
 

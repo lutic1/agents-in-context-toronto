@@ -1,8 +1,9 @@
 """A08 fixtures: fakes for the frozen A02 functions and for Claude.
 
-Until A01 and A02 merge, `identity.derive`, `identity.resolve_exact` and
-`registry.canonical` do not exist on `main`; these fakes follow their frozen
-contracts (AD-3, V34). The fixture items hold only the few public
+Unit tests replace A02's `identity.resolve_exact` (which reads Atlas) with an
+in-memory exact matcher following its contract (V34); `derive` and
+`canonical` are faked the same way so expectations stay independent of the
+registry tables. `test_a02_wiring.py` runs the real A02 functions. The fixture items hold only the few public
 ClinicalTrials.gov phrases a test needs (titles, intervention names, status),
 never a fetched record and never PubMed text.
 """
@@ -11,18 +12,12 @@ from __future__ import annotations
 
 import hashlib
 import re
-import sys
 import unicodedata
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-BACKEND = Path(__file__).resolve().parents[2]
-if str(BACKEND) not in sys.path:  # until A01's pyproject puts `dxp` on the path
-    sys.path.insert(0, str(BACKEND))
-
-from dxp.llm import _deps, client  # noqa: E402
+from dxp.llm import _deps, client
 
 # The four D45 scope strings plus the tissue test (seeded from the FDA list).
 SEEDED = {
@@ -106,15 +101,16 @@ class FakeLLM:
 
         class Runnable:
             async def ainvoke(self, messages):
-                llm.calls.append({"model": model_id, "schema": schema.__name__, "messages": messages})
+                name = schema["title"] if isinstance(schema, dict) else schema.__name__
+                llm.calls.append({"model": model_id, "schema": name, "messages": messages})
                 llm.active += 1
                 llm.max_active = max(llm.max_active, llm.active)
                 try:
                     if llm.gate is not None:
                         await llm.gate.wait()
-                    queue = llm.scripts.get(schema.__name__) or []
+                    queue = llm.scripts.get(name) or []
                     if not queue:
-                        raise AssertionError(f"no scripted answer for {schema.__name__}")
+                        raise AssertionError(f"no scripted answer for {name}")
                     answer = queue.pop(0)
                     if isinstance(answer, BaseException):
                         raise answer

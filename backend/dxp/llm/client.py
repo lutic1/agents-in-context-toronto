@@ -66,7 +66,7 @@ def _semaphore(lane: str) -> asyncio.Semaphore:
     return sem
 
 
-def _make_runnable(model_id: str, schema: type[BaseModel]) -> Any:
+def _make_runnable(model_id: str, schema: type[BaseModel] | dict[str, Any]) -> Any:
     """A langchain runnable returning {raw, parsed, parsing_error}.
 
     Retries are ours (`max_retries=0`); no temperature, top_p or top_k.
@@ -141,13 +141,16 @@ def _stop_reason(raw: Any) -> str | None:
 
 async def call_structured(
     model: str,
-    schema: type[T],
+    schema: type[T] | dict[str, Any],
     messages: Sequence[Any],
     *,
     lane: str = "shared",
     step: str = "call",
-) -> T | LLMFailure:
+) -> T | dict[str, Any] | LLMFailure:
     """Ask Claude for one object of `schema`. Returns it, or an `LLMFailure`.
+
+    `schema` is a Pydantic class (the parsed object is returned) or a JSON
+    schema dict (a dict is returned).
 
     `model` is `fast`, `strong` or one of their IDs. `messages` are
     `(role, content)` tuples, `{"role", "content"}` dicts or langchain
@@ -203,7 +206,9 @@ async def call_structured(
     return _parse_result(result, schema, model_id, step, attempt)
 
 
-def _parse_result(result: Any, schema: type[T], model_id: str, step: str, attempts: int) -> T | LLMFailure:
+def _parse_result(
+    result: Any, schema: type[T] | dict[str, Any], model_id: str, step: str, attempts: int
+) -> T | dict[str, Any] | LLMFailure:
     raw = result.get("raw") if isinstance(result, dict) else None
     parsed = result.get("parsed") if isinstance(result, dict) else result
     parsing_error = result.get("parsing_error") if isinstance(result, dict) else None
@@ -218,6 +223,9 @@ def _parse_result(result: Any, schema: type[T], model_id: str, step: str, attemp
         code = "parse_error"
     elif parsed is None:
         code = "no_output"
+    elif isinstance(schema, dict):
+        if not isinstance(parsed, dict):
+            code = "parse_error"
     elif not isinstance(parsed, schema):
         try:
             parsed = schema.model_validate(parsed)

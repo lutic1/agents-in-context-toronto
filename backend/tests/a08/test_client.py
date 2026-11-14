@@ -6,7 +6,8 @@ import anthropic
 import httpx
 import pytest
 
-from dxp.llm import LLMFailure, call_structured, client
+from dxp.llm import LLMFailure, client
+from dxp.llm.client import call_structured
 from dxp.llm.types import TriageOut
 
 from .conftest import FakeRaw

@@ -6,7 +6,8 @@ import re
 import anthropic
 import httpx
 
-from dxp.llm import Extraction, extract
+from dxp.llm import Extraction
+from dxp.llm import extract_item as extract
 from dxp.llm.types import AssayOut, CheckOut, ExtractOut, FieldOut, StageOut, TriageOut, VerdictOut
 
 from .conftest import NCT04712877_TITLE, SEEDED, SEEDED_NAMES

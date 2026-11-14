@@ -28,7 +28,7 @@ def _item_line(index: int, field: str, value: str, quote: str) -> str:
     return json.dumps({"index": index, "field": field, "value": value, "quote": quote}, ensure_ascii=False)
 
 
-async def check(finding: Finding, source_text: str, *, lane: str = "ingest") -> Finding:
+async def check_finding(finding: Finding, source_text: str, *, lane: str = "ingest") -> Finding:
     checked = finding.model_copy(deep=True)
 
     # (index -> check object to fill) for every quote that was found.

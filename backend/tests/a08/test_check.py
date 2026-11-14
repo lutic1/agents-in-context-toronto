@@ -5,7 +5,8 @@ import asyncio
 import anthropic
 import httpx
 
-from dxp.llm import Finding, FindingValue, LLMFailure, ValueCheck, check
+from dxp.llm import Finding, FindingValue, LLMFailure, ValueCheck
+from dxp.llm import check_finding as check
 from dxp.llm.types import CheckOut, StageEvidence, VerdictOut
 
 SOURCE = "Overall status: TERMINATED. Sample: plasma ctDNA fraction measured before treatment."

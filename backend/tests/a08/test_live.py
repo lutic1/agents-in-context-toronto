@@ -1,30 +1,37 @@
 """Live checks on the two tuning trials (card A08 "Done when").
 
-Run only when ANTHROPIC_API_KEY is set (and ClinicalTrials.gov is reachable);
+Run only when DXP_LIVE_ANTHROPIC_API_KEY is set (and ClinicalTrials.gov is reachable);
 otherwise skipped with the reason. Fetched text stays in memory: nothing is
-written to a file. Resolution, IDs and canonical values use A02's real
-`identity` and `registry` when they are importable and MONGODB_URI is set,
-else the conftest fakes that follow their contracts.
+written to a file. IDs and canonical values use A02's real `identity.derive`
+and `registry.canonical`. Name resolution uses A02's real
+`identity.resolve_exact` over an in-memory `aliases` collection holding the
+five seeded trade names (the FDA seed, A13, is not in a test database).
 """
 
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import os
 import re
 
 import pytest
 
 from dxp.evidence import quote_in_source
-from dxp.llm import _deps, extract
+from dxp import identity
+from dxp.llm import extract_item as extract
 from dxp.llm.cli import fetch_item
 
-from .conftest import SEEDED, SEEDED_NAMES, fake_canonical, fake_derive, fake_resolve_exact
+from .conftest import SEEDED_NAMES
+from .test_a02_wiring import SeededAliases
+
+# A01's conftest replaces ANTHROPIC_API_KEY with a fake for every test, so the
+# real key reaches these tests through DXP_LIVE_ANTHROPIC_API_KEY (test only;
+# never committed, never logged).
+LIVE_KEY = os.environ.get("DXP_LIVE_ANTHROPIC_API_KEY")
 
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("ANTHROPIC_API_KEY"),
-    reason="ANTHROPIC_API_KEY is not set: live Claude extraction not run",
+    not LIVE_KEY,
+    reason="DXP_LIVE_ANTHROPIC_API_KEY is not set: live Claude extraction not run",
 )
 
 USE_OR_STUDY = re.compile(r"\b(uses?|used|using|stud(y|ies|ied)|evaluat\w*)\b", re.IGNORECASE)
@@ -33,15 +40,10 @@ OUTCOME = re.compile(r"\b(showed|demonstrat\w*|results show|was associated|impro
 
 @pytest.fixture
 def registry(monkeypatch):
-    real = importlib.util.find_spec("dxp.identity") is not None and os.environ.get("MONGODB_URI")
-    if real:
-        return None
-    async def resolve(name):
-        return fake_resolve_exact(name)
-    monkeypatch.setattr(_deps, "resolve_exact", resolve)
-    monkeypatch.setattr(_deps, "derive", fake_derive)
-    monkeypatch.setattr(_deps, "canonical", fake_canonical)
-    return SEEDED
+    monkeypatch.setenv("ANTHROPIC_API_KEY", LIVE_KEY or "")
+    identity.use_aliases(SeededAliases(SEEDED_NAMES))
+    yield
+    identity.use_aliases(None)
 
 
 def _fetch(nct_id):

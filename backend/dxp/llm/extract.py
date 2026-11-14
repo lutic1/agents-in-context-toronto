@@ -1,4 +1,4 @@
-"""`llm.extract(item)`: one Source item version to checked Findings (Story 1.5).
+"""`llm.extract(item, aliases)` (implemented by `extract_item`): one Source item version to checked Findings (Story 1.5).
 
 1. Name mentions are read from the record's structured interventions, verbatim,
    and resolved only through `identity.resolve_exact()` (V34, V37).
@@ -29,7 +29,7 @@ from typing import Any
 
 from dxp.evidence import quote_in_source
 from dxp.llm import _deps, client
-from dxp.llm.check import check
+from dxp.llm.check import check_finding
 from dxp.llm.mentions import _get, read_mentions, resolve_mention
 from dxp.llm.prompts import PROMPT_VERSION
 from dxp.llm.prompts import extract as extract_prompt
@@ -258,7 +258,7 @@ def _stage(out: ExtractOut, failures: list[LLMFailure]) -> StageEvidence | None:
 # --------------------------------------------------------------------------
 
 
-async def extract(
+async def extract_item(
     item: Any,
     seeded_names: Sequence[str] | None = None,
     *,
@@ -447,7 +447,7 @@ async def _extract(item: Any, seeded_names: Sequence[str] | None, *, lane: str, 
         )
 
     if run_check:
-        findings = list(await asyncio.gather(*(check(f, raw_text, lane=lane) for f in findings)))
+        findings = list(await asyncio.gather(*(check_finding(f, raw_text, lane=lane) for f in findings)))
 
     result.findings = findings
     result.failures.extend(failures)
