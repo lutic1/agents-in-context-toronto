@@ -60,6 +60,7 @@ async def test_older_fetch_never_moves_pointer_back(fakedb) -> None:
     assert not old.moved
     assert fakedb["source_items"].docs["clinicaltrials.gov:NCT00000001"]["current_version_id"] == new.version_id
     assert old.version_id in fakedb["source_versions"].docs
+    assert fakedb["source_versions"].docs[old.version_id]["previous_version_id"] is None
 
 
 def test_manifest_is_the_d30_list() -> None:

@@ -164,10 +164,13 @@ async def run_scan(
     ctx: RunContext,
     *,
     max_results: int | None = None,
-    advance_cursor: bool = True,
+    advance_cursor: bool | None = None,
 ) -> ScanOutcome:
     """The scan with its outcome. `max_results` caps the records (a task's grant limit, A25, sent to
-    the gate as the requested count); `advance_cursor=False` searches without moving the cursor."""
+    the gate as the requested count). The cursor moves only for an uncapped scan unless
+    `advance_cursor` says otherwise: a capped search never moves the discover scope's cursor."""
+    if advance_cursor is None:
+        advance_cursor = max_results is None
     if not ctx.run_id:
         raise ValueError("discovery.scan runs only inside a run (AD-17)")
     scope = await _db()[SCOPES].find_one({"_id": scope_id})

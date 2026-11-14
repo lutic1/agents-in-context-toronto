@@ -33,6 +33,7 @@ def test_list_and_get(fakedb, keyed, api_client) -> None:
     assert item["id"] == SCOPE_ID and item["name"] == "Plasma ctDNA genotyping assays in NSCLC"
     assert item["assays"][2] == "Guardant360® Liquid CDx"
     assert item["cursor"]["last_update_post_date"] == "2026-11-11"
+    assert item["condition_aliases"] == ["NSCLC"] and item["priority_refs"] == ["NCT04712877"]
     r = api_client.get(f"/api/v1/scopes/{SCOPE_ID}", headers={"X-DxP-Key": "good"})
     assert r.status_code == 200 and r.json()["condition"] == "non-small cell lung cancer"
 

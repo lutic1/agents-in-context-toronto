@@ -130,6 +130,7 @@ async def store_record(
         now = _now()
         item = await items.find_one({"_id": ref}, {"current_version_id": 1, "last_update_post_date": 1})
         prev = (item or {}).get("current_version_id")
+        stale = item is not None and prev is not None and (item.get("last_update_post_date") or "") > (lupd or "")
 
         if prev != vid:
             try:
@@ -139,7 +140,8 @@ async def store_record(
                         "source_ref": ref,
                         **{k: record.get(k) for k in _COPIED},
                         "window": window,
-                        "previous_version_id": prev,
+                        # an older fetch than the current version is stored but not chained after it
+                        "previous_version_id": None if stale else prev,
                         "run_id": run_id,
                         "fetched_at": now,
                     }
@@ -148,7 +150,6 @@ async def store_record(
             except DuplicateKeyError:
                 pass  # the same version is already stored: immutable, never rewritten
 
-        stale = item is not None and prev is not None and (item.get("last_update_post_date") or "") > (lupd or "")
         if prev == vid or stale:
             await items.update_one({"_id": ref}, {"$set": {"window": window, "updated_at": now}, "$addToSet": membership})
             return Stored(ref, vid, prev, new_version, False, lupd)

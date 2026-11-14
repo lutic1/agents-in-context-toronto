@@ -39,6 +39,8 @@ def scope_from_doc(doc: dict[str, Any]) -> m.Scope:
         assays=list(doc.get("assays") or []),
         aliases=list(doc.get("aliases") or []),
         condition=doc.get("condition") or "",
+        condition_aliases=list(doc.get("condition_aliases") or []),
+        priority_refs=list(doc.get("priority_refs") or []),
         source=doc.get("source") or "clinicaltrials.gov",
         cursor=m.ScopeCursor(
             last_update_post_date=cursor_text(cursor.get("last_update_post_date")),

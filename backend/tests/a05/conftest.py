@@ -205,31 +205,58 @@ class FakeActions:
         return False
 
 
+PS = "ps_" + "a" * 16  # a policy-set version in A03's ps_<16 hex> form
+
+
 @dataclass
 class ScanGate:
-    """Stands in for gate.evaluate (A06): records the action and, when allowed, inserts the
-    `queued` action document the real gate inserts (AD-19)."""
+    """Stands in for gate.evaluate (A06). Writes what the real gate writes, in A03's validated
+    shapes: one `decisions` document with derived IDs (AD-19) and, when allowed, a `queued`
+    action. A repeat of the same step returns the stored decision."""
 
-    db: FakeDB
+    db: Any
     blocked: bool = False
     calls: list[tuple[Any, Any]] = field(default_factory=list)
+    action_ids: list[str] = field(default_factory=list)
 
     async def evaluate(self, ctx: Any, action: Any) -> Decision:
+        from dxp.identity import derive
+
         self.calls.append((ctx, action))
-        n = len(self.calls)
-        action_id = None if self.blocked else f"act_test{n:012d}"
+        target = f"{action.target.scope_id}|{action.inputs.get('cursor')}"
+        parts = (ctx.run_id or "-", action.kind, "-", target)
+        decision_id, action_id = derive("dec_", *parts), derive("act_", *parts)
+        if self.blocked:
+            action_id = None
+        now = datetime.now(UTC)
+        stamp = ctx.stamp.model_dump(exclude_none=True)
+        checks = [{"check": "team_scope", "passed": not self.blocked, "detail": "test"}]
+        if await self.db["decisions"].find_one({"_id": decision_id}) is None:
+            await self.db["decisions"].insert_one({
+                "_id": decision_id, "run_id": ctx.run_id, "agent": ctx.stamp.agent, "initiated_by": ctx.stamp.initiated_by,
+                "stamp": stamp, "kind": action.kind, "inputs": action.inputs, "destination": action.destination,
+                "target": action.target.model_dump(), "claims": [], "checks": checks,
+                "failed_check": "team_scope" if self.blocked else None, "grant_id": ctx.grant_id,
+                "grant_version": ctx.grant_version, "run_grant_version": ctx.run_grant_version, "policy_set_version": PS,
+                "outcome": "blocked" if self.blocked else "allowed", "action_id": action_id, "seq": len(self.calls),
+                "decided_at": now,
+            })
+            if action_id:
+                await self.db["actions"].insert_one({
+                    "_id": action_id, "decision_id": decision_id, "admission_id": ctx.admission_id, "run_id": ctx.run_id,
+                    "kind": action.kind, "destination": action.destination, "target": action.target.model_dump(),
+                    "stamp": stamp, "error": None, "result": None, "resolution": None, "status": "queued",
+                    "proposed_at": now, "decided_at": now,
+                })
         if action_id:
-            await self.db["actions"].insert_one(
-                {"_id": action_id, "kind": action.kind, "status": "queued", "run_id": ctx.run_id}
-            )
-        await self.db["decisions"].insert_one({"_id": f"dec_test{n:012d}", "outcome": "blocked" if self.blocked else "allowed"})
+            self.action_ids.append(action_id)
         return Decision(
-            id=f"dec_test{n:012d}", run_id=ctx.run_id, stamp=ctx.stamp, kind=action.kind, inputs=action.inputs,
+            id=decision_id, run_id=ctx.run_id, stamp=ctx.stamp, kind=action.kind, inputs=action.inputs,
             destination=action.destination, target=action.target,
             checks=[CheckResult(check="team_scope", passed=not self.blocked, detail="test")],
             failed_check="team_scope" if self.blocked else None, grant_id=ctx.grant_id,
-            grant_version=ctx.grant_version, outcome="blocked" if self.blocked else "allowed", action_id=action_id,
-            decided_at=datetime.now(UTC),
+            grant_version=ctx.grant_version, policy_set_version=PS, outcome="blocked" if self.blocked else "allowed",
+            action_id=action_id, decided_at=now,
         )
 
 
@@ -252,15 +279,34 @@ def run_ctx(run_id: str = RUN_ID) -> RunContext:
         run_id=run_id,
         principal=Principal(id="dxp-curator", name="dxp-curator", kind="agent", actions=["search_source"]),
         stamp=Stamp(kind="run", run_id=run_id, agent="dxp-curator", initiated_by="sam", principal="dxp-curator",
-                    grant_id="lbdx", grant_version=1),
+                    grant_id="lbdx", grant_version=1, policy_set_version="ps_" + "a" * 16),
         grant_id="lbdx",
         grant_version=1,
         run_grant_version=1,
+        policy_set_version="ps_" + "a" * 16,
     )
+
+
+def run_doc(run_id: str = RUN_ID, status: str = "running") -> dict[str, Any]:
+    """A `runs` document that passes A03's validator."""
+    return {
+        "_id": run_id, "agent": "dxp-curator", "initiated_by": "sam", "grant_id": "lbdx", "grant_version": 1,
+        "policy_set_version": "ps_" + "a" * 16, "team_id": "team_" + "8" * 16, "set": "discover", "kind": "discover",
+        "scope_id": SCOPE_ID, "task_id": None, "status": status, "in_flight": 0, "started_at": datetime.now(UTC),
+    }
 
 
 @pytest.fixture
 def discover_run(fakedb: FakeDB) -> RunContext:
-    fakedb["runs"].docs[RUN_ID] = {"_id": RUN_ID, "status": "running", "kind": "discover"}
+    fakedb["runs"].docs[RUN_ID] = run_doc()
     fakedb["research_scopes"].docs[SCOPE_ID] = scope_doc()
     return run_ctx()
+
+
+def setup_results_for(fake: FakeCtgov) -> None:
+    """Three discovered trials around the 2026-11-11 cursor (hand-written)."""
+    fake.pages = [[
+        study("NCT02498613", "2026-11-13"),
+        study("NCT04712877", "2026-11-12"),
+        study("NCT00000003", "2026-11-11"),
+    ]]

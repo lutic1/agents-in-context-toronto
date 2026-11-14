@@ -51,7 +51,7 @@ async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_run
     assert cursor["last_update_post_date"] == "2026-11-13" and cursor["set_by_run_id"] == RUN_ID
     assert fakedb["research_scopes"].docs[SCOPE_ID]["version"] == 2
     # action delivered with the result; run audit fields; scan_finished
-    action_doc = fakedb["actions"].docs["act_test000000000001"]
+    action_doc = fakedb["actions"].docs[scan_gate.action_ids[0]]
     assert action_doc["status"] == "delivered"
     assert action_doc["result"] == {"http_status": 200, "cursor_from": "2026-11-11", "cursor_to": "2026-11-13",
                                     "source_refs": refs, "count": 3}
@@ -90,7 +90,7 @@ async def test_failed_scan_leaves_cursor(fakedb, events, fake_runs, fake_actions
     with pytest.raises(scan_mod.ScanError):
         await discovery.scan(SCOPE_ID, discover_run)
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
-    action = fakedb["actions"].docs["act_test000000000001"]
+    action = fakedb["actions"].docs[scan_gate.action_ids[0]]
     assert action["status"] == "failed" and action["result"]["http_status"] == 500
     assert fake_runs.released == ["adm_0001"]
 
@@ -101,7 +101,7 @@ async def test_stopped_run_leaves_cursor(fakedb, events, fake_runs, fake_actions
     refs = await discovery.scan(SCOPE_ID, discover_run)
     assert len(refs) == 3
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
-    assert fakedb["actions"].docs["act_test000000000001"]["result"]["cursor_to"] == "2026-11-11"
+    assert fakedb["actions"].docs[scan_gate.action_ids[0]]["result"]["cursor_to"] == "2026-11-11"
 
 
 async def test_incomplete_scan_leaves_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
@@ -144,10 +144,11 @@ async def test_changed_known_trial_is_a_new_version(fakedb, events, fake_runs, f
 async def test_repeat_of_the_same_step_does_not_query_again(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
     setup_results(ctgov_fake)
     refs = await discovery.scan(SCOPE_ID, discover_run)
+    first_action = scan_gate.action_ids[0]
 
     async def same_decision(ctx, action):
         d = await type(scan_gate).evaluate(scan_gate, ctx, action)
-        return d.model_copy(update={"action_id": "act_test000000000001"})
+        return d.model_copy(update={"action_id": first_action})
 
     monkeypatch.setattr(scan_mod.gate, "evaluate", same_decision)
     before = len(ctgov_fake.requests)
@@ -182,3 +183,11 @@ async def test_without_priority_refs_newest_first(fakedb, events, fake_runs, fak
 async def test_scan_needs_a_run(fakedb, discover_run) -> None:
     with pytest.raises(ValueError):
         await discovery.scan(SCOPE_ID, discover_run.model_copy(update={"run_id": None}))
+
+
+async def test_capped_search_never_moves_the_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    setup_results(ctgov_fake)
+    outcome = await scan_mod.run_scan(SCOPE_ID, discover_run, max_results=5)
+    assert outcome.complete and not outcome.cursor_advanced
+    assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
+    assert scan_gate.calls[0][1].inputs["requested_count"] == 5
