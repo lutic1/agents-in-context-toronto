@@ -143,15 +143,33 @@ def verified_citations(draft_without, draft_candidate, cited, memory_ids):
     """
     changes = draft_changes(draft_without, draft_candidate)
     accepted = []
+
+    def take(memory_id, change):
+        if not any(c is change or (c["before"], c["after"]) == (change["before"], change["after"]) for _, c in accepted):
+            accepted.append((memory_id, change))
+
     for entry in cited or []:
         if not isinstance(entry, dict) or entry.get("memory_id") not in memory_ids:
             continue
+        exact = next((c for c in changes if _same(c["before"], entry.get("before")) and _same(c["after"], entry.get("after"))), None)
+        if exact is not None:
+            take(entry["memory_id"], exact)
+            continue
+        # The model may cite at a coarser grain than the sentence diff: an added sentence cited as
+        # "old sentence" -> "old sentence + new sentence", or several sentences at once. Accept each
+        # real sentence-level change whose after-sentence is in the cited after and new to it, and
+        # whose before-sentence (if any) is in the cited before. Only actual differences between the
+        # two drafts are ever accepted; nothing is inferred from wording.
+        cited_before = [x for x in split_sentences(entry.get("before") or "")]
+        cited_after = [x for x in split_sentences(entry.get("after") or "")]
         for change in changes:
-            if _same(change["before"], entry.get("before")) and _same(change["after"], entry.get("after")):
-                if not any(c is change or (c["before"], c["after"]) == (change["before"], change["after"])
-                           for _, c in accepted):
-                    accepted.append((entry["memory_id"], change))
-                break
+            if change["target"] != "sentence" or not change["after"]:
+                continue
+            in_after = any(_same(change["after"], x) for x in cited_after)
+            new_in_after = not any(_same(change["after"], x) for x in cited_before)
+            before_ok = not change["before"] or any(_same(change["before"], x) for x in cited_before)
+            if in_after and new_in_after and before_ok:
+                take(entry["memory_id"], change)
     return accepted
 
 

@@ -108,7 +108,8 @@ per reviewer memory:
 - if the memory required a change: changed is true, before is the draft's sentence
   exactly as it was, and after is your replacement sentence exactly as it now appears.
   Give one sentence per entry; if a memory changed several sentences, give the most
-  important one.
+  important one. If the memory required you to ADD a sentence, before is empty and
+  after is the added sentence exactly as it now appears.
 - if the memory did not apply to this record: changed is false, and before and after
   are empty.
 
