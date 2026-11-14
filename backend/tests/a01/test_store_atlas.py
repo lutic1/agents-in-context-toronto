@@ -44,11 +44,13 @@ async def test_validators_from_store_schemas_are_applied(db, monkeypatch) -> Non
     from dxp import store
     from dxp.store import schemas
 
-    monkeypatch.setattr(schemas, "VALIDATORS", {"policy_sets": {"bsonType": "object", "required": ["members"]}})
+    rule = {"$jsonSchema": {"bsonType": "object", "required": ["members"]}, "$expr": {"$eq": [1, 1]}}
+    monkeypatch.setattr(schemas, "validator", lambda name: rule if name == "policy_sets" else None, raising=False)
     await store.ensure_indexes()
     info = await db.command({"listCollections": 1, "filter": {"name": "policy_sets"}})
     options = info["cursor"]["firstBatch"][0]["options"]
     assert options["validator"]["$jsonSchema"]["required"] == ["members"]
+    assert "$expr" in options["validator"]
     assert options["validationLevel"] == "strict" and options["validationAction"] == "error"
 
 

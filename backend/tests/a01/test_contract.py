@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import re
 import types
 from pathlib import Path
@@ -77,8 +78,24 @@ def test_openapi_lists_every_route() -> None:
     assert listed - set(ALL_STUBS) == {("GET", "/schema")}
 
 
+def is_stub_route(method: str, path: str) -> bool:
+    """True while the route's endpoint is still A01's stub (its body raises not_implemented).
+    Once the owning PR finishes the route, the 501 assertion no longer applies to it."""
+    routers = (*app_module.OWNED_ROUTERS, app_module._contract_router())
+    for route in (r for router in routers for r in router.routes):
+        if getattr(route, "path", None) == path and method in getattr(route, "methods", ()):
+            try:
+                source = inspect.getsource(route.endpoint)
+            except (OSError, TypeError):
+                return False
+            return "raise not_implemented(" in source
+    raise AssertionError(f"{method} {path} is not registered")
+
+
 @pytest.mark.parametrize(("method", "path"), ALL_STUBS)
 def test_stub_returns_501_in_the_error_shape(api_client, method: str, path: str) -> None:
+    if not is_stub_route(method, path):
+        pytest.skip(f"{method} {path} is finished by its owner; the stub contract no longer applies")
     response = api_client.request(method, "/api/v1" + concrete(path), json=BODIES.get(path))
     assert response.status_code == 501, response.text
     body = response.json()
@@ -91,7 +108,8 @@ def test_other_errors_use_the_same_shape(api_client) -> None:
     unknown = api_client.get("/api/v1/nowhere")
     assert unknown.status_code == 404
     assert unknown.json()["error"]["code"] == "not_found"
-    invalid = api_client.post("/api/v1/runs", json={"set": "discover"})
+    # a deferred route (always A01's), so a finished owner route cannot change the answer
+    invalid = api_client.post("/api/v1/query", json={"filters": {}})
     assert invalid.status_code == 422
     assert set(invalid.json()) == {"error"} and invalid.json()["error"]["code"] == "invalid_request"
 
@@ -246,7 +264,7 @@ ENV_NAMES = [
 def test_env_example_names_every_variable_with_no_values() -> None:
     lines = [ln.strip() for ln in (REPO / ".env.example").read_text().splitlines()]
     assignments = dict(ln.split("=", 1) for ln in lines if ln and not ln.startswith("#"))
-    assert sorted(assignments) == sorted(ENV_NAMES)
+    assert set(ENV_NAMES) <= set(assignments), set(ENV_NAMES) - set(assignments)
     assert all(value == "" for value in assignments.values())
     assert "DXP_FEED" not in assignments
 

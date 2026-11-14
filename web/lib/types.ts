@@ -1542,6 +1542,11 @@ export interface components {
             /** Scope */
             scope: components["schemas"]["GrantScope"] | components["schemas"]["GrantScopeAll"];
             /**
+             * Scope Name
+             * @description the research scope's title, for display (A03)
+             */
+            scope_name: string | null;
+            /**
              * Startable By
              * @default []
              */

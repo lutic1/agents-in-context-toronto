@@ -91,9 +91,20 @@ def test_signature_is_frozen(module: str, name: str, params: list[str]) -> None:
     assert all(p in hints for p in params), f"{module}.{name} has an untyped argument"
 
 
+def still_stub(function, marker: str) -> bool:
+    """True while the function is still A01's stub. Once its owner finishes it, the stub
+    assertions no longer apply (the frozen signature still does)."""
+    try:
+        return marker in inspect.getsource(function)
+    except (OSError, TypeError):
+        return False
+
+
 @pytest.mark.parametrize(("module", "name"), sorted(NO_OPS))
 async def test_start_hook_stubs_are_no_ops(module: str, name: str) -> None:
     function = resolve(module, name)
+    if not still_stub(function, "No-op stub"):
+        pytest.skip(f"{module}.{name} is finished by its owner")
     args = [lambda run_id: None] if name == "dispatch_next" else []
     assert await function(*args) is None
 
@@ -105,6 +116,8 @@ def _dummy_args(function) -> list[object]:
 @pytest.mark.parametrize(("module", "name"), [(m, n) for m, n, _ in FROZEN if (m, n) not in NO_OPS])
 async def test_unfinished_stubs_raise_not_implemented(module: str, name: str) -> None:
     function = resolve(module, name)
+    if not still_stub(function, "raise NotImplementedError("):
+        pytest.skip(f"{module}.{name} is finished by its owner")
     with pytest.raises(NotImplementedError):
         result = function(*_dummy_args(function))
         if inspect.isawaitable(result):

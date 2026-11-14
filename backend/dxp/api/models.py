@@ -194,6 +194,7 @@ class Grant(Shape):
     startable_by: list[str] = []
     team_id: str | None = None
     team_name: str | None = None
+    scope_name: str | None = Field(default=None, description="the research scope's title, for display (A03)")
     scope: GrantScope | GrantScopeAll
     destinations: list[Destination] = []
     actions: list[ActionKind] = []

@@ -99,10 +99,24 @@ COLLECTIONS: tuple[str, ...] = tuple(INDEXES)
 
 
 def _validators() -> dict[str, dict]:
-    """A03's `$jsonSchema` documents, keyed by collection name (store/schemas/)."""
+    """A03's validators (store/schemas/), keyed by collection name, each a full validator document.
+
+    When A03 exposes `validator(name)`, its full validator is used (the `$jsonSchema` plus any
+    extra rules such as `$expr`); otherwise each `VALIDATORS[name]` is wrapped as
+    `{"$jsonSchema": ...}`. A collection with no validator gets none.
+    """
     from dxp.store import schemas
 
-    return dict(getattr(schemas, "VALIDATORS", {}) or {})
+    bare = dict(getattr(schemas, "VALIDATORS", {}) or {})
+    full = getattr(schemas, "validator", None)
+    validators: dict[str, dict] = {}
+    for name in sorted(set(COLLECTIONS) | set(bare)):
+        document = full(name) if callable(full) else None
+        if document is None and name in bare:
+            document = {"$jsonSchema": bare[name]}
+        if document:
+            validators[name] = document
+    return validators
 
 
 async def ensure_indexes() -> None:
@@ -110,16 +124,16 @@ async def ensure_indexes() -> None:
     validators = _validators()
     existing = set(await db.list_collection_names())
     for name in sorted(set(COLLECTIONS) | set(validators)):
-        schema = validators.get(name)
+        validator = validators.get(name)
         options = {}
-        if schema is not None:
-            options = {"validator": {"$jsonSchema": schema}, "validationLevel": "strict", "validationAction": "error"}
+        if validator is not None:
+            options = {"validator": validator, "validationLevel": "strict", "validationAction": "error"}
         if name not in existing:
             try:
                 await db.create_collection(name, **options)
             except CollectionInvalid:
                 existing.add(name)  # created concurrently: apply below
-        if name in existing and schema is not None:
+        if name in existing and validator is not None:
             await db.command({"collMod": name, **options})
         models = INDEXES.get(name)
         if models:
