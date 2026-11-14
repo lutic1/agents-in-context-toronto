@@ -7,9 +7,12 @@ from typing import Any
 from dxp.api.models import Decision, RunContext
 
 
-async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
-    """Gate the report as a report-level file_proposal; allowed: store the report pending with its
-    script (V41), ledger.file each update, one notify_slack action. Returns the Decision."""
+async def file(draft: dict[str, Any], ctx: RunContext, final: bool = True) -> Decision:
+    """Gate one draft as a report-level file_proposal. `final=False` (every draft but the last):
+    gate only, nothing written. `final=True` and allowed: store the report pending with its script
+    (V41) and ledger.file each update, each keeping its own admission_id (D22). Never creates or
+    sends notify_slack: the run (A10) dispatches the one alert after the final file succeeds
+    (Luis's ruling, 14 Nov). Returns the Decision."""
     raise NotImplementedError("reports.file (A19+A20)")
 
 
