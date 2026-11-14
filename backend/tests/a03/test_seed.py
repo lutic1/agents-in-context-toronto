@@ -149,22 +149,27 @@ def test_seed_summary_holds_no_secret(fake_db, tmp_path, keys):
     assert summary["policy_set"].startswith("ps_") and summary["policy_set"].endswith("(4 policies)")
 
 
-def test_atlas_seed_is_idempotent_and_revocation_blocks(atlas, tmp_path, keys):
+SEED_COLLECTIONS = ("grants", "policies", "policy_sets", "research_scopes")
+
+
+@pytest.mark.atlas
+async def test_atlas_seed_is_idempotent_and_revocation_blocks(db, tmp_path, keys):
+    from dxp.api import auth
+
     data = seed_data_dir(tmp_path)
-
-    async def body():
-        async with atlas() as db:
-            first = await seed.seed(db, keys, data)
-            second = await seed.seed(db, keys, data)
-            assert set(second["grants"].values()) == {"unchanged"}
-            assert first["policy_set_version"] == second["policy_set_version"]
-            assert await db["grants"].count_documents({}) == 3
-            await seed.new_grant_version(db, "lbdx", "revoked", keys)
-            latest = await policy_sets.latest_grant("lbdx", db)
-            assert latest["_id"] == "lbdx@v2" and not policy_sets.grant_is_active(latest)
-            from dxp.api import auth
-
-            agent = await auth.resolve(keys["DXP_AGENT_KEY"], db)
-            assert agent.id == "dxp-curator" and agent.actions == []
-
-    asyncio.run(body())
+    for name in SEED_COLLECTIONS:  # the session test database (never dxp), shared with other tests
+        await db[name].delete_many({})
+    try:
+        first = await seed.seed(db, keys, data)
+        second = await seed.seed(db, keys, data)
+        assert set(second["grants"].values()) == {"unchanged"}
+        assert first["policy_set_version"] == second["policy_set_version"]
+        assert await db["grants"].count_documents({}) == 3
+        await seed.new_grant_version(db, "lbdx", "revoked", keys)
+        latest = await policy_sets.latest_grant("lbdx", db)
+        assert latest["_id"] == "lbdx@v2" and not policy_sets.grant_is_active(latest)
+        agent = await auth.resolve(keys["DXP_AGENT_KEY"], db)
+        assert agent.id == "dxp-curator" and agent.actions == []
+    finally:
+        for name in SEED_COLLECTIONS:
+            await db[name].delete_many({})

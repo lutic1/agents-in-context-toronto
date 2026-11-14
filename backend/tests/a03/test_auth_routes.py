@@ -113,8 +113,7 @@ def test_list_grants(client, keys):
     assert set(items) == {"lbdx@v1", "sam@v1", "seed@v1"}
     lbdx = items["lbdx@v1"]
     assert lbdx["team_name"] == "Team Liquid Biopsy Dx"
-    if "scope_name" in lbdx:  # once the contract's Grant carries it (question to the contract keeper)
-        assert lbdx["scope_name"] == "Plasma ctDNA genotyping assays in NSCLC"
+    assert lbdx["scope_name"] == "Plasma ctDNA genotyping assays in NSCLC"
     assert lbdx["startable_by"] == ["sam"]
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z", lbdx["expires_at"])
     for grant in items.values():

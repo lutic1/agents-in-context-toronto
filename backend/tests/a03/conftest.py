@@ -1,161 +1,19 @@
 """A03 test setup.
 
-* Puts `backend/` on `sys.path` (A01's `conftest.py` and `pyproject.toml` do this
-  once A01 is merged).
-* Until A01 and A02 are on `main`, installs stand-ins for `dxp.identity` (A02,
-  AD-3) and for A01's `dxp.api.models` shapes and `dxp.api.errors.ApiError`, built
-  to their written contracts. When the real modules exist they are used.
 * `FakeDB`: a tiny in-memory async database that enforces each collection's
   `$jsonSchema` on insert (not `$expr`), for tests that need no Atlas.
-* `atlas`: an Atlas-backed test database, used only when `MONGODB_URI` is set
-  (skipped otherwise, with the reason). It is a fresh `dxp_test_a03_<random>`
-  database, dropped afterwards; never `dxp`.
+* Atlas tests use A01's session `db` fixture (`tests/conftest.py`): a fresh
+  `dxp_test_<hex>` database with `store.ensure_indexes()` applied, skipped with
+  its stated reason when `MONGODB_URI` is unset.
 """
 
 from __future__ import annotations
 
-import contextlib
-import hashlib
-import importlib.util
-import os
-import re
-import sys
-import types
-import unicodedata
-import uuid
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-BACKEND = Path(__file__).resolve().parents[2]
-if str(BACKEND) not in sys.path:
-    sys.path.insert(0, str(BACKEND))
-
-
-def _has(module: str) -> bool:
-    try:
-        return importlib.util.find_spec(module) is not None
-    except ModuleNotFoundError:
-        return False
-
-
-if not _has("dxp.identity"):  # A02 not merged yet: its frozen signatures (AD-3)
-    identity = types.ModuleType("dxp.identity")
-
-    def derive(prefix: str, *parts: Any) -> str:
-        return prefix + hashlib.sha256("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()[:16]
-
-    def normalise_name(text: str) -> str:
-        text = unicodedata.normalize("NFKC", text).lower()
-        text = re.sub("[®™©]", "", text)
-        return re.sub(r"[^0-9a-z]+", " ", text).strip()
-
-    identity.derive = derive
-    identity.normalise_name = normalise_name
-    sys.modules["dxp.identity"] = identity
-
-if not _has("dxp.api.models"):  # A01 not merged yet: the AD-14 shapes A03 returns (A01 PR #16)
-    from datetime import datetime
-    from typing import Literal
-
-    from pydantic import BaseModel
-
-    class Principal(BaseModel):
-        id: str
-        name: str
-        kind: Literal["agent", "person", "seed"]
-        actions: list[str] = []
-
-    class GrantScope(BaseModel):
-        diagnostic_ids: list[str] = []
-        scope_id: str | None = None
-
-    class GrantScopeAll(BaseModel):
-        all: Literal[True]
-
-    class GrantLimits(BaseModel):
-        max_results: int
-
-    class Grant(BaseModel):
-        id: str
-        grant_id: str
-        version: int
-        principal: str
-        kind: Literal["agent", "person", "seed", "task"]
-        acting_for: str | None = None
-        granted_by: str | None = None
-        startable_by: list[str] = []
-        team_id: str | None = None
-        team_name: str | None = None
-        scope: GrantScope | GrantScopeAll
-        destinations: list[str] = []
-        actions: list[str] = []
-        limits: GrantLimits | None = None
-        task_id: str | None = None
-        expires_at: datetime | None = None
-        status: Literal["active", "revoked", "expired"]
-        created_at: datetime | None = None
-
-    class PolicyRequires(BaseModel):
-        quote_found: bool | None = None
-        supported: bool | None = None
-        min_confidence: float | None = None
-        claim_checks: list[str] = []
-
-    class Policy(BaseModel):
-        id: str
-        policy_id: str
-        version: int
-        status: Literal["draft", "active", "retired"]
-        applies_to: list[str] = []
-        requires: PolicyRequires
-        text: str
-        author: str | None = None
-        approved_by: str | None = None
-        created_at: datetime | None = None
-
-    class PolicySet(BaseModel):
-        id: str
-        members: list[str]
-        created_at: datetime | None = None
-
-    class GrantList(BaseModel):
-        items: list[Grant]
-        next: str | None = None
-
-    class PolicyList(BaseModel):
-        items: list[Policy]
-        policy_set_version: str | None = None
-
-    models = types.ModuleType("dxp.api.models")
-    for shape in (Principal, Grant, Policy, PolicySet, GrantList, PolicyList):
-        setattr(models, shape.__name__, shape)
-    sys.modules["dxp.api.models"] = models
-
-if not _has("dxp.api.errors"):  # A01 not merged yet: ApiError and the one error shape
-    from fastapi.responses import JSONResponse
-
-    errors = types.ModuleType("dxp.api.errors")
-
-    class ApiError(Exception):
-        def __init__(self, status_code: int, code: str, message: str) -> None:
-            super().__init__(message)
-            self.status_code, self.code, self.message = status_code, code, message
-
-    async def _api_error(_request: Any, exc: ApiError) -> JSONResponse:
-        return JSONResponse({"error": {"code": exc.code, "message": exc.message}}, status_code=exc.status_code)
-
-    def install_error_handlers(app: Any) -> None:
-        app.add_exception_handler(ApiError, _api_error)
-
-    errors.ApiError = ApiError
-    errors.install_error_handlers = install_error_handlers
-    sys.modules["dxp.api.errors"] = errors
-
-
 # --- In-memory database ---------------------------------------------------------
-
 from pymongo.errors import DuplicateKeyError, WriteError
 
 from dxp.store import schemas
@@ -253,31 +111,3 @@ TEST_KEYS = {
 @pytest.fixture
 def keys() -> dict[str, str]:
     return dict(TEST_KEYS)
-
-
-# --- Atlas -------------------------------------------------------------------------
-
-ATLAS_SKIP_REASON = "MONGODB_URI is not set: Atlas-backed test skipped (run against the Atlas Sandbox to prove it)"
-
-
-@pytest.fixture
-def atlas():
-    """An async context manager factory for a fresh Atlas test database."""
-    uri = os.environ.get("MONGODB_URI")
-    if not uri:
-        pytest.skip(ATLAS_SKIP_REASON)
-
-    @contextlib.asynccontextmanager
-    async def open_db():
-        from pymongo import AsyncMongoClient
-
-        name = f"dxp_test_a03_{uuid.uuid4().hex[:8]}"
-        assert name != "dxp"
-        client = AsyncMongoClient(uri, tz_aware=True)
-        try:
-            yield client[name]
-        finally:
-            await client.drop_database(name)
-            await client.close()
-
-    return open_db

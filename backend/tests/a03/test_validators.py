@@ -7,7 +7,6 @@ itself to refuse, including the `$expr` rules the local reader does not check.
 
 from __future__ import annotations
 
-import asyncio
 import copy
 from datetime import timedelta
 
@@ -238,30 +237,29 @@ def _atlas_cases(tmp_path, keys):
     return good, bad
 
 
-def test_atlas_rejects_bad_documents(atlas, tmp_path, keys):
+@pytest.mark.atlas
+async def test_atlas_rejects_bad_documents(db, tmp_path, keys):
+    """Atlas itself refuses: the validators as `store.ensure_indexes()` applied them (A01's `db`)."""
     good, bad = _atlas_cases(tmp_path, keys)
-
-    async def body():
-        async with atlas() as db:
-            await schemas.apply(db)
-            for collection, doc in good:
+    inserted: list[tuple[str, str]] = []
+    try:
+        for collection, doc in good:
+            await db[collection].insert_one(copy.deepcopy(doc))
+            inserted.append((collection, doc["_id"]))
+        for collection, doc, why in bad:
+            with pytest.raises(WriteError) as caught:
                 await db[collection].insert_one(copy.deepcopy(doc))
-            for collection, doc, why in bad:
-                with pytest.raises(WriteError) as caught:
-                    await db[collection].insert_one(copy.deepcopy(doc))
-                assert caught.value.code == 121, why  # DocumentValidationFailure
-
-    asyncio.run(body())
+            assert caught.value.code == 121, why  # DocumentValidationFailure
+    finally:
+        for collection, doc_id in inserted:
+            await db[collection].delete_one({"_id": doc_id})
 
 
-def test_atlas_apply_is_idempotent(atlas):
-    async def body():
-        async with atlas() as db:
-            await schemas.apply(db)
-            await schemas.apply(db)
-            info = {c["name"]: c["options"] async for c in await db.list_collections()}
-            for name in schemas.COLLECTIONS:
-                assert info[name]["validationLevel"] == "strict"
-                assert info[name]["validationAction"] == "error"
-
-    asyncio.run(body())
+@pytest.mark.atlas
+async def test_atlas_validators_are_strict_and_reapply(db):
+    await schemas.apply(db)  # idempotent beside store.ensure_indexes()
+    info = {c["name"]: c["options"] async for c in await db.list_collections()}
+    for name in schemas.COLLECTIONS:
+        assert info[name]["validationLevel"] == "strict"
+        assert info[name]["validationAction"] == "error"
+        assert info[name]["validator"] == schemas.validator(name)
