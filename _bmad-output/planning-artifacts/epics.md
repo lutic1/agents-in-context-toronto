@@ -209,6 +209,8 @@ The **Time** on each story follows the rules measured on the CVH pilot build (1�
 
 ## How every story lands: PR and merge
 
+Each story names its **Owner** (Luis or Vlad) and its **PRs**. A PR ID such as P08 or V06 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first.
+
 A story is done only when it is merged into `main` and working in production. Every story with points follows these steps:
 
 1. Branch from the latest `main` as `story/<n.n>-<short-name>` (for example `story/2.4-review-screen`).
@@ -226,7 +228,8 @@ The team loads real trials, abstracts and FDA rows into Diagnostic Records where
 
 ### Story 1.1: API contract stub, read model and change feed
 
-**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path**
+**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path** · **Owner:** Luis
+**PRs:** P01 `story/1.1a-contract` (API contract stub and generated types, Luis); P05 `story/1.1b-readmodel-changes` (Read model and change feed, Luis). Cards in `development-plan.md`.
 
 As the web developer,
 I want the API's routes and response shapes running and published as generated TypeScript types in the first hour,
@@ -246,7 +249,8 @@ So that I can build pages against the real contract while the pipeline is still 
 
 ### Story 1.2: FDA-authorised lung diagnostics and synthetic Teams seeded through the ledger
 
-**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path**
+**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path** · **Owner:** Luis
+**PRs:** P02 `story/1.2a-registry-identity` (Registry and identity, Luis); P11 `story/1.2b-seed` (Seed FDA rows, Teams and terms, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want the FDA-authorised lung companion diagnostics already in DxP, each at regulatory approval with the FDA list as Evidence,
@@ -267,7 +271,8 @@ So that DxP starts from a trusted base and the other developer has real Records 
 
 ### Story 1.3: Browse diagnostics and open a Record with its Evidence
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path** · **Owner:** Luis
+**PRs:** P03 `story/1.3a-web-skeleton` (Web skeleton, Luis); P26 `story/1.3b-diagnostics-record` (Diagnostics and Record pages, Luis); P41 `integration/is-seeded` (Integration: screens on seeded records, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to list the diagnostics DxP tracks and open one to see every value with its quote, source and data date,
@@ -288,7 +293,8 @@ So that I can trust each value without leaving the page.
 
 ### Story 1.4: Load the downloaded Source items into MongoDB
 
-**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path**
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path** · **Owner:** Luis
+**PRs:** P07 `story/1.4-load-sources` (Load Source items, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want the files under `data/` loaded into `source_items` with their window and subset names,
@@ -306,7 +312,8 @@ So that jobs on Modal can read them without the laptop.
 
 ### Story 1.5: Extract a Finding from one Source item with a quote for every field
 
-**Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path**
+**Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path** · **Owner:** Luis
+**PRs:** P08 `story/1.5a-triage-extract` (Triage and extraction calls, Luis); P09 `story/1.5b-quote-check` (Quote and support checks, Luis); P14 `story/1.5c-tune-real-items` (Tune extraction on real items, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want the agents to read a trial or abstract and pull out the ten fields, each with a word-for-word quote and a confidence,
@@ -328,7 +335,8 @@ So that nothing reaches a Record without evidence I can check.
 
 ### Story 1.6: The ledger files Findings without duplicates and keeps the stage moving forward
 
-**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path**
+**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path** · **Owner:** Luis
+**PRs:** P04 `story/1.6a-finding-contract` (Finding contract and module interfaces, Luis); P10 `story/1.6b-ledger-baseline` (Ledger, Baseline mode, Luis); P13 `story/1.6c-ledger-live` (Ledger, live mode and stage rule, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want each new piece of evidence attached to the right Diagnostic, a new Diagnostic created only when none matches, and the stage only ever advancing,
@@ -348,7 +356,8 @@ So that parallel agents never produce duplicates or move a diagnostic backwards.
 
 ### Story 1.7: Run a batch of Source items in parallel as one job
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path** · **Owner:** Luis
+**PRs:** P12 `story/1.7-batch-job` (Batch job, Luis); P15 `integration/i1-pipeline` (Integration run: 50 items, Luis); P42 `integration/im-small-ingest` (Integration: screens on the small real ingest, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want to start a job over a named set and have the agents process it in parallel, unattended, resuming where it stopped,
@@ -369,7 +378,8 @@ So that 300 to 500 items are processed without anyone watching and without excee
 
 ### Story 1.8: Watch the agents work through a batch
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path** · **Owner:** Vlad
+**PRs:** V17 `story/1.8-jobs-page` (Jobs page, Vlad). Cards in `development-plan.md`.
 
 As a judge watching the demo,
 I want a job page with a live count of processed, failed and Early research items,
@@ -387,7 +397,8 @@ So that I can see the agents working in parallel on real data.
 
 ### Story 1.9: Run the Saturday Baseline load and save a retake snapshot
 
-**Points:** 1 · **Time:** ~1.5 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path**
+**Points:** 1 · **Time:** ~1.5 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path** · **Owner:** Luis
+**PRs:** P16 `story/1.9-baseline-load` (Baseline load and snapshot, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want the Baseline loaded into production once, with no Alerts, and a snapshot taken right after,
@@ -403,7 +414,8 @@ So that the live demo can be retaken from the same starting point.
 
 ### Story 1.10: Scheduled scan with nobody logged in
 
-**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers · **Owner:** Vlad
+**PRs:** V12 `story/1.10-scheduled-scan` (Scheduled scan, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want DxP to check the sources on a schedule without anyone logged in,
@@ -419,7 +431,8 @@ So that new evidence arrives without someone remembering to look.
 
 ### Story 1.11: Scan allow-listed provider websites through Tavily
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources · **Owner:** Vlad
+**PRs:** V04 `story/1.11-tavily` (Tavily provider scan, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want DxP to pick up announcements from diagnostic providers' own websites,
@@ -435,7 +448,8 @@ So that a new assay or approval is noticed even before a paper or trial lists it
 
 ### Story 1.12: App shell in the DxP design
 
-**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path**
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path** · **Owner:** Luis
+**PRs:** P27 `story/1.12-app-shell` (App shell, Luis). Cards in `development-plan.md`.
 
 As a judge watching the demo,
 I want every page to share one finished look and one navigation,
@@ -459,7 +473,8 @@ When new evidence arrives about a tracked Diagnostic, the agents draft field-lev
 
 ### Story 2.1: Dry run the Held-back set against the Baseline
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path**
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path** · **Owner:** Luis
+**PRs:** P17 `story/2.1-dry-run` (Dry run of the Held-back set, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want to know, before the demo, which held-back items will produce Proposed changes on which Diagnostics,
@@ -475,7 +490,8 @@ So that we find a matching problem while there is still time to fix it and pick 
 
 ### Story 2.2: Reviewer queue of Proposed changes
 
-**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path**
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path** · **Owner:** Luis
+**PRs:** P18 `story/2.2-proposals-api` (Proposals queue API, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want every pending Proposed change listed with the current value, the new value and its Evidence,
@@ -492,7 +508,8 @@ So that I can decide each one without opening the source.
 
 ### Story 2.3: Accept, edit or reject a Proposed change, keeping the history
 
-**Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path**
+**Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path** · **Owner:** Luis
+**PRs:** P19 `story/2.3-decisions-api` (Decisions API, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want to accept, edit or reject each change with a reason, and to review unreviewed values on new Records,
@@ -511,7 +528,8 @@ So that no agent change reaches a tracked Record without a logged human decision
 
 ### Story 2.4: Review screen
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path** · **Owner:** Luis
+**PRs:** P29 `story/2.4-review-screen` (Review screen, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want one screen where I work through pending changes, see current against new with the quote, and decide each with a reason,
@@ -530,7 +548,8 @@ So that reviewing a batch takes minutes.
 
 ### Story 2.5: Value history on the Record page
 
-**Points:** 1 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR17
+**Points:** 1 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR17 · **Owner:** Vlad
+**PRs:** V16 `story/2.5-value-history` (Value history, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to see every earlier value of a field with its Evidence, who decided and when,
@@ -545,7 +564,8 @@ So that I can see how the picture of a diagnostic changed.
 
 ### Story 2.6: Draft, activate and switch off a Learned rule
 
-**Points:** 3 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path**
+**Points:** 3 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path** · **Owner:** Luis
+**PRs:** P20 `story/2.6-rules-api` (Learned rules API, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want DxP to turn my rejection reason into a plain-language rule, apply it once I confirm, and let me switch it off,
@@ -568,7 +588,8 @@ So that the agents stop repeating a mistake I have already corrected.
 
 ### Story 2.7: Confirm and manage Learned rules on screen
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path** · **Owner:** Vlad
+**PRs:** V19 `story/2.7-rules-screen` (Rules on screen, Vlad). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want to see the drafted rule straight after I reject, edit its wording, confirm it, and later switch it off,
@@ -590,7 +611,8 @@ Each Team gets a first Alert for a matching Diagnostic at any stage, then update
 
 ### Story 3.1: Raise first and update Alerts for matching Teams
 
-**Points:** 3 · **Time:** ~2.8 h (M, 7 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path**
+**Points:** 3 · **Time:** ~2.8 h (M, 7 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path** · **Owner:** Luis
+**PRs:** P21 `story/3.1-alerts-api` (Alerts API, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want one Alert when a diagnostic relevant to my team first appears, at any stage, and another only when it meaningfully moves,
@@ -613,7 +635,8 @@ So that I hear about what matters and nothing else.
 
 ### Story 3.2: Alerts inbox for a Team
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path** · **Owner:** Luis
+**PRs:** P31 `story/3.2-alerts-inbox` (Alerts inbox, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to pick my team and see its Alerts with why each matters,
@@ -629,7 +652,8 @@ So that I can act on them in one place.
 
 ### Story 3.3: Digest of Proposed changes and Alerts
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR20 · **Demo path** (the Home page in Story 6.4 shows it)
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR20 · **Demo path** (the Home page in Story 6.4 shows it) · **Owner:** Vlad
+**PRs:** V18 `story/3.3-digest` (Digest, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want a digest of what changed for my team and what is waiting for review,
@@ -644,7 +668,8 @@ So that I can catch up in one view.
 
 ### Story 3.4: Audio briefing for an Alert
 
-**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it · **Owner:** Vlad
+**PRs:** V13 `story/3.4-audio-briefing` (Audio briefing, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to hear an Alert read aloud,
@@ -660,7 +685,8 @@ So that I can catch up while away from a screen.
 
 ### Story 3.5: Play button on an Alert
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4 · **Owner:** Vlad
+**PRs:** V15 `story/3.5-play-button` (Play button, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want a play button on each Alert,
@@ -678,7 +704,8 @@ A user describes an Intended use in plain words or filters, corrects the parsed 
 
 ### Story 4.1: Search indexes and synonym expansion
 
-**Points:** 2 · **Time:** ~4.8 h (M, 6 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15
+**Points:** 2 · **Time:** ~4.8 h (M, 6 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15 · **Owner:** Vlad
+**PRs:** V08 `story/4.1b-synonyms` (Search index with synonyms, Vlad); V09 `story/4.1a-vector-index` (Vector Search index, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want "liquid biopsy" to find ctDNA tests and searches to understand meaning, not just words,
@@ -695,7 +722,8 @@ So that I find the right diagnostics whatever I call them.
 
 ### Story 4.2: Plain-language query with a correctable parsed query
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15 · **Owner:** Vlad
+**PRs:** V11 `story/4.2-query-api` (Plain-language query API, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to type what I need in plain words and see how DxP understood it,
@@ -714,7 +742,8 @@ So that I can correct it before trusting the results.
 
 ### Story 4.3: Comparison table with Evidence inline
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention · **Owner:** Vlad
+**PRs:** V02 `story/4.3b-evidence-panel` (Comparison table: Evidence panel and keyboard, Vlad); V06 `story/4.3a-compare-table` (Comparison table and chips, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want one row per diagnostic and one column per criterion, with the quote one click away in each cell,
@@ -733,7 +762,8 @@ So that I can compare options side by side and check any cell.
 
 ### Story 4.4: Save a Shortlist against an Intended use
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14 · **Owner:** Vlad
+**PRs:** V14 `story/4.4-shortlist` (Shortlist, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to save chosen diagnostics as a Shortlist named after what I need them for,
@@ -748,7 +778,8 @@ So that I can come back to it and share it.
 
 ### Story 4.5: Export the comparison or Shortlist with references
 
-**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [WEB] · **Covers:** FR25, NFR11
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [WEB] · **Covers:** FR25, NFR11 · **Owner:** Vlad
+**PRs:** V10 `story/4.5-export` (Export, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to download the table with every reference intact,
@@ -765,7 +796,8 @@ So that I can put it in a report.
 
 ### Story 4.6: Category landscape with thin Records marked
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes · **Owner:** Vlad
+**PRs:** V07 `story/4.6-categories` (Category landscape, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to pick a category and see every diagnostic's full field set with the thin, stale or incomplete ones marked,
@@ -781,7 +813,8 @@ So that I know where the evidence is weak.
 
 ### Story 4.7: Add a value by hand
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6 · **Owner:** Vlad
+**PRs:** V03 `story/4.7-add-value-api` (Add a value API, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to add a value I know that the sources do not have,
@@ -797,7 +830,8 @@ So that everyone sees it, clearly marked as manually sourced.
 
 ### Story 4.8: Unmatched terms list for the Reviewer
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md`
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md` · **Owner:** Vlad
+**PRs:** V01 `story/4.8-terms-page` (Unmatched terms page, Vlad). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want to see the terms DxP could not map to a standard name,
@@ -815,7 +849,8 @@ A user explores Diagnostics, biomarkers, tumour types, trials, drugs and Provide
 
 ### Story 5.1: Graph API built from the ledger's edges
 
-**Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path**
+**Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path** · **Owner:** Luis
+**PRs:** P22 `story/5.1-graph-api` (Graph API, Luis). Cards in `development-plan.md`.
 
 As the web developer,
 I want nodes and links served from `edges`,
@@ -834,7 +869,8 @@ So that the Graph view never derives links itself.
 
 ### Story 5.2: Graph view with click-through
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path**
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path** · **Owner:** Luis
+**PRs:** P33 `story/5.2a-graph-component` (Graph component, Luis); P35 `story/5.2b-graph-page` (Graph page, Luis). Cards in `development-plan.md`.
 
 As a judge,
 I want to see diagnostics, biomarkers, tumour types, trials, drugs and providers as one connected graph,
@@ -853,7 +889,8 @@ So that I see how the evidence links up, not just a list.
 
 ### Story 5.3: Highlight what changed since the last visit
 
-**Points:** 2 · **Time:** ~3.2 h (S, 4 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path**
+**Points:** 2 · **Time:** ~3.2 h (S, 4 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path** · **Owner:** Luis
+**PRs:** P36 `story/5.3-changed-highlight` (Changed highlight, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want new and changed nodes and links highlighted since my last visit, and new ones to appear while I watch,
@@ -874,7 +911,8 @@ A returning Team sees what changed since its last visit, a resume summary from m
 
 ### Story 6.1: Memory adapter with two backends
 
-**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path**
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path** · **Owner:** Luis
+**PRs:** P23 `story/6.1-memory` (Memory adapter, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want one memory interface that runs on Atlas Agent Memory or on plain collections,
@@ -892,7 +930,8 @@ So that the demo works whether or not the preview service behaves on the day.
 
 ### Story 6.2: Seed a synthetic past for each Team
 
-**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path**
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path** · **Owner:** Luis
+**PRs:** P24 `story/6.2-team-history` (Synthetic Team history, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want each synthetic Team to have a short history of past searches, opened Records and dismissals,
@@ -907,7 +946,8 @@ So that the resume on camera has something real to recall.
 
 ### Story 6.3: Resume summary on return
 
-**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path**
+**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path** · **Owner:** Luis
+**PRs:** P25 `story/6.3-resume` (Resume summary, Luis). Cards in `development-plan.md`.
 
 As a returning Director of Diagnostics,
 I want DxP to tell me what changed since I was last here and what I was working on,
@@ -923,7 +963,8 @@ So that I pick up where I left off.
 
 ### Story 6.4: Home page with the Team's network and the welcome-back panel
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path**
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path** · **Owner:** Luis
+**PRs:** P34 `story/6.4b-home-panels` (Home welcome panel, Alerts and Digest layout, Luis); P37 `story/6.4a-home-hero` (Home hero network, Luis). Cards in `development-plan.md`.
 
 As a returning Director of Diagnostics,
 I want the home page to open on my team's network with what changed glowing, and a welcome-back panel beside it,
@@ -947,7 +988,8 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 
 ### Story 7.1: Quick capture of a name or note
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3 · **Owner:** Vlad
+**PRs:** V05 `story/7.1-quick-capture` (Quick capture, Vlad). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want to type a diagnostic I heard about at a conference and have DxP start a Record,
@@ -967,7 +1009,8 @@ A judge opens a working production URL at any point in the day, and at submissio
 
 ### Story 8.1: Deploy a walking skeleton to production
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path** · **Owner:** Luis
+**PRs:** P06 `story/8.1-deploy-ci` (Deploy and CI, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want the API on Modal and the web app on Vercel live in production from the first two hours, and every story merged through a checked pull request,
@@ -986,7 +1029,8 @@ So that deploy and merge problems surface early, not at 17:00.
 
 ### Story 8.2: Rehearse the live run
 
-**Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path** · **Owner:** Luis
+**PRs:** P38 `integration/i2-acceptance` (Final acceptance on production data, Luis); P39 `story/8.2-rehearsal` (Rehearsal, Luis). Cards in `development-plan.md`.
 
 As the team,
 I want to run the live demo end to end once before recording, then restore,
@@ -1002,7 +1046,8 @@ So that what we record works the first time.
 
 ### Story 8.3: Submission package
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path**
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path** · **Owner:** Luis
+**PRs:** P40 `story/8.3-submission` (Submission package, Luis). Cards in `development-plan.md`.
 
 As a judge,
 I want a README and description that say what was built on the day, what was prepared before, and which MongoDB capability does what,
@@ -1016,7 +1061,7 @@ So that I can judge the work fairly.
 
 ### Story 8.4: Three-minute demo video
 
-**Points:** 0 (after 18:00, about 30 minutes, both people) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path**
+**Points:** 0 (after 18:00, about 30 minutes, both people) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad (after 18:00)
 
 As a judge,
 I want a three-minute video showing the agents, the review and learning loop, memory and the graph on real data,
