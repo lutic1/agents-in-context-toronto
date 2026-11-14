@@ -156,8 +156,17 @@ def test_unknown_report_is_404(api_client, features, store, stt, fake_gate, sign
     assert response.status_code == 404 and response.json()["error"]["code"] == "not_found"
 
 
-@pytest.mark.parametrize("status", ["pending", "rejected", "reverted"])
-def test_report_not_accepted_is_409(status, api_client, features, store, stt, fake_gate, signed_in) -> None:
+def test_a_pending_report_can_be_transcribed(api_client, features, store, stt, fake_gate, signed_in) -> None:
+    # V74: transcription runs before approval too, through the same gate.
+    features("interview", "voice_input")
+    store.reports[REPORT_ID] = make_report(status="pending")
+    response = post(api_client)
+    assert response.status_code == 200, response.text
+    assert len(fake_gate.calls) == 1
+
+
+@pytest.mark.parametrize("status", ["accepting", "rejected", "reverting", "reverted"])
+def test_report_not_pending_or_accepted_is_409(status, api_client, features, store, stt, fake_gate, signed_in) -> None:
     features("interview", "voice_input")
     store.reports[REPORT_ID] = make_report(status=status)
     response = post(api_client)

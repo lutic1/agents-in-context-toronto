@@ -84,10 +84,11 @@ def test_quote_ids_are_stable_and_distinguish_versions() -> None:
     assert cards.quote_id_for(SOURCE_REF, VERSION_ID, "status", Q_STATUS) != cards.quote_id_for(SOURCE_REF, "sv_dddddddddddddddd", "status", Q_STATUS)
 
 
-@pytest.mark.parametrize("status", ["pending", "accepting", "rejected", "reverting", "reverted"])
-def test_only_accepted_is_accepted(status) -> None:
-    assert cards.is_accepted(make_report(status="accepted"))
-    assert not cards.is_accepted(make_report(status=status))
+@pytest.mark.parametrize("status", ["accepting", "rejected", "reverting", "reverted"])
+def test_only_pending_or_accepted_is_interviewable(status) -> None:
+    assert cards.is_interviewable(make_report(status="accepted"))
+    assert cards.is_interviewable(make_report(status="pending"))  # V74
+    assert not cards.is_interviewable(make_report(status=status))
 
 
 # --- finding 2: a blank line in a quote ---------------------------------------------------------------------

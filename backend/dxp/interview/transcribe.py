@@ -241,7 +241,7 @@ async def transcribe(
     report: dict[str, Any],
     stt: SttClient | None = None,
 ) -> m.TranscribeResponse:
-    """One recording to text. `report` is the accepted report the caller already read (for the gate's evidence)."""
+    """One recording to text. `report` is the pending or accepted report the caller already read (for the gate's evidence)."""
     duration_ms = wav_duration_ms(audio) if mime == "audio/wav" else None
     if len(audio) > MAX_BYTES or (duration_ms is not None and duration_ms > MAX_DURATION_MS):
         return too_long()
