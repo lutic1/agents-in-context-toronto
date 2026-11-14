@@ -1079,18 +1079,29 @@ class Shortlist(Shape):
 # ---------------------------------------------------------------------------
 
 
+class SchemaEnumValue(Shape):
+    value: str = Field(description="the canonical value (lower snake_case, or an HGNC or OncoTree code)")
+    label: str
+
+
 class SchemaField(Shape):
     key: str
     label: str
     cardinality: Literal["single", "list"]
-    enum: str | None = Field(default=None, description="name of the enum in `enums`, when the field has one")
+    canonical_form: str | None = Field(default=None, description="how registry.canonical() forms the value")
+    enum: list[SchemaEnumValue] | None = Field(default=None, description="the allowed values, when the field has an enum")
 
 
 class SchemaResponse(Shape):
+    """A02's `registry.describe()`, served as is, plus `enums` (AD-14: "fields, enums, stage order"),
+    derived here as { field key: [values] } for the fields that have an enum."""
+
     fields: list[SchemaField]
     enums: dict[str, list[str]]
     stage_order: list[str]
-    confidence_threshold: float | None = None
+    not_determined_stage: str | None = None
+    early_research_stages: list[str] = []
+    low_confidence_threshold: float | None = None
 
 
 # ---------------------------------------------------------------------------

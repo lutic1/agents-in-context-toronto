@@ -88,35 +88,14 @@ def allowed_origins() -> list[str]:
 REGISTRY_MODULE = "dxp.schema.registry"
 
 
-def _field_list(raw: Any) -> list[m.SchemaField]:
-    items = raw.items() if isinstance(raw, dict) else ((None, spec) for spec in raw)
-    fields = []
-    for key, spec in items:
-        spec = dict(spec) if isinstance(spec, dict) else dict(vars(spec))
-        fields.append(
-            m.SchemaField(
-                key=spec.get("key", key),
-                label=spec.get("label", spec.get("key", key)),
-                cardinality=spec["cardinality"],
-                enum=spec.get("enum"),
-            )
-        )
-    return fields
-
-
 def schema_from_registry(registry: Any) -> m.SchemaResponse:
-    """Serialise the registry. A02's `schema/registry.py` exposes either `describe()` returning
-    the SchemaResponse fields, or the module constants FIELDS, ENUMS, STAGE_ORDER and
-    CONFIDENCE_THRESHOLD."""
-    describe = getattr(registry, "describe", None)
-    if callable(describe):
-        return m.SchemaResponse.model_validate(describe())
-    return m.SchemaResponse(
-        fields=_field_list(registry.FIELDS),
-        enums={name: list(values) for name, values in dict(registry.ENUMS).items()},
-        stage_order=list(registry.STAGE_ORDER),
-        confidence_threshold=getattr(registry, "CONFIDENCE_THRESHOLD", None),
-    )
+    """Serialise A02's `registry.describe()` (fields with their inline enums, stage order, the
+    not-determined stage, the early-research stages and the low-confidence threshold) and add the
+    AD-14 `enums` map, { field key: [values] }, derived from the fields."""
+    described = dict(registry.describe())
+    fields = [m.SchemaField.model_validate(field) for field in described.get("fields", [])]
+    described["enums"] = {field.key: [item.value for item in field.enum] for field in fields if field.enum}
+    return m.SchemaResponse.model_validate(described)
 
 
 def _load_registry() -> Any:

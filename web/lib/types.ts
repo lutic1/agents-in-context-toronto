@@ -2830,8 +2830,23 @@ export interface components {
              */
             source_refs: string[];
         };
+        /** SchemaEnumValue */
+        SchemaEnumValue: {
+            /** Label */
+            label: string;
+            /**
+             * Value
+             * @description the canonical value (lower snake_case, or an HGNC or OncoTree code)
+             */
+            value: string;
+        };
         /** SchemaField */
         SchemaField: {
+            /**
+             * Canonical Form
+             * @description how registry.canonical() forms the value
+             */
+            canonical_form: string | null;
             /**
              * Cardinality
              * @enum {string}
@@ -2839,24 +2854,35 @@ export interface components {
             cardinality: "single" | "list";
             /**
              * Enum
-             * @description name of the enum in `enums`, when the field has one
+             * @description the allowed values, when the field has an enum
              */
-            enum: string | null;
+            enum: components["schemas"]["SchemaEnumValue"][] | null;
             /** Key */
             key: string;
             /** Label */
             label: string;
         };
-        /** SchemaResponse */
+        /**
+         * SchemaResponse
+         * @description A02's `registry.describe()`, served as is, plus `enums` (AD-14: "fields, enums, stage order"),
+         *     derived here as { field key: [values] } for the fields that have an enum.
+         */
         SchemaResponse: {
-            /** Confidence Threshold */
-            confidence_threshold: number | null;
+            /**
+             * Early Research Stages
+             * @default []
+             */
+            early_research_stages: string[];
             /** Enums */
             enums: {
                 [key: string]: string[];
             };
             /** Fields */
             fields: components["schemas"]["SchemaField"][];
+            /** Low Confidence Threshold */
+            low_confidence_threshold: number | null;
+            /** Not Determined Stage */
+            not_determined_stage: string | null;
             /** Stage Order */
             stage_order: string[];
         };

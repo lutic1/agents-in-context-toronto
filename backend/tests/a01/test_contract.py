@@ -153,31 +153,42 @@ def test_types_ts_is_generated_from_the_current_schema() -> None:
 # GET /schema
 # ---------------------------------------------------------------------------
 
-FAKE_REGISTRY = types.SimpleNamespace(
-    FIELDS={
-        "lifecycle_stage": {"label": "Lifecycle stage", "cardinality": "single", "enum": "lifecycle_stage"},
-        "trials": {"label": "Trials", "cardinality": "list"},
-    },
-    ENUMS={"lifecycle_stage": ["discovery", "assay_development", "regulatory_approval"]},
-    STAGE_ORDER=["discovery", "assay_development", "regulatory_approval"],
-    CONFIDENCE_THRESHOLD=0.7,
-)
+FAKE_DESCRIBE = {
+    "fields": [
+        {"key": "lifecycle_stage", "label": "Lifecycle stage", "cardinality": "single", "canonical_form": "enum",
+         "enum": [{"value": "discovery", "label": "Discovery"}, {"value": "regulatory_approval", "label": "Regulatory approval"}]},
+        {"key": "trials", "label": "Trials", "cardinality": "list", "canonical_form": "nct_id", "enum": None},
+    ],
+    "stage_order": ["discovery", "regulatory_approval"],
+    "not_determined_stage": "not_determined",
+    "early_research_stages": ["discovery"],
+    "low_confidence_threshold": 0.7,
+}
+FAKE_REGISTRY = types.SimpleNamespace(describe=lambda: FAKE_DESCRIBE)
 
 
-def test_schema_serialises_the_registry(api_client, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_schema_serialises_describe_and_derives_enums(api_client, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_module, "_load_registry", lambda: FAKE_REGISTRY)
     response = api_client.get("/api/v1/schema")
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     body = response.json()
-    assert body["stage_order"] == FAKE_REGISTRY.STAGE_ORDER
-    assert body["enums"] == FAKE_REGISTRY.ENUMS
-    assert body["fields"][0] == {"key": "lifecycle_stage", "label": "Lifecycle stage", "cardinality": "single", "enum": "lifecycle_stage"}
-    assert body["confidence_threshold"] == 0.7
+    assert body["stage_order"] == ["discovery", "regulatory_approval"]
+    assert body["enums"] == {"lifecycle_stage": ["discovery", "regulatory_approval"]}
+    assert body["fields"][0]["enum"][1] == {"value": "regulatory_approval", "label": "Regulatory approval"}
+    assert body["fields"][1]["enum"] is None
+    assert body["low_confidence_threshold"] == 0.7 and body["early_research_stages"] == ["discovery"]
 
 
-def test_schema_accepts_a_describe_function() -> None:
-    registry = types.SimpleNamespace(describe=lambda: {"fields": [], "enums": {"a": ["b"]}, "stage_order": ["b"]})
-    assert app_module.schema_from_registry(registry).enums == {"a": ["b"]}
+def test_schema_serves_the_real_registry(api_client) -> None:
+    from dxp.schema import registry
+
+    response = api_client.get("/api/v1/schema")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    described = registry.describe()
+    assert [f["key"] for f in body["fields"]] == [f["key"] for f in described["fields"]]
+    assert body["stage_order"] == list(described["stage_order"])
+    assert body["enums"]["lifecycle_stage"] == [v["value"] for f in described["fields"] if f["key"] == "lifecycle_stage" for v in f["enum"]]
 
 
 def test_schema_without_the_registry_is_an_error_not_a_crash(api_client, monkeypatch: pytest.MonkeyPatch) -> None:
