@@ -93,7 +93,8 @@ export function InterviewView({ reportId }: { reportId: string }) {
  * The ask box, the cited answers and the optional avatar panel (V70), reusable outside the interview page.
  * `stacked` puts the avatar panel under the answers instead of beside them. `allowVoice` shows the recorder
  * (V73); it stays false everywhere but the interview route, whose Permissions-Policy allows the microphone.
- * The avatar starts only when the user presses "Engage" in its panel.
+ * The avatar starts by itself when its panel mounts (V75); once it is ready, conversation mode starts too, and its
+ * Talk / End conversation control and status line sit under the avatar video.
  */
 export function InterviewWorkspace({
   reportId,
@@ -133,6 +134,10 @@ export function InterviewWorkspace({
   const [transcribing, setTranscribing] = useState(false);
   const [awaitingAvatar, setAwaitingAvatar] = useState(false);
   const [missed, setMissed] = useState(false);
+  // True while the browser keeps the microphone's audio context suspended until a click or key press.
+  const [conversationBlocked, setConversationBlocked] = useState(false);
+  const avatarReadyRef = useRef(false);
+  const beginRef = useRef<() => Promise<void>>(async () => {});
   const conversationRef = useRef<Conversation | null>(null);
   const submitRef = useRef<(text: string) => Promise<void>>(async () => {});
 
@@ -193,6 +198,7 @@ export function InterviewWorkspace({
     setTranscribing(false);
     setAwaitingAvatar(false);
     setMissed(false);
+    setConversationBlocked(false);
     setListenState("paused");
   }, []);
 
@@ -207,6 +213,7 @@ export function InterviewWorkspace({
           setListenState(state);
           if (state === "hearing") setMissed(false);
         },
+        onBlocked: setConversationBlocked,
         onSegment: (clip) => {
           void (async () => {
             const mine = conversation;
@@ -233,6 +240,20 @@ export function InterviewWorkspace({
       setConversationStarting(false);
     }
   }
+
+  useEffect(() => {
+    beginRef.current = () => beginConversation();
+  });
+
+  // Each time the avatar becomes ready (on page load, or after "Start avatar"), open the microphone too (V75).
+  const onAvatarReady = useCallback(
+    (ready: boolean) => {
+      const was = avatarReadyRef.current;
+      avatarReadyRef.current = ready;
+      if (ready && !was && voiceOn) void beginRef.current();
+    },
+    [voiceOn],
+  );
 
   // Pause at once when anything is busy; resume RESUME_DELAY_MS after everything is idle.
   const shouldListen = conversationOn && !transcribing && !pending && !avatarBusy && !awaitingAvatar;
@@ -266,8 +287,9 @@ export function InterviewWorkspace({
     };
   }, [endConversation]);
 
-  const conversationStatus =
-    transcribing && !pending
+  const conversationStatus = conversationBlocked
+    ? "Click anywhere to start talking"
+    : transcribing && !pending
       ? "Heard you — transcribing…"
       : pending
         ? "Finding the answer…"
@@ -281,26 +303,69 @@ export function InterviewWorkspace({
                 ? "Listening… (hearing you)"
                 : "Listening…";
 
+  const conversationHelp = `Speak your question and pause: it is asked after about 1.5 seconds of silence. The microphone is paused while an answer is found or spoken. ${VOICE_DISCLOSURE}`;
+  const conversationButton = conversationOn ? (
+    <Button type="button" variant="outline" aria-pressed={true} onClick={endConversation}>
+      <Square aria-hidden="true" />
+      End conversation
+    </Button>
+  ) : (
+    <Button type="button" aria-pressed={false} disabled={conversationStarting || pending} onClick={() => void beginConversation()}>
+      <AudioLines aria-hidden="true" />
+      {conversationStarting ? "Opening the microphone…" : "Talk"}
+    </Button>
+  );
+  const conversationLine = (
+    <>
+      {shouldListen && !conversationBlocked ? <span aria-hidden="true" className="inline-block size-2 rounded-full bg-destructive motion-safe:animate-pulse" /> : null}
+      {conversationStatus}
+    </>
+  );
+  // With the avatar on, the conversation control and status sit under the avatar video, beside "Stop avatar".
+  const avatarConversation = voiceOn
+    ? {
+        control: conversationButton,
+        status: conversationOn ? conversationLine : undefined,
+        note: conversationOn ? (
+          conversationHelp
+        ) : conversationProblem ? (
+          <p role="alert" className="font-medium text-foreground">
+            {conversationProblem}
+          </p>
+        ) : null,
+      }
+    : undefined;
+  const avatarPanel = (
+    <AvatarPanel
+      reportId={reportId}
+      onSpeaker={onSpeaker}
+      onBusyChange={setAvatarBusy}
+      onReadyChange={onAvatarReady}
+      onStopped={endConversation}
+      conversation={avatarConversation}
+      subtitle={subtitle}
+      answering={pending}
+    />
+  );
+
   return (
     <div className={avatarOn && !stacked ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
       {/* Stacked: the avatar and its Engage button come first, the ask box and answers follow. */}
-      {avatarOn && stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} subtitle={subtitle} answering={pending} /> : null}
+      {avatarOn && stacked ? avatarPanel : null}
       <div className="flex min-w-0 flex-col gap-6">
-        {conversationOn ? (
+        {conversationOn && avatarOn ? (
+          <p className="rounded-lg bg-card p-5 text-caption text-muted-foreground shadow-sm">
+            Conversation is on: speak your question. The controls are under the avatar video.
+          </p>
+        ) : conversationOn ? (
           <section aria-label="Conversation" className="flex flex-col gap-3 rounded-lg bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="outline" aria-pressed={true} onClick={endConversation}>
-                <Square aria-hidden="true" />
-                End conversation
-              </Button>
+              {conversationButton}
               <p role="status" aria-live="polite" className="flex items-center gap-2 text-body font-medium">
-                {shouldListen ? <span aria-hidden="true" className="inline-block size-2 rounded-full bg-destructive motion-safe:animate-pulse" /> : null}
-                {conversationStatus}
+                {conversationLine}
               </p>
             </div>
-            <p className="text-caption text-muted-foreground">
-              Speak your question and pause: it is asked after 2 seconds of silence. The microphone is paused while an answer is found or spoken. {VOICE_DISCLOSURE}
-            </p>
+            <p className="text-caption text-muted-foreground">{conversationHelp}</p>
           </section>
         ) : (
         <form
@@ -348,7 +413,7 @@ export function InterviewWorkspace({
               </Button>
             ))}
           </div>
-          {voiceOn ? (
+          {voiceOn && !avatarOn ? (
             <div className="flex flex-col gap-2 rounded-md border border-dashed border-border px-3 py-2">
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" aria-pressed={false} disabled={conversationStarting || pending} onClick={() => void beginConversation()}>
@@ -402,7 +467,7 @@ export function InterviewWorkspace({
           </ol>
         )}
       </div>
-      {avatarOn && !stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} subtitle={subtitle} answering={pending} /> : null}
+      {avatarOn && !stacked ? avatarPanel : null}
     </div>
   );
 }
