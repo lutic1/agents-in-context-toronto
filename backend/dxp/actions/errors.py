@@ -15,6 +15,7 @@ class ActionBlocked(Exception):
     def __init__(self, decision: dict[str, Any]) -> None:
         super().__init__(f"blocked by {decision.get('failed_check')} (decision {decision.get('_id')})")
         self.decision = decision
+        self.decision_id = decision.get("_id")
 
 
 class ReportNotFound(LookupError):

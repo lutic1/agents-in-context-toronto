@@ -98,7 +98,7 @@ def reviewer(monkeypatch):
         return grants.get(key)
 
     monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
-    monkeypatch.setattr(auth, "grant_for_key", grant_for_key, raising=False)
+    monkeypatch.setattr(auth, "grant_for_key", grant_for_key)
 
 def post(api_client, action_id: str, key: str | None = "sam-key", **body):
     headers = {"X-DxP-Key": key} if key else {}

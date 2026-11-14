@@ -119,7 +119,7 @@ def test_retry_after() -> None:
 
 
 def test_config_repr_never_shows_the_webhook(monkeypatch) -> None:
-    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/SECRET")
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.invalid/services/SECRET")
     assert "SECRET" not in repr(slack.require_config())
 
 

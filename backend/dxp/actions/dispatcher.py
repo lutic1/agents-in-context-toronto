@@ -7,9 +7,11 @@ The order never changes:
 2. Save the action ID first: the `actions` document is inserted if absent, `queued`, before
    anything is sent (the gate inserts it too; a repeat of the same step finds it).
 3. Refuse to start without `SLACK_WEBHOOK_URL` or `DXP_BASE_URL`: the action stays `queued`.
-4. Claim it with one conditional update, `queued` -> `dispatching`. Only the worker whose
+4. Build the message before the claim: one that cannot be built is recorded `failed`
+   (nothing sent), so an action is never left `dispatching` without a message.
+5. Claim it with one conditional update, `queued` -> `dispatching`. Only the worker whose
    update matched posts; any other status is never posted again.
-5. Post once and record exactly what was observed, conditional on `dispatching`: 200 `ok`
+6. Post once and record exactly what was observed, conditional on `dispatching`: 200 `ok`
    `delivered`; another 4xx `failed`; 429 retried once after `Retry-After` while still
    holding the claim, a second 429 `failed`; timeout, connection error or 5xx `unknown`,
    never retried.
@@ -61,11 +63,14 @@ def _actor(ctx: RunContext) -> slack.Actor:
 
 def _normalised(action: ProposedAction, report: dict[str, Any]) -> ProposedAction:
     """One alert per report: the target is the report (never a proposal), destination the one
-    channel. The Diagnostic is the caller's, else the report's first in-scope one, else none."""
+    channel. The Diagnostic always comes from the stored report (its first `diagnostic_ids`
+    entry, written by `reports.file` for in-scope Diagnostics only), else none ("-", V43), never
+    from the caller, so a retry can never derive a second action ID. A10 keys its admission
+    the same way."""
     if action.kind != KIND:
         raise ValueError(f"actions.dispatch sends notify_slack only, not {action.kind!r}")
     diagnostic_ids = report.get("diagnostic_ids") or []
-    diagnostic_id = action.target.diagnostic_id or (diagnostic_ids[0] if diagnostic_ids else None)
+    diagnostic_id = diagnostic_ids[0] if diagnostic_ids else None
     target = Target(report_id=report["_id"], diagnostic_id=diagnostic_id, scope_id=action.target.scope_id or report.get("scope_id"))
     inputs = {
         **action.inputs,
@@ -91,7 +96,6 @@ def _new_action_doc(action_id: str, decision: dict[str, Any], action: ProposedAc
         "decision_id": decision["_id"],
         "admission_id": ctx.admission_id,
         "run_id": ctx.run_id,
-        "mode": ctx.mode,
         "kind": KIND,
         "destination": action.destination,
         "target": _dump(action.target),
@@ -142,15 +146,24 @@ async def dispatch(action: ProposedAction, ctx: RunContext) -> Action:
     # 3. Refuse to start without the configuration: the action stays queued.
     config = slack.require_config()
 
-    # 4. Claim it atomically.
+    # 4. Build the message BEFORE claiming, so an alert is never `dispatching` without a
+    #    message to send. A message that cannot be built is recorded `failed`: nothing was sent.
+    links = slack.link_urls(config.base_url, report_id, action.target.diagnostic_id)
+    try:
+        proposals = await records.get_proposals(list(report.get("proposal_ids") or []))
+        payload = slack.build_message(action_id=action_id, report=report, proposals=proposals, links=links, actor=_actor(ctx))
+    except Exception as exc:  # noqa: BLE001 - recorded, never raised: the item goes on
+        log.warning("notify_slack %s: the message could not be built (%s); failed, nothing sent", action_id, type(exc).__name__)
+        unsent = {"http_status": None, "response_body": None, "posted_at": None, "link_urls": links}
+        await records.transition(action_id, "queued", "failed", {"result": unsent, "observed_at": records.now()})
+        return action_model(await records.get(action_id) or doc)
+
+    # 5. Claim it atomically.
     claimed_at = records.now()
     if not await records.transition(action_id, "queued", "dispatching", {"claimed_at": claimed_at}):
         return action_model(await records.get(action_id) or doc)
 
-    # 5. Post once; record what was observed.
-    links = slack.link_urls(config.base_url, report_id, action.target.diagnostic_id)
-    proposals = await records.get_proposals(list(report.get("proposal_ids") or []))
-    payload = slack.build_message(action_id=action_id, report=report, proposals=proposals, links=links, actor=_actor(ctx))
+    # 6. Post once; record what was observed.
     status, observed = await _post_once_with_one_429_retry(action_id, config.webhook_url, payload)
 
     result = {

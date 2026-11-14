@@ -202,7 +202,7 @@ async def test_needs_a_filed_report(mem, sent) -> None:
 
 
 async def test_the_webhook_url_is_never_stored_logged_or_emitted(seeded, fake_slack, monkeypatch, caplog, waits) -> None:
-    secret = "https://hooks.slack.com/services/T0SECRET/B0SECRET/xyzSECRETxyz"
+    secret = "https://hooks.slack.invalid/services/test-only/xyzSECRETxyz"
     monkeypatch.setenv("SLACK_WEBHOOK_URL", secret)
     caplog.set_level(logging.DEBUG)
     for reply in ((200, "ok"),):

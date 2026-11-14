@@ -188,7 +188,8 @@ def relationship_summary(related: list[dict[str, Any]]) -> str:
 
 
 def strongest_relationship(related: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The established relationship (both quotes found, AD-26) with the highest similarity."""
+    """The established relationship (both quotes found, AD-26) with the highest similarity.
+    Display only: similarity picks which one the alert shows, never a label or a claim (AD-15)."""
     established = [
         r
         for r in related or []
