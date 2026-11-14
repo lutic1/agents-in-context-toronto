@@ -163,3 +163,118 @@ def test_origin_and_id_are_carried_and_finding_kind_is_kept():
     assert (rel["id"], rel["origin"]) == ("rel_1", "task:task_1")
     assert (rel["related_ref"], rel["related_kind"]) == ("f_abc", "finding")
     assert rel["related_quote"]["source_ref"] == "ctgov:NCT00000001"
+
+
+# ---------------------------------------------------------------- reports.relate (mocked llm)
+
+from dxp import reports
+from dxp.api.models import Relationship, RetrievalItem
+
+V_NEW, V_OLD = "sv_aaaaaaaaaaaaaaaa", "sv_bbbbbbbbbbbbbbbb"
+NEW_ITEM = dict(NEW, version_id=V_NEW, mentions=[{"name": "FoundationOne CDx"}, {"name": "FoundationOne Liquid"}])
+RELATED_ITEM = dict(RELATED, version_id=V_OLD, score=0.83, retrieval_method="vector_search")
+
+
+@pytest.fixture
+def model(monkeypatch):
+    """Replaces llm.call_structured and evidence.quote_in_source; no model is called."""
+    import dxp.evidence
+    import dxp.llm
+
+    class Model:
+        answer = dict(GOOD)
+        calls = []
+
+        async def call_structured(self, model, schema, messages):
+            self.calls.append((model, schema, messages))
+            if isinstance(self.answer, Exception):
+                raise self.answer
+            return self.answer
+
+    fake = Model()
+    fake.calls = []
+    monkeypatch.setattr(dxp.llm, "call_structured", fake.call_structured)
+    monkeypatch.setattr(dxp.evidence, "quote_in_source", exact, raising=False)
+    return fake
+
+
+async def test_relate_returns_the_frozen_relationship_with_both_quotes_pinned(model, mongo):
+    rel = await reports.relate(NEW_ITEM, RELATED_ITEM)
+    assert isinstance(rel, Relationship)
+    assert rel.label == "extends" and rel.rationale == GOOD["rationale"]
+    assert rel.id.startswith("rel_") and len(rel.id) == 20
+    assert (rel.new_quote.version_id, rel.related_quote.version_id) == (V_NEW, V_OLD)
+    assert rel.new_quote.quote_found and rel.related_quote.quote_found
+    assert (rel.similarity, rel.retrieval_method) == (0.83, "vector_search")
+    assert (rel.origin, rel.status, rel.related_kind) == ("discovery", "pending", "source_item")
+    model_id, schema, messages = model.calls[0]
+    assert model_id == "claude-sonnet-5-5"
+    assert schema["properties"]["label"]["enum"] == list(relate.LABELS)
+    assert [m["role"] for m in messages] == ["system", "user"]
+    assert NEW["raw_text"] in messages[1]["content"] and RELATED["raw_text"] in messages[1]["content"]
+
+
+async def test_relate_high_similarity_with_one_unchecked_quote_gets_no_label(model, mongo):
+    model.answer = dict(GOOD, related_quote="Plasma ctDNA genotyping improved survival")
+    rel = await reports.relate(NEW_ITEM, dict(RELATED_ITEM, score=0.99))
+    assert rel.label == "related_unestablished" and rel.rationale is None
+    assert rel.similarity == 0.99 and rel.related_quote.quote_found is False
+
+
+@pytest.mark.parametrize("answer", [RuntimeError("overloaded"), None, "refused", {"label": "extends"}])
+async def test_relate_model_error_or_refusal_is_unestablished_and_never_fails_the_item(model, mongo, answer):
+    model.answer = answer
+    rel = await reports.relate(NEW_ITEM, RELATED_ITEM)
+    assert rel.label == "related_unestablished"
+    assert rel.new_quote.text == "" and rel.new_quote.version_id == V_NEW
+    assert rel.similarity == 0.83
+
+
+async def test_relate_failure_object_from_the_client_is_unestablished(model, mongo):
+    class Failure:
+        kind = "failure"
+
+    model.answer = Failure()
+    assert (await reports.relate(NEW_ITEM, RELATED_ITEM)).label == "related_unestablished"
+
+
+async def test_relate_drops_a_rationale_that_says_a_trial_uses_a_named_product(model, mongo):
+    model.answer = dict(GOOD, rationale="The new trial uses FoundationOne CDx in an earlier stage.")
+    rel = await reports.relate(NEW_ITEM, RELATED_ITEM)
+    assert rel.label == "related_unestablished" and rel.rationale is None
+
+
+async def test_relate_reads_the_exact_version_named_not_the_current_pointer(model, mongo):
+    mongo["source_items"].add({"_id": "ctgov:NCT00000001", "current_version_id": "sv_cccccccccccccccc",
+                               "title": "Plasma ctDNA genotyping in advanced NSCLC"})
+    mongo["source_versions"].add(
+        {"_id": V_OLD, "source_ref": "ctgov:NCT00000001", "raw_text": RELATED["raw_text"]},
+        {"_id": "sv_cccccccccccccccc", "source_ref": "ctgov:NCT00000001", "raw_text": "A rewritten record."})
+    item = RetrievalItem(ref="ctgov:NCT00000001", version_id=V_OLD, score=0.6)
+    rel = await reports.relate(NEW_ITEM, item)
+    assert rel.label == "extends" and rel.related_quote.version_id == V_OLD
+    assert rel.related_title == "Plasma ctDNA genotyping in advanced NSCLC" and rel.similarity == 0.6
+    assert "A rewritten record." not in model.calls[0][2][1]["content"]
+
+
+async def test_relate_a_finding_is_checked_against_its_own_source_version(model, mongo):
+    mongo["findings"].add({"_id": "f_1111111111111111", "source_ref": "ctgov:NCT00000001", "version_id": V_OLD,
+                           "summary": "Plasma genotyping study"})
+    mongo["source_versions"].add({"_id": V_OLD, "raw_text": RELATED["raw_text"]})
+    rel = await reports.relate(NEW_ITEM, {"ref": "f_1111111111111111", "score": 0.5})
+    assert (rel.related_kind, rel.related_ref) == ("finding", "f_1111111111111111")
+    assert rel.label == "extends" and rel.related_quote.source_ref == "ctgov:NCT00000001"
+
+
+async def test_relate_without_source_text_asks_no_model(model, mongo):
+    rel = await reports.relate(NEW_ITEM, {"ref": "ctgov:NCT00000404", "score": 0.4})
+    assert rel.label == "related_unestablished" and model.calls == []
+    assert rel.related_quote.source_ref == "ctgov:NCT00000404"
+
+
+async def test_relationship_id_is_derived_from_report_source_and_related_ref(model, mongo):
+    from dxp import identity
+
+    rel = await reports.relate(dict(NEW_ITEM, report_id="rep_1"), RELATED_ITEM)
+    assert rel.id == identity.derive("rel_", "rep_1", NEW["source_ref"], RELATED["ref"])
+    assert rel.id == relate.relationship_id("rep_1", NEW["source_ref"], RELATED["ref"])

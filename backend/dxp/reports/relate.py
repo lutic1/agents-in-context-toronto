@@ -7,9 +7,15 @@ through and never read.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dxp.api.models import Relationship
+
+log = logging.getLogger("dxp.reports")
+
+MODEL = "claude-sonnet-5-5"  # the stronger model (AD-11)
+MAX_RECORD_CHARS = 24000
 
 LABELS = ("supports", "contradicts", "extends", "new_question")
 UNESTABLISHED = "related_unestablished"
@@ -141,6 +147,112 @@ def is_established(relationship):
     )
 
 
+# ------------------------------------------------------------ the frozen call
+
+def _plain(item: Any) -> dict[str, Any]:
+    if hasattr(item, "model_dump"):
+        return item.model_dump()
+    return dict(item or {})
+
+
+def _names(*items: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    for item in items:
+        for mention in item.get("mentions") or item.get("name_mentions") or []:
+            name = mention.get("name") if isinstance(mention, dict) else getattr(mention, "name", mention)
+            if isinstance(name, str) and name.strip() and name not in names:
+                names.append(name)
+    return names
+
+
+async def load_item(item: Any) -> dict[str, Any]:
+    """An item with what a relationship needs: ref, kind, source_ref, version_id, title, raw_text.
+
+    Accepts a source item, a Finding or a `Retrieval` item (`{ ref, version_id, score }`).
+    Whatever is missing is read from the store, and the text is always the `raw_text` of
+    the exact version the item names (V40), never the current pointer when a version is given.
+    """
+    from dxp import store
+
+    out = _plain(item)
+    ref = out.get("ref") or out.get("finding_id") or out.get("source_ref") or out.get("id") or out.get("_id")
+    out["ref"] = ref
+    out.setdefault("kind", "finding" if isinstance(ref, str) and ref.startswith("f_") else "source_item")
+    try:
+        db = store.db()
+        if out["kind"] == "finding" and not (out.get("source_ref") and out.get("version_id")):
+            finding = await db["findings"].find_one({"_id": ref}) or {}
+            out["source_ref"] = out.get("source_ref") or finding.get("source_ref")
+            out["version_id"] = out.get("version_id") or finding.get("version_id")
+            out["title"] = out.get("title") or finding.get("summary")
+        out["source_ref"] = out.get("source_ref") or ref
+        if not out.get("version_id") or not out.get("title"):
+            source = await db["source_items"].find_one({"_id": out["source_ref"]}) or {}
+            out["version_id"] = out.get("version_id") or source.get("current_version_id")
+            out["title"] = out.get("title") or source.get("title") or source.get("brief_title")
+        if not out.get("raw_text") and out.get("version_id"):
+            version = await db["source_versions"].find_one({"_id": out["version_id"]}) or {}
+            out["raw_text"] = version.get("raw_text")
+            out["title"] = out.get("title") or version.get("title")
+    except Exception as exc:
+        log.warning("reports.relate: could not load %s: %s", out.get("kind"), type(exc).__name__)
+        out["source_ref"] = out.get("source_ref") or ref
+    return out
+
+
+async def _ask(new: dict[str, Any], related: dict[str, Any]) -> dict[str, Any] | None:
+    """The model's proposal, or None on any error, refusal or non-object answer."""
+    from dxp import llm
+    from dxp.llm.prompts import relate as prompt
+
+    try:
+        output = await llm.call_structured(MODEL, prompt.SCHEMA, [
+            {"role": "system", "content": prompt.SYSTEM},
+            {"role": "user", "content": prompt.USER.format(
+                new_ref=new.get("source_ref"),
+                new_text=new["raw_text"][:MAX_RECORD_CHARS],
+                related_ref=related.get("ref"),
+                related_text=related["raw_text"][:MAX_RECORD_CHARS],
+            )},
+        ])
+    except Exception as exc:
+        log.warning("reports.relate: model call failed: %s", type(exc).__name__)
+        return None
+    return output if isinstance(output, dict) else None
+
+
+def relationship_id(report_id: str | None, source_ref: str | None, related_ref: str | None) -> str:
+    """derive("rel_", report_id, source_ref, related_ref) (AD-3); "-" stands for a part not known yet."""
+    from dxp import identity
+
+    return identity.derive("rel_", report_id or "-", source_ref or "-", related_ref or "-")
+
+
 async def relate(new_item: dict[str, Any], related_item: dict[str, Any]) -> Relationship:
     """supports | contradicts | extends | new_question, or related_unestablished without two found quotes."""
-    raise NotImplementedError("reports.relate (A19+A20)")
+    from dxp import evidence
+    from dxp.reports.draft import wording_flags
+
+    new = await load_item(new_item)
+    related = await load_item(related_item)
+    output = None
+    if isinstance(new.get("raw_text"), str) and isinstance(related.get("raw_text"), str):
+        output = await _ask(new, related)
+    checker = getattr(evidence, "quote_in_source", None) or (lambda quote, raw_text: False)
+    built = build_relationship(
+        output,
+        new,
+        related,
+        checker,
+        similarity=related.get("similarity", related.get("score")),
+        retrieval_method=related.get("retrieval_method") or related.get("method"),
+        origin=new.get("origin") or "discovery",
+    )
+    if built["rationale"] and wording_flags(built["rationale"], _names(new, related)):
+        # V37: a rationale that says a trial uses or studies a named product is not kept.
+        built["label"], built["rationale"] = UNESTABLISHED, None
+    built["related_ref"] = str(built["related_ref"] or "")
+    for side, item in (("new_quote", new), ("related_quote", related)):
+        built[side]["source_ref"] = str(built[side]["source_ref"] or item.get("ref") or "")
+    built["id"] = relationship_id(new.get("report_id"), new.get("source_ref"), built["related_ref"])
+    return Relationship.model_validate(built)
