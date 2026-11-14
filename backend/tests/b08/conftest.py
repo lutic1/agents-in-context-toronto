@@ -72,7 +72,7 @@ def media_store() -> MemoryStore:
         "run_id": "run_0123456789abcdef",
         "script": SCRIPT,
         "script_hash": "hash_fake",
-        "status": "pending",
+        "status": "accepted",
     }
     return store
 
@@ -84,6 +84,7 @@ def avatar_env(monkeypatch: pytest.MonkeyPatch, live: FakeLiveAvatar, media_stor
     monkeypatch.setenv("LIVEAVATAR_AVATAR_ID", AVATAR_ID)
     monkeypatch.delenv("LIVEAVATAR_SANDBOX", raising=False)
     monkeypatch.delenv("LIVEAVATAR_MAX_SECONDS", raising=False)
+    monkeypatch.setenv("DXP_FEATURES", "avatar")
     avatar.set_client(live)
     avatar.set_store(media_store)
     yield
