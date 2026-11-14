@@ -3,17 +3,78 @@
  *
  * Requests go to this app's own proxy route, `/api/dxp/<path>`, which adds the
  * `X-DxP-Key` header on the server. The key never reaches the browser, and the
- * browser never sets who the caller is. `<path>` is the API route under
- * `/api/v1`, for example `reports?status=pending` or `runs/run_ab12`.
+ * browser never sets who the caller is.
  *
- * `get` and `post` are generic by response type, so this file does not depend
- * on the generated `lib/types.ts`. Callers name the type:
+ * `get` and `post` are typed by path from the generated OpenAPI types
+ * (`lib/types.ts`, A01). A path is the route under `/api/v1`, written as the
+ * schema writes it, with `{name}` for path parameters. A wrong path, a missing
+ * path parameter, a wrong query name or a wrong body fails to compile, and the
+ * result type is the route's 200 response:
  *
- *   import type { components } from "@/lib/types";
- *   const run = await get<components["schemas"]["Run"]>(`runs/${id}`);
+ *   const run = await get("/runs/{run_id}", { path: { run_id: id } });   // Run
+ *   const page = await get("/reports", { query: { status: "pending" } }); // ReportList
+ *   await post("/runs", { body: { set: "discover" } });                   // Run
+ *
+ * There is no untyped escape hatch: every API route is in the schema. If a
+ * route is missing, regenerate the types with `npm run gen:types`.
  *
  * Server components use `lib/server-api.ts` instead (same signatures).
  */
+
+import type { paths } from "@/lib/types";
+
+// ---- Types derived from the generated schema -------------------------------
+
+/** The schema keys every route as `/api/v1/...`; the proxy adds that prefix, so callers drop it. */
+type Routes = {
+  [K in keyof paths as K extends `/api/v1${infer R}` ? R : never]: paths[K];
+};
+
+type Method = "get" | "post";
+
+/** Route paths that have the given method. */
+export type ApiPath<M extends Method> = {
+  [P in keyof Routes]: Routes[P] extends { [K in M]: object } ? P : never;
+}[keyof Routes] &
+  string;
+
+type Operation<P extends keyof Routes, M extends Method> = NonNullable<Routes[P][M]>;
+
+/** The route's 200 (or 201) JSON response, or `unknown` when it has none (audio, streams). */
+export type ResponseOf<P extends ApiPath<M>, M extends Method> =
+  Operation<P, M> extends { responses: infer R }
+    ? R extends { 200: { content: { "application/json": infer J } } }
+      ? J
+      : R extends { 201: { content: { "application/json": infer J } } }
+        ? J
+        : unknown
+    : unknown;
+
+type PathParamsOf<O> = O extends { parameters: { path: infer P } } ? P : never;
+type QueryOf<O> = O extends { parameters: { query?: infer Q } } ? Exclude<Q, undefined> : never;
+type BodyOf<O> = O extends { requestBody?: infer RB }
+  ? NonNullable<RB> extends { content: { "application/json": infer B } }
+    ? B
+    : never
+  : never;
+
+type PathPart<O> = [PathParamsOf<O>] extends [never] ? { path?: undefined } : { path: PathParamsOf<O> };
+type QueryPart<O> = [QueryOf<O>] extends [never] ? { query?: undefined } : { query?: QueryOf<O> };
+type BodyPart<O> = [BodyOf<O>] extends [never]
+  ? { body?: undefined }
+  : O extends { requestBody: object }
+    ? { body: BodyOf<O> }
+    : { body?: BodyOf<O> };
+
+/** What a call may or must carry for this route: path parameters, query, and (for POST) the body. */
+export type RouteOptions<P extends ApiPath<M>, M extends Method> = PathPart<Operation<P, M>> &
+  QueryPart<Operation<P, M>> &
+  (M extends "post" ? BodyPart<Operation<P, M>> : { body?: undefined });
+
+/** The options argument is required exactly when the route needs a path parameter or a body. */
+export type RouteArgs<P extends ApiPath<M>, M extends Method> = Record<string, never> extends RouteOptions<P, M>
+  ? [options?: RouteOptions<P, M>]
+  : [options: RouteOptions<P, M>];
 
 export type QueryValue = string | number | boolean | null | undefined;
 export type Query = Record<string, QueryValue>;
@@ -109,6 +170,27 @@ function errorMessage(status: number, body: unknown): string {
   return `The API answered with status ${status}.`;
 }
 
+type LooseOptions = {
+  path?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+  body?: unknown;
+};
+
+/**
+ * Turn a typed route and its options into `path?query` (no leading slash, path
+ * parameters filled in and encoded). Shared by the client, the hook and the server helpers.
+ */
+export function buildPath(route: string, options?: LooseOptions): string {
+  const filled = route.replace(/\{([^}]+)\}/g, (_, name: string) => {
+    const value = options?.path?.[name];
+    if (value === undefined || value === null || value === "") {
+      throw new Error(`Missing path parameter "${name}" for ${route}.`);
+    }
+    return encodeURIComponent(String(value));
+  });
+  return withQuery(filled, options?.query as Query | undefined);
+}
+
 const PROXY_BASE = "/api/dxp";
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
@@ -122,23 +204,33 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   return parseResponse<T>(res);
 }
 
-/** GET an API route by path, for example `get<Report>("reports/abc")`. */
-export function get<T>(path: string, query?: Query, init?: RequestInit): Promise<T> {
-  return request<T>(withQuery(path, query), { ...init, method: "GET" });
+/** GET a path already built by `buildPath`. For the SWR hook, which keys its cache by that string. */
+export function getBuilt<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, { ...init, method: "GET" });
 }
 
-/** POST a JSON body to an API route by path. */
-export function post<T, B = unknown>(path: string, body?: B, init?: RequestInit): Promise<T> {
-  return request<T>(withQuery(path), {
-    ...init,
+/** GET an API route by path, typed from the schema: `get("/runs/{run_id}", { path: { run_id } })`. */
+export function get<P extends ApiPath<"get">>(
+  route: P,
+  ...args: RouteArgs<P, "get">
+): Promise<ResponseOf<P, "get">> {
+  return getBuilt<ResponseOf<P, "get">>(buildPath(route, args[0]));
+}
+
+/** POST a JSON body to an API route by path, typed from the schema: `post("/runs", { body })`. */
+export function post<P extends ApiPath<"post">>(
+  route: P,
+  ...args: RouteArgs<P, "post">
+): Promise<ResponseOf<P, "post">> {
+  const options = args[0] as LooseOptions | undefined;
+  return request<ResponseOf<P, "post">>(buildPath(route, options), {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    body: options?.body === undefined ? undefined : JSON.stringify(options.body),
   });
 }
 
-/** List routes return `{ items, next }`; tolerate a bare array too. */
-export function itemsOf<T>(page: { items?: T[] } | T[] | null | undefined): T[] {
-  if (!page) return [];
-  return Array.isArray(page) ? page : (page.items ?? []);
+/** List routes return `{ items, next }`. */
+export function itemsOf<T>(page: { items: T[] } | null | undefined): T[] {
+  return page?.items ?? [];
 }

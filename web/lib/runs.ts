@@ -1,5 +1,5 @@
-/** Minimal run fields the shell needs. The full `Run` shape comes from the generated types (A01). */
-export type RunLike = { id: string; started_at?: string | null; status?: string };
+/** The run fields `latestRun` reads. The generated `Run` (A01) satisfies it. */
+export type RunLike = { id: string; started_at?: string | null };
 
 /** The latest run: newest `started_at`, falling back to list order (the API lists newest first). */
 export function latestRun<T extends RunLike>(runs: T[]): T | null {
@@ -10,11 +10,3 @@ export function latestRun<T extends RunLike>(runs: T[]): T | null {
     new Date(b.started_at as string).getTime() > new Date(a.started_at as string).getTime() ? b : a,
   );
 }
-
-/** The principal `GET /whoami` returns (AD-14, D53). */
-export type PrincipalLike = {
-  id: string;
-  name: string;
-  kind?: "agent" | "person" | "seed";
-  actions?: string[];
-};

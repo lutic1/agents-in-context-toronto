@@ -14,6 +14,6 @@ npm run dev
 | `NEXT_PUBLIC_DXP_FEATURES` | client | display flags: `briefing`, `avatar`, `memory_edit`, `task_run`, `revert`, `live_stream` (comma separated; empty means off) |
 | `DXP_API_KEY` | server only | reviewer key; added as `X-DxP-Key` by `app/api/dxp/[...path]/route.ts`; never `NEXT_PUBLIC_` |
 
-Scripts: `npm run build`, `npm run lint`, `npm run typecheck`, `npm run gen:types` (writes `lib/types.ts` from the API's OpenAPI document, `OPENAPI_URL` defaults to `http://localhost:8000/openapi.json`).
+Scripts: `npm run build`, `npm run lint`, `npm run typecheck`, `npm run gen:types` (runs `tools/gen_types.sh`, which writes `lib/types.ts`; it builds the schema from the backend code with `uv`, or reads a running API's `/openapi.json` when `DXP_OPENAPI_URL` is set; never edit `lib/types.ts` by hand).
 
 Calling the API: client code uses `get` and `post` from `lib/api.ts` (through the proxy route) or `useApi` from `lib/use-api.ts` for polling. Server components use `serverGet` and `serverPost` from `lib/server-api.ts`.

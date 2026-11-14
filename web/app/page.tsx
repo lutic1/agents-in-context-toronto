@@ -5,7 +5,7 @@ import { CircleDashed, SquareTerminal } from "lucide-react";
 
 import { ApiError, ApiUnreachableError, itemsOf } from "@/lib/api";
 import { serverGet } from "@/lib/server-api";
-import { latestRun, type RunLike } from "@/lib/runs";
+import { latestRun } from "@/lib/runs";
 import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,7 +24,7 @@ async function LatestRunRedirect() {
   let failure: "unreachable" | "other" | null = null;
 
   try {
-    const page = await serverGet<{ items?: RunLike[] } | RunLike[]>("runs");
+    const page = await serverGet("/runs");
     const latest = latestRun(itemsOf(page));
     if (latest) target = `/runs/${encodeURIComponent(latest.id)}`;
   } catch (error) {

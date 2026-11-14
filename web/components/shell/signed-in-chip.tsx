@@ -3,7 +3,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { POLL_MS, useApi } from "@/lib/use-api";
 import { displayName, initials } from "@/lib/format";
-import type { PrincipalLike } from "@/lib/runs";
 
 /**
  * The read-only "Signed in as" chip from GET /whoami. It is a label, not a
@@ -15,7 +14,7 @@ import type { PrincipalLike } from "@/lib/runs";
  * one. Add SyntheticBadge once the API says so.
  */
 export function SignedInChip() {
-  const { data, error, isLoading } = useApi<PrincipalLike>("whoami", {
+  const { data, error, isLoading } = useApi("/whoami", {
     // Re-read slowly so a changed grant is picked up without a reload.
     interval: POLL_MS * 15,
   });

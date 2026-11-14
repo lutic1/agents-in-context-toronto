@@ -8,10 +8,8 @@ import { Wordmark } from "@/components/shell/wordmark";
 import { SignedInChip } from "@/components/shell/signed-in-chip";
 import { ApiError, itemsOf } from "@/lib/api";
 import { POLL_MS, useApi } from "@/lib/use-api";
-import { latestRun, type RunLike } from "@/lib/runs";
+import { latestRun } from "@/lib/runs";
 import { cn } from "@/lib/utils";
-
-type Page<T> = { items?: T[]; next?: string | null };
 
 /**
  * The single top bar (EXPERIENCE "Information Architecture"): the wordmark,
@@ -21,11 +19,11 @@ type Page<T> = { items?: T[]; next?: string | null };
 export function TopBar() {
   const pathname = usePathname() ?? "/";
 
-  const pending = useApi<Page<unknown>>("reports", {
+  const pending = useApi("/reports", {
     query: { status: "pending" },
     interval: POLL_MS,
   });
-  const runs = useApi<Page<RunLike>>("runs", { interval: POLL_MS * 2.5 });
+  const runs = useApi("/runs", { interval: POLL_MS * 2.5 });
 
   // The count is hidden while the route is not built (501), and while it is unknown.
   const pendingNotBuilt = pending.error instanceof ApiError && pending.error.status === 501;
