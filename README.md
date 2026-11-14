@@ -4,7 +4,7 @@
 
 Built for **Agents in Context Toronto: a MongoDB Hackathon** (Cerebral Valley), Problem Statement 1, "Agents You Can Audit".
 
-**Status: the build is in progress on Saturday 14 November 2026 (hacking runs 10:45 to 17:00 ET).** Everything below describes planned behaviour until the "Verified on the sandbox" section says otherwise. Facts we do not know yet are shown as `[[PENDING: ...]]` markers, each with where the answer will come from. No marker is a claim.
+**Status: the build is in progress on Saturday 14 November 2026 (hacking is planned to run 10:45 to 17:00 ET; the deadline is confirmed in docs/clearance.md).** Everything below describes planned behaviour until the "Verified on the sandbox" section says otherwise. Facts we do not know yet are shown as `[[PENDING: ...]]` markers, each with where the answer will come from. No marker is a claim.
 
 - Event page: https://cerebralvalley.ai/e/mongodb-toronto-hackathon
 - Location: The Quay, 100 Queens Quay E 3rd Floor, Toronto, ON M5E 1V3, Canada
@@ -21,6 +21,13 @@ A diagnostics team follows public evidence in one research area. Finding a newly
 
 DxP's agent, `dxp-curator`, works for one research scope under a scoped grant. The demo scope is **"Plasma ctDNA genotyping assays in NSCLC"**, owned by a synthetic team, "Team Liquid Biopsy Dx". The data layer is MongoDB Atlas: identity, grants, policies, decisions and audit are all documents there.
 
+### How the project changed
+
+- **13 November, the pivot.** DxP moved to Problem Statement 1, "Agents You Can Audit": governed agent actions, with scoped grants, a policy gate, a recorded Decision for every check, notify-only Slack, a stop control and an audit view that answers who acted and why.
+- **14 November, the discovery-agent change.** The agent became proactive: it scans its scope for trials updated since a cursor, relates what it finds to what the team already holds, remembers reviewer corrections, files one pending report for a human to approve, and builds longitudinal value over time.
+
+Both changes are described below as planned behaviour until the verified table says otherwise.
+
 ### The governed discovery loop
 
 1. **Discover.** A run queries ClinicalTrials.gov for trials in the scope that were updated since the scope's last scan. The scan only looks at what changed since the last scan, so the work does not repeat.
@@ -29,8 +36,9 @@ DxP's agent, `dxp-curator`, works for one research scope under a scoped grant. T
 4. **Gate.** Versioned policies are checked before every action, and every check is recorded as a Decision. A blocked action changes nothing and is still recorded. The checks cover: the grant is active, the target is in the team's scope, the destination and action match the grant, the required evidence is present (including claim checks), and the run is still authorised.
 5. **Propose.** The agent files one pending report: the finding, its quotes, related evidence, uncertainties, the evidence gap, and one recommended follow-up task. Nothing becomes accepted knowledge yet.
 6. **Notify.** One Slack alert per report links back to the report in DxP. Slack only notifies; approving and rejecting happen only in DxP.
-7. **Decide.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant. Whatever that task later finds stays pending until a reviewer decides on it ("approved" is not "accepted" for the task). A rejection or a correction becomes a memory for the next discovery.
-8. **Audit and stop.** Every step can be replayed: what the agent found, which memory changed its wording, what was blocked, and who authorised the follow-up. A person can stop a run at any moment.
+7. **Brief (optional, on demand).** A ten-second ElevenLabs briefing and a HeyGen avatar video are made from the report's own text script, which is always shown as text; nothing waits on either. [[PENDING: whether briefing and avatar passed their checks (B06, B08, OD7)]]
+8. **Decide.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant. Whatever that task later finds stays pending until a reviewer decides on it ("approved" is not "accepted" for the task). A rejection or a correction becomes a memory for the next discovery.
+9. **Audit and stop.** Every step can be replayed: what the agent found, which memory changed its wording, what was blocked, and who authorised the follow-up. A person is planned to be able to stop a run at any moment [[PENDING: Stop check (A16 pass 1)]].
    - **The rollback story (planned behaviour).** Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. The agent cannot change accepted knowledge without a human approval.
    - Pending reports can be rejected. Memories can be revoked. History and source versions are never overwritten.
    - Planned as a supporting extra: an approval can be reverted with a note. The update leaves accepted knowledge, nothing is deleted, and a follow-up task that has not started is cancelled. [[PENDING: whether revert passed its check (S4)]]
@@ -43,11 +51,11 @@ The scope's scan cursor and the team's memories accumulate over time. A scan rea
 
 ### The planned demo
 
-One discovery run on the scope finds [[PENDING: the demo anchor trial, verified against the live API at 10:45 (OD2)]]. The report states what the record says, in the record's own words, and its evidence gap. A reviewer memory from earlier in the day changes the report's wording. One proposed action is blocked by a policy check before anything is filed. A Slack alert opens the report, a human approves, and the audit view answers: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?"
+One discovery run on the scope finds [[PENDING: the demo anchor trial, verified against the live API at 10:45 (OD2)]]. The report states what the record says, in the record's own words, and its evidence gap. A reviewer memory from earlier in the day changes the report's wording. One proposed action is planned to be blocked by a policy check before anything is filed: the expected anchor's record names a tissue assay that the plasma scope excludes. [[PENDING: whether the actual anchor's record names such an assay (OD2)]] A Slack alert opens the report, a human approves, and the audit view answers: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?"
 
-When the demo or the report mentions an assay name that appears in a trial record, we say it is "named in the record". A name in a record is not evidence that the trial used or studied that product, and nothing in DxP states or implies how any assay performs.
+When the demo or the report mentions an assay name that appears in a trial record, we say it is "named in the record". A name in a record is not evidence that the trial used or studied that product. DxP is built to describe each assay name as "named in the record", and its claim check is planned to block any performance or results claim the source version does not support. A person checks a full report against its source version before it is shown (V44).
 
-Two optional extras, both on demand and neither on the critical path: a ten-second ElevenLabs briefing and a HeyGen avatar video, each made from the report's own text script. The script is always shown as text. Running the approved follow-up task is a stretch goal behind a feature flag; if it does not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
+The briefing and the avatar video (step 7) are on demand and not on the critical path. Running the approved follow-up task is a stretch goal behind a feature flag; if it does not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ## Verified on the sandbox
 
@@ -74,6 +82,7 @@ Only capabilities proven on the Atlas Sandbox are listed as used. Until a row is
 | Schema validation (`$jsonSchema`) | Grants, policies, decisions, actions, reports, memories and tasks reject malformed documents | [[PENDING: proven or not (I1)]] |
 | Conditional updates and transactions | One claim per action, so two workers never both send; admissions and stop; approval claim; task authorisation saved in one transaction | [[PENDING: proven or not (I1, I3)]] |
 | [[PENDING: Atlas Vector Search or text search (OD1)]] | Related evidence in the scope, and the team's active memories. Scores are shown and never used as evidence. If Vector Search was unavailable this row says "text search" and every screen says "related by text search" | [[PENDING: proven or not (OD1, I1)]] |
+| `memories` collection | The team's reviewer corrections: each names its author, can be corrected or revoked, is retrieved for the next discovery, and its effect is shown on the report | [[PENDING: proven or not (I1, S3)]] |
 | Versioned documents | Grants, policy sets, memories and source versions are never edited in place, so every audit answer can be replayed | [[PENDING: proven or not (I1, I3)]] |
 | Decisions and actions collections | The audit history: who acted, under which grant and policy set, what was allowed or blocked, and the Slack result | [[PENDING: proven or not (I3)]] |
 | Change streams | Live run updates. This row stays only if the check passed; otherwise the screens polled and the row is removed | [[PENDING: passed or not (S5, OD5)]] |
@@ -87,7 +96,7 @@ The event rules allow only work built during the event to be highlighted. This t
 | Planning documents in `_bmad-output/`: brief, PRD, architecture, UX specifications (text only), epics and stories, build schedule, development plan | They are the plan, not product. No product code or data comes from them |
 | Reference skills in `.claude/skills/dxp-*`: documentation for coding agents about the APIs, limits and gotchas of the tools we use | Read as documentation only. No code is copied from them or run |
 | The BMad method files in `_bmad/` and the `bmad-*` skills | Process tooling for the team's agents. Not product |
-| `data/` and `scripts/data/`: open data downloaded and fetch scripts written before the event | Not used without written organiser clearance. [[PENDING: whether the organisers cleared them (docs/clearance.md)]]. The build fetches its own data during the event |
+| `data/` and `scripts/data/`: open data downloaded and fetch scripts written before the event | Not used without written organiser clearance. [[PENDING: whether the organisers cleared them (docs/clearance.md)]]. The build is planned to fetch its own data during the event, unless the organisers cleared the prepared files, in which case this row is updated [[PENDING: whether any prepared data file was loaded (docs/clearance.md)]]; if the FDA page could not be fetched, the Diagnostics the scope names were typed from the FDA page during the event [[PENDING: whether the FDA fetch worked (A13)]] |
 | Logo images in the UX folder | Not used without written organiser clearance. [[PENDING: whether the organisers cleared them (docs/clearance.md)]]. The interface uses a text wordmark, "DxP" |
 | The Slack incoming webhook for `#all-mango-db-hackathon`, created and tested before the event | The channel is used. The webhook address lives only in `.env` and the Modal secret and is never committed. Any script used to test it is not reused; the notifier is written during the event |
 | The ElevenLabs and HeyGen accounts, if created before the event [[PENDING: which accounts existed beforehand (OD3, OD7)]] | Keys live only in `.env` and the Modal secret and are never committed. Every briefing and avatar video is generated during the event, on demand, from a report's own fields. No clip was made beforehand |
@@ -97,7 +106,7 @@ The event rules allow only work built during the event to be highlighted. This t
 |---|
 | All of `backend/`: the API, the agent run, the gate, the ledger, retrieval, memory, reports, the Slack notifier, stop and audit |
 | All of `web/`: the report page, run console, audit view and accepted-knowledge view |
-| The data in Atlas, all created during the event: the FDA companion-diagnostic list fetched live and filtered to lung rows, the prior trial collection fetched live from ClinicalTrials.gov, and the reviewer memory a person created through the real UI |
+| The data in Atlas, planned to be created during the event: the FDA companion-diagnostic list fetched live and filtered to lung rows, the prior trial collection fetched live from ClinicalTrials.gov, and the reviewer memory a person created through the real UI, unless the organisers cleared the prepared files, in which case this row is updated [[PENDING: whether any prepared data file was loaded (docs/clearance.md)]]; if the FDA page could not be fetched, the Diagnostics the scope names were typed from the FDA page during the event [[PENDING: whether the FDA fetch worked (A13)]] |
 | `README.md`, `docs/submission.md` and `docs/video-script.md`, written for this submission |
 
 ### What is not reused, and why
@@ -137,7 +146,7 @@ Rules the design holds to:
 - **Every action passes the gate first.** Each check result is recorded as a Decision.
 - **Source versions are pinned.** Quotes, retrieval results, proposals and audit entries keep the exact source version they used, so a later change to a trial never alters evidence that was already reviewed.
 - **Notification outcomes are recorded honestly.** An uncertain Slack result is marked unknown, never retried blindly, and a reviewer resolves it in DxP.
-- **Approval survives a crash.** The approval is saved before the report is accepted, and an interrupted approval is completed on restart with the reviewer's authority checked again.
+- **Approval is designed to survive a crash.** The approval is saved before the report is accepted, and an interrupted approval is completed on restart with the reviewer's authority checked again. [[PENDING: whether the crash and retry checks passed (A24, I3)]] Known limitation: a crash right before a memory is created is repaired only when the reviewer retries the decision.
 
 ## Documentation
 

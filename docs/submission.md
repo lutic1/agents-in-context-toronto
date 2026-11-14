@@ -2,7 +2,7 @@
 
 Text for the Agents in Context Toronto submission form (Problem Statement 1, "Agents You Can Audit"). R1 pastes it in with the video link by 16:55.
 
-**Wording status.** Every behaviour below is written as planned behaviour until the matching row of "Verified on the sandbox" in the README has passed. Before submitting, R1 resolves each `[[PENDING: ...]]` marker, and deletes any sentence about a feature whose check did not pass. A marker left in the form is a failed submission check.
+**Wording status.** Every behaviour below is written as planned behaviour until the matching row of "Verified on the sandbox" in the README has passed. Before submitting, R1 resolves each `[[PENDING: ...]]` marker, and deletes any sentence about a feature whose check did not pass. R1 confirms each core behaviour against the A16 pass 1 result in `docs/demo-and-reset.md` before submitting, and deletes any sentence about a behaviour that did not pass. R1 deletes any MongoDB bullet whose marker is not resolved to proven, and each optional-extras sentence whose marker is not confirmed. A marker left in the form is a failed submission check.
 
 ## Form fields
 
@@ -32,14 +32,14 @@ DxP is that agent, built around those answers. Its agent, `dxp-curator`, works f
 - **files one pending report** that names one evidence gap, and sends **one Slack alert** that links back to it;
 - **waits for a human.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant; what that task later finds stays pending until a reviewer decides on it.
 
-The demo uses real ClinicalTrials.gov data fetched during the event. When a trial record mentions an assay name, DxP says the name is "named in the record" and never says the trial used or studied it. It makes no claim about how any assay performs. [[PENDING: the demo anchor trial and its one-line signal, verified against the live API at 10:45 (OD2)]]
+The demo uses real ClinicalTrials.gov data fetched during the event. When a trial record mentions an assay name, DxP says the name is "named in the record" A name in a record is not evidence that the trial used or studied that product. DxP is built to describe each assay name as "named in the record", and its claim check is planned to block any performance or results claim the source version does not support. A person checks a full report against its source version before it is shown (V44). [[PENDING: the demo anchor trial and its one-line signal, verified against the live API at 10:45 (OD2)]]
 
 ### How to stop or roll back an agent mid-run
 
 Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. The agent cannot change accepted knowledge without a human approval. Beyond that:
 
 - pending reports can be rejected;
-- memories can be revoked;
+- memories can be revoked [[PENDING: keep this line only if memory revoke passed (S3)]];
 - history and source versions are never overwritten;
 - an approval can be reverted with a note: the update leaves accepted knowledge, nothing is deleted, and a follow-up task that has not started is cancelled. [[PENDING: keep this line only if revert passed its check (S4)]]
 
@@ -47,13 +47,13 @@ DxP does not undo effects outside itself. A Slack alert that was sent stays sent
 
 ### MongoDB Atlas as the identity, policy and audit layer
 
-Only capabilities proven on the sandbox are named here. [[PENDING: which capabilities were proven on the sandbox (I1, I3; README table)]] The plan uses:
+Only capabilities proven on the sandbox may stay in this list. [[PENDING: which capabilities were proven on the sandbox (I1, I3; README table)]] Planned use; each bullet stays only if proven on the sandbox:
 
-- schema validation, so a malformed grant, policy, decision or task cannot be saved;
-- conditional updates and transactions, so one Slack alert is claimed once, a stop settles once, and an approval and its task authorisation are saved together;
+- schema validation, so a malformed grant, policy, decision or task cannot be saved [[PENDING: proven or not (I1)]];
+- conditional updates and transactions, so one Slack alert is claimed once, a stop settles once, and an approval and its task authorisation are saved together [[PENDING: proven or not (I1, I3)]];
 - [[PENDING: Vector Search or text search, whichever ran (OD1)]] for related evidence and for the team's memories, with scores shown and never used as evidence;
-- versioned documents, so grants, policy sets, memories and source versions are never edited in place and every audit answer can be replayed;
-- the decisions and actions collections as the audit history;
+- versioned documents, so grants, policy sets, memories and source versions are never edited in place and every audit answer can be replayed [[PENDING: proven or not (I1, I3)]];
+- the decisions and actions collections as the audit history [[PENDING: proven or not (I3)]];
 - [[PENDING: change streams for live run updates, only if they passed (S5, OD5); otherwise delete this line, the screens polled]].
 
 ### The longitudinal value
@@ -62,11 +62,11 @@ The scope's scan cursor and the team's memories accumulate over time: the next s
 
 ### Optional extras
 
-[[PENDING: which supporting features passed their checks: briefing (B06), avatar (B08, OD7), revert (S4), live stream (S5), follow-up task run (I3b)]] Each is on demand and none gates the loop. A ten-second ElevenLabs briefing and a HeyGen avatar video are made from the report's own text script, which is always shown as text. Running the authorised follow-up task is a stretch goal. If it did not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
+[[PENDING: which supporting features passed their checks: briefing (B06), avatar (B08, OD7), revert (S4), live stream (S5), follow-up task run (I3b)]] Each is on demand and none gates the loop. If the briefing passed its check, a ten-second ElevenLabs briefing can be made on demand from the report's own text script. If the avatar passed its check, a HeyGen avatar video can be made the same way. [[PENDING: briefing passed (B06)]] [[PENDING: avatar passed (B08, OD7)]] The script is always shown as text. Running the authorised follow-up task is a stretch goal. If it did not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ### Built on the day, and what was prepared
 
-All code, all data in Atlas and every briefing and video were produced during the event. Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and HeyGen accounts) is listed in the README, with what was and was not used. No code, data file, logo or clip prepared beforehand is reused. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
+The plan is that all code, all data in Atlas and any briefing or video are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and HeyGen accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
 
 ### Limits
 
