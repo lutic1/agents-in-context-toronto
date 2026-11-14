@@ -1,7 +1,7 @@
 "use client";
 
 import { MicOff, Video, VideoOff } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -23,7 +23,10 @@ const UNAVAILABLE: Record<string, string> = {
 /**
  * Optional avatar (V70), behind the `avatar` flag. It speaks only text the backend returned, with `repeat`.
  * The microphone is off and nothing is listened to. The answer text is always on the page, so a failure here
- * changes nothing else. The session starts only on "Engage", never by itself, and stops on `pagehide`.
+ * changes nothing else. With `autoStart` (the default) the session starts once when the panel mounts (V75), the same
+ * as pressing "Start avatar"; it stops on "Stop avatar", on `pagehide` and on unmount. If the browser blocks the
+ * avatar's audio until a user gesture, the panel says "Click anywhere to start talking" and unmutes on the first
+ * pointerdown or keydown anywhere on the page.
  */
 export function AvatarPanel({
   reportId,
@@ -31,6 +34,10 @@ export function AvatarPanel({
   onBusyChange,
   subtitle,
   answering = false,
+  autoStart = true,
+  onReadyChange,
+  onStopped,
+  conversation,
 }: {
   reportId: string;
   /** Which report this is, e.g. its headline, shown under the heading. */
@@ -41,10 +48,21 @@ export function AvatarPanel({
   onSpeaker: (speak: ((text: string) => void) | null) => void;
   /** True while the session is starting or speaking. The page turns off its own recorder then (V73). */
   onBusyChange?: (busy: boolean) => void;
+  /** Start the session once when the panel mounts, without a click. */
+  autoStart?: boolean;
+  /** True once the session is ready (and its audio is not blocked), false otherwise. */
+  onReadyChange?: (ready: boolean) => void;
+  /** The user pressed "Stop avatar". */
+  onStopped?: () => void;
+  /** The page's conversation control and status line, shown on the row under the video. */
+  conversation?: { control: ReactNode; status: ReactNode; note?: ReactNode };
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [speaking, setSpeaking] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // True while the browser keeps the avatar's audio blocked until the user clicks or types (autoplay policy).
+  const [needsGesture, setNeedsGesture] = useState(false);
+  const autoStartedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const adapterRef = useRef<AvatarAdapter | null>(null);
   // True once the page is gone. A start that is still in flight when this flips must end its own session.
@@ -54,6 +72,50 @@ export function AvatarPanel({
   useEffect(() => {
     onBusyChange?.(busy);
   }, [busy, onBusyChange]);
+
+  const gestureBlocked = needsGesture && phase === "ready";
+  const ready = phase === "ready" && !gestureBlocked;
+  useEffect(() => {
+    onReadyChange?.(ready);
+  }, [ready, onReadyChange]);
+
+  // Autoplay: once ready, check the video is actually playing with sound. If the browser blocked it, ask for a click
+  // anywhere and unmute and play on the first pointerdown or keydown.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const video = videoRef.current;
+    if (!video) return;
+    let cancelled = false;
+    const unblock = () => {
+      video.muted = false;
+      void video
+        .play()
+        .then(() => {
+          if (!cancelled) setNeedsGesture(false);
+        })
+        .catch(() => {});
+    };
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (video.muted) {
+        setNeedsGesture(true);
+        return;
+      }
+      if (video.paused) {
+        void video.play().catch((error: unknown) => {
+          if (!cancelled && error instanceof DOMException && error.name === "NotAllowedError") setNeedsGesture(true);
+        });
+      }
+    }, 800);
+    document.addEventListener("pointerdown", unblock, true);
+    document.addEventListener("keydown", unblock, true);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("pointerdown", unblock, true);
+      document.removeEventListener("keydown", unblock, true);
+    };
+  }, [phase]);
 
   const stop = useCallback(async () => {
     const adapter = adapterRef.current;
@@ -78,9 +140,10 @@ export function AvatarPanel({
 
   async function start() {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || adapterRef.current) return;
     setPhase("starting");
     setNote(null);
+    setNeedsGesture(false);
     try {
       const { token } = await requestAvatarToken(reportId);
       if (cancelledRef.current) return;
@@ -129,6 +192,21 @@ export function AvatarPanel({
     }
   }
 
+  // Start once per page view when the panel mounts. The timer makes React strict mode's mount, unmount, mount start
+  // only one session: the first timer is cleared before it fires. Unmount stops the session (see above).
+  const startRef = useRef(start);
+  useEffect(() => {
+    startRef.current = start;
+  });
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    const timer = window.setTimeout(() => {
+      autoStartedRef.current = true;
+      void startRef.current();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoStart]);
+
   return (
     <section aria-labelledby="avatar-heading" className="rounded-lg bg-card p-5 shadow-sm">
       <h2 id="avatar-heading" className="flex items-center gap-2 text-heading">
@@ -155,7 +233,7 @@ export function AvatarPanel({
         {phase !== "ready" ? (
           <div className="flex h-[240px] items-center justify-center p-4 text-center text-caption text-muted-foreground">
             {phase === "starting" ? "Starting the avatar. The answers on this page are usable now." : null}
-            {phase === "idle" ? "Press Engage to start the avatar. It reads each answer aloud." : null}
+            {phase === "idle" ? (autoStart ? "Starting the avatar…" : "Press Start avatar to begin. It reads each answer aloud.") : null}
             {phase === "ended" ? "Avatar session ended. The answers are still here as text." : null}
             {phase === "unavailable" ? "Avatar unavailable. The answers are shown as text; nothing else is affected." : null}
           </div>
@@ -164,25 +242,38 @@ export function AvatarPanel({
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {phase === "ready" ? (
-          <Button type="button" variant="outline" onClick={() => void stop()}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              onStopped?.();
+              void stop();
+            }}
+          >
             <VideoOff aria-hidden="true" />
             Stop avatar
           </Button>
         ) : (
-          <Button type="button" onClick={() => void start()} disabled={phase === "starting"}>
-            Engage
+          <Button type="button" variant={conversation ? "outline" : "default"} onClick={() => void start()} disabled={phase === "starting"}>
+            <Video aria-hidden="true" />
+            {phase === "starting" ? "Starting…" : "Start avatar"}
           </Button>
         )}
-        <p role="status" aria-live="polite" className="text-caption text-muted-foreground">
-          {phase === "ready"
-            ? speaking
-              ? "The avatar is speaking."
-              : answering
-                ? "Finding the answer in the record…"
-                : "Ready. Ask a question and the avatar reads the answer aloud."
-            : null}
+        {conversation?.control}
+        <p role="status" aria-live="polite" className="flex items-center gap-2 text-body font-medium">
+          {gestureBlocked
+            ? "Click anywhere to start talking"
+            : conversation?.status ??
+              (phase === "ready"
+                ? speaking
+                  ? "The avatar is speaking."
+                  : answering
+                    ? "Finding the answer in the record…"
+                    : "Ready. Ask a question and the avatar reads the answer aloud."
+                : null)}
         </p>
       </div>
+      {conversation?.note ? <div className="mt-2 text-caption text-muted-foreground">{conversation.note}</div> : null}
       {note ? (
         <p role="alert" className="mt-3 text-caption text-muted-foreground">
           {note}
