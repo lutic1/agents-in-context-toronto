@@ -175,7 +175,7 @@ def eligible_cards(intent: Intent, cards: list[Card], names: list[str]) -> list[
     """The cards this intent may use, in report order. Fail closed: a card of another field, a card that does not
     have the shape of its field (`cards.shape_ok`: no free text after a label, no prose outside the closed design
     vocabulary), a claim-like card, a narrative card the intent does not allow, or a card that does not hold what
-    the intent needs is left out. Interventions are cards that list only the names the record gives."""
+    the intent needs is left out. Interventions are cards that list only the names the record gives, and those are preferred to narrative cards."""
     chosen: list[Card] = []
     for card in cards:
         if card.field not in intent.fields and not (intent.narrative and card.field in NARRATIVE_FIELDS):
@@ -192,4 +192,10 @@ def eligible_cards(intent: Intent, cards: list[Card], names: list[str]) -> list[
             if not any(name in normalise_text(card.text).lower() for name in lowered_names):
                 continue
         chosen.append(card)
+    if intent.name == "interventions":
+        # "What does the record name?" is answered by the cards that list only names. A narrative card that happens to
+        # hold a name helps only when no name-only card exists.
+        name_only = [card for card in chosen if card.field not in NARRATIVE_FIELDS]
+        if name_only:
+            return name_only
     return chosen

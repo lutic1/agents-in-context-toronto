@@ -306,8 +306,13 @@ def test_a_narrative_quote_serves_the_name_intent_only_if_it_names_something() -
     raw = {VERSION_ID: RAW_TEXT + f"\n\nBrief summary: {plain}"}
     pool = cards.load_cards(report, raw)
     names = cards.mention_names(report)
-    chosen = [c.text for c in intents.eligible_cards(intents.intent_named("interventions"), pool, names)]
-    assert plain in chosen and Q_PURPOSE not in chosen
+    intent = intents.intent_named("interventions")
+    chosen = [c.text for c in intents.eligible_cards(intent, pool, names)]
+    # name-only cards exist, so they are preferred: the narrative card that names them is not offered beside them
+    assert plain not in chosen and Q_PURPOSE not in chosen and chosen
+    # with no name-only card, the narrative quote that names a record name is the answer
+    without_names = [c for c in pool if c.field not in {"interventions"}]
+    assert [c.text for c in intents.eligible_cards(intent, without_names, names)] == [plain]
 
 
 def test_discovery_quotes_constant_is_what_the_fixture_publishes() -> None:

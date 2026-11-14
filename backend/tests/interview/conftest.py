@@ -190,6 +190,30 @@ def fake_llm(monkeypatch: pytest.MonkeyPatch) -> FakeLlm:
     return fake
 
 
+@dataclass
+class Settled:
+    """Every `gate.mark_action(action_id, status, result)` the lane made."""
+
+    calls: list[tuple[str, str, dict[str, Any] | None]] = field(default_factory=list)
+
+
+@pytest.fixture(autouse=True)
+def settled(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Settled:
+    """The lane settles its action after answering. Nothing here reaches a database: this records the call instead."""
+    import dxp.gate
+
+    record = Settled()
+    if "world" in request.fixturenames:  # the real gate on A06's fake world settles for real
+        return record
+
+    async def mark_action(action_id: str, status: str, result: dict[str, Any] | None = None, *, session: Any = None) -> bool:
+        record.calls.append((action_id, status, result))
+        return True
+
+    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
+    return record
+
+
 def make_ctx(actions: list[str] | None = None) -> m.RunContext:
     granted = ["answer_question"] if actions is None else actions
     principal = m.Principal(id="sam", name="Sam", kind="person", actions=granted)  # type: ignore[arg-type]

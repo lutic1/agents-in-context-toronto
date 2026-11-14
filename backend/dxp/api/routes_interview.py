@@ -4,7 +4,8 @@
 decision_id }`. Paths, methods, parameters and response models are A01's frozen ones (AD-14).
 
 - Flag `interview` off: 404, as for every flagged route.
-- The caller comes from `X-DxP-Key` (a body field never confers permission). The Reviewer context the gate
+- The caller comes from `X-DxP-Key` (a body field never confers permission). Only a person may ask: any other
+  principal (the agent key) is a 403 before any Decision is written. The Reviewer context the gate
   needs is built here: no run, a Reviewer stamp, a server-generated request ID and the report as the cause.
 - A blocked question is not an error: it is a 200 with `refused: true`, `refusal_reason: "blocked"` and the
   blocked Decision's ID (D5).
@@ -62,6 +63,9 @@ async def interview_report(report_id: str, body: m.InterviewRequest, request: Re
     if not feature_enabled("interview"):
         raise ApiError(404, "not_found", "Not found.")
     principal = await auth.require_principal(request)
+    if principal.kind != "person":
+        # An agent key is not a Reviewer: the Decision would be stamped `reviewer` for a caller that is not one.
+        raise ApiError(403, "person_only", "Only a person can interview a report.")
     report = await repo.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")

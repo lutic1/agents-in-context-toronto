@@ -24,37 +24,35 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from dxp.interview.textfold import has_non_latin_letter, is_invisible, skeleton, strip_invisible
+
 __all__ = ["has_non_latin_letter", "medical_advice_rule", "is_medical_advice", "normalise_question"]
 
-_ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿­"), None)
 _DELEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
-# Cyrillic and Greek letters that look like Latin ones. NFKC folds full-width letters, not these.
-_CONFUSABLES = str.maketrans(
-    {
-        "а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p", "с": "c", "т": "t", "у": "y", "х": "x",
-        "і": "i", "ї": "i", "ѕ": "s", "ј": "j", "ԁ": "d", "һ": "h", "ԛ": "q", "ԝ": "w", "ӏ": "l", "ё": "e",
-        "α": "a", "β": "b", "γ": "y", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "ο": "o", "ρ": "p", "τ": "t", "υ": "u", "χ": "x",
-        "ɑ": "a", "ɡ": "g", "ı": "i", "ɩ": "i", "ʜ": "h", "ᴅ": "d", "ɴ": "n", "ꜱ": "s",
-    }
-)
 _SPACED_RUN = re.compile(r"(?<![a-z0-9])(?:[a-z0-9][\s.\-_*]){3,}[a-z0-9](?![a-z0-9])")
 
 
+# Phrases of the record's own vocabulary that contain a clinical word without being about care.
+_RECORD_PHRASES = re.compile(r"\b(?:treatment[\s-]+na[iy]ve|risk[\s-]+of[\s-]+bias)\b")
+
+
 def normalise_question(question: str) -> str:
-    """Lowercase, NFKC, no zero-width characters, look-alike letters mapped, quotes and dashes flattened, spacing collapsed."""
-    text = unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH).lower().translate(_CONFUSABLES)
+    """Lowercase, NFKC, every invisible and combining character removed, look-alike letters mapped (`textfold.skeleton`),
+    quotes and dashes flattened, spacing collapsed. "m<U+200E>e" is "me"."""
+    text = skeleton(question)
     text = text.replace("’", "'").replace("‘", "'").replace("‐", "-").replace("‑", "-")
     text = re.sub(r"[–—]", " ", text)
+    text = _RECORD_PHRASES.sub(" ", text)
     # "s h o u l d  i" and "s.h.o.u.l.d" collapse into one word, so spacing tricks do not hide a word.
     text = _SPACED_RUN.sub(lambda m: re.sub(r"[\s.\-_*]", "", m.group(0)), text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def _fold(question: str) -> str:
-    """NFKC, lowercase, accents removed ("médecin" -> "medecin"). Look-alike letters are NOT mapped: this is the
-    view in which another language is read as itself."""
-    text = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH).lower())
-    return "".join(ch for ch in text if not unicodedata.combining(ch))
+    """NFKC, lowercase, accents and invisible characters removed ("médecin" -> "medecin"). Look-alike letters are NOT
+    mapped: this is the view in which another language is read as itself."""
+    text = unicodedata.normalize("NFKD", strip_invisible(question).lower())
+    return "".join(ch for ch in text if not is_invisible(ch))
 
 
 # --- typo repair --------------------------------------------------------------------------------------------
@@ -147,7 +145,7 @@ _PERSON_WORDS = frozenset(
     spouse boyfriend girlfriend brother sister sibling siblings mother father neighbour neighbor colleague coworker boss
     he she him his her hers himself herself someone somebody anyone anybody person persons man men woman women lady guy girl boy
     they them their theirs themselves themself you your yours yourself yourselves u ur ya one ones
-    elderly senior smoker smokers survivor survivors
+    elderly senior survivor survivors
     patient patients doctor doctors physician physicians oncologist oncologists clinician clinicians nurse nurses surgeon
     surgeons specialist specialists pharmacist pharmacists gp practitioner practitioners
     """.split()
@@ -155,23 +153,24 @@ _PERSON_WORDS = frozenset(
 # A decision or a clinical matter, as whole words and as prefixes.
 _DECISION_WORDS = frozenset(
     """
-    should shouldnt ought would suppose imagine pretend hypothetical hypothetically scenario theoretically
+    should shouldnt ought suppose imagine pretend hypothetical hypothetically scenario theoretically
     advice advise advised advisable recommend recommended recommendation recommendations suggest suggested suggestion
     opinion opinions choose choice choices pick prefer preferred decide decision decisions
-    dose doses dosage dosing drug drugs medicine medicines medication medications medic medical pill pills tablet tablets
+    dose doses dosage dosing medicine medicines medication medications meds med medic medical pill pills tablet tablets rx tx dx
     treat treated treating treatment treatments therapy therapies therapeutic chemo chemotherapy radiotherapy radiation
     immunotherapy surgery surgical operation regimen prescribe prescribed prescription
     diagnose diagnosed diagnosis diagnoses prognosis prognostic survive survival mortality cure cured curable
-    biopsy biopsies symptom symptoms risk risks safe safely unsafe dangerous eligible eligibility qualify candidate
+    biopsy biopsies symptom symptoms risk risks safe safely unsafe dangerous eligible qualify candidate
     """.split()
 )
 _PERSON_PREFIX = re.compile(r"^(?:patient|doctor|physician|oncolog|clinician|nurse|surgeon|pharmac)\w*$")
 _DECISION_PREFIX = re.compile(
     r"^(?:recommend|advis|advice|suggest|prescri|treat|therap|diagnos(?:e|es|ed|ing|is)\b|prognos|biops|medic|surg|chemo|radiother|immunother|"
-    r"symptom|surviv|cure|curab|dosag|dosing|decision|decid|should|eligib)\w*$"
+    r"symptom|surviv|cure|curab|dosag|dosing|decision|decid|should|eligible)\w*$"
 )
 
 # Frames that make a question hypothetical or personal, matched on the token string.
+_STAGE = r"(?:[0-4]|i{1,3}|iv|v)[abc]?[0-9]?"
 _PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(pattern))
     for name, pattern in (
@@ -180,8 +179,13 @@ _PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("if_you_were", r"\bif you (?:were|was|had)\b|\byou think\b|\byour (?:opinion|view|advice|recommendation)\b"),
         ("what_to_do", r"\bwhat to (?:do|take|give|use|choose|pick|order|prescribe|start|stop)\b|\bhow to (?:enrol|enroll|join|apply|sign|get in|take|start)\b"),
         ("stage_for", r"\bfor stage\b|\bstage [0-9ivx]{1,4}\b(?! (?:of|in)\b)"),
+        ("would_person", r"\bwould (?:i|we|you|he|she|they|someone)\b"),
         ("if_frame", r"\bif (?:a|an|the|some\w*|one|any\w*|it|they|there|this|that|i|we|you|he|she)\b"),
-        ("with_stage", r"\b(?:with|has|had|have|having|diagnosed with|diagnosed|at) stage\b|\bstage [a-z0-9]{1,4} (?:patient|disease|cancer|case)\b"),
+        # "stage" is a clinical matter only with a stage designation (IIIA, 3, iv) after a person or "with/has", or before
+        # "patient/disease/case". "early-stage lung cancer", the record's own words, is not.
+        ("with_stage", rf"\b(?:with|has|had|have|having|diagnosed with|diagnosed|at) stage {_STAGE}\b|\bstage {_STAGE} (?:patient|patients|disease|cancer|case|cases)\b"),
+        ("which_to_order", r"\bwhich (?:\w+ ){0,3}(?:to|should|must) (?:order|get|take|use|choose|pick|do|run|buy|request|try|start)\b"),
+        ("worth_it", r"\bworth(?:while)?\b|\bis it (?:good|ok|okay|fine|safe)\b"),
         ("years_old", r"\b\d+ ?(?:year|yr|yrs|years) ?(?:old)?\b|\baged \d+\b|\b\d+ y o\b"),
         ("in_my_case", r"\bin (?:my|our|his|her|their) (?:case|situation|family)\b"),
         ("side_effects", r"\bside effects?\b|\badverse (?:events?|effects?|reactions?)\b|\btoxicit\w*\b"),
@@ -223,6 +227,21 @@ _FOREIGN_WORDS = frozenset(
     devo dovrei posso consiglia raccomanda sintomi malato
     tratamento remedio cirurgia meu minha nos nosso nossa mae pai deveria recomenda sintomas doente
     dokter behandeling medicijn medicijnen operatie ik mij mijn wij ons onze moeder vader vriend vriendin moet zou aanbevelen symptomen ziek
+    necesita necesito necesitas necesitan quimioterapia quimio radioterapia inmunoterapia tomar tomo debo deberia puede pueden sirve conviene vale
+    faut falloir chimiotherapie chimio radiotherapie immunotherapie prendre prends faire fais vaut convient utile
+    chemotherapie bestrahlung sollten muss muessen lohnt
+    chemioterapia radioterapia immunoterapia bisogna devono conviene vale
+    quimioterapia radioterapia deve precisa preciso vale
+    """.split()
+)
+# Function words of the languages above that no English question about the record uses (and no record name has).
+# One of them means the question is in a language this gate cannot read: it is refused, whatever else it says.
+_FOREIGN_FUNCTION_WORDS = frozenset(
+    """
+    que una para por hay est pour avec dans elle pas und ist nicht ein eine zum zur che sono nel della dei degli
+    quel quelle quels este esta estos esto cual cuales como cuando donde porque quien qui quoi comment pourquoi quand
+    wie wo wann warum welche welcher welches fur nach bei aus oder aber auch noch nur sehr
+    cosa quale quali perche dove quando molto anche
     """.split()
 )
 # Scripts with no word spacing or a different alphabet: a substring is enough.
@@ -237,21 +256,13 @@ _FOREIGN_SUBSTRINGS = (
 def _foreign_rule(question: str) -> str | None:
     folded = _fold(question)
     for token in re.findall(r"[a-z]+", folded):
-        if token in _FOREIGN_WORDS:
+        if token in _FOREIGN_WORDS or token in _FOREIGN_FUNCTION_WORDS:
             return f"foreign:{token}"
-    padded = unicodedata.normalize("NFKC", question).lower() + " "
+    padded = strip_invisible(question).lower() + " "
     for fragment in _FOREIGN_SUBSTRINGS:
         if fragment in padded:
             return "foreign:script"
     return None
-
-
-def has_non_latin_letter(question: str) -> bool:
-    """True when, after NFKD and with combining marks removed, any letter is outside ASCII. Hindi, Hebrew, Thai,
-    Greek, Bengali, Tamil, Cyrillic, Chinese, Japanese and Korean are all in this set. A language the gate cannot
-    read is never answered: the question gets the fixed refusal. Accents on Latin letters fold away ("médecin")."""
-    folded = "".join(ch for ch in unicodedata.normalize("NFKD", question) if not unicodedata.combining(ch))
-    return any(ch.isalpha() and ord(ch) > 127 for ch in folded)
 
 
 # Stems of the decision and person vocabulary, searched as SUBSTRINGS of the question with every space and
@@ -261,12 +272,20 @@ def has_non_latin_letter(question: str) -> bool:
 _BLOB_STEMS = (
     "should", "dose", "dosage", "treat", "patient", "doctor", "oncolog", "clinician", "physician", "nurse", "mother", "father", "mum", "mom",
     "drug", "therap", "recommend", "advis", "advice", "diagnose", "diagnosis", "prognos", "biops", "surger", "medic", "chemo", "prescri", "symptom", "surviv",
-    "eligib", "qualify", "decision", "myself", "iwant", "iam", "ineed", "imean", "wecan", "weneed", "wehave", "ihave", "mycase", "myfamily",
+    "eligible", "qualify", "decision", "myself", "iwant", "iam", "ineed", "imean", "wecan", "weneed", "wehave", "ihave", "mycase", "myfamily",
 )
+
+
+# A run of three or more single letters or digits, each with a separator: the only question the stems above apply to.
+# Without it the stems would be substrings of ordinary words ("drug" in "Which drugs are named?").
+_LETTER_RUN = re.compile(r"(?<![a-z0-9])[a-z0-9](?:[\s.\-_*,]+[a-z0-9]){2,}(?![a-z0-9])")
 
 
 def _blob_rule(question: str) -> str | None:
     plain = normalise_question(question)
+    raw = skeleton(question)
+    if not _LETTER_RUN.search(raw) and not _LETTER_RUN.search(_deleet(raw)):
+        return None
     for text in (plain, _deleet(plain)):
         blob = re.sub(r"[^a-z]", "", text)
         for stem in _BLOB_STEMS:

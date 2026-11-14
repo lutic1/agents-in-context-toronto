@@ -179,3 +179,30 @@ def test_an_off_topic_question_over_http_makes_no_model_call(api_client, feature
     assert response.status_code == 200 and body["answer"] == "The accepted record doesn't answer that."
     assert body["refusal_reason"] == "not_in_record" and body["citations"] == []
     assert fake_llm.calls == []
+
+
+# --- red team 4: the agent key, the gate before the model ---------------------------------------------------------------
+
+
+def test_an_agent_key_is_a_403_before_any_decision(monkeypatch, api_client, features, store, fake_llm, fake_gate, signed_in) -> None:
+    features("interview")
+
+    async def agent_principal(request):
+        return m.Principal(id="dxp-curator", name="dxp-curator", kind="agent", actions=["answer_question"])
+
+    monkeypatch.setattr(auth, "require_principal", agent_principal)
+    response = api_client.post(URL, json={"question": "Is the trial recruiting?"}, headers=HEADERS)
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "person_only"
+    assert fake_gate.calls == [] and fake_llm.calls == []
+
+
+def test_the_seed_key_is_still_refused(monkeypatch, api_client, features, store, fake_llm, fake_gate, signed_in) -> None:
+    features("interview")
+
+    async def seed(request):
+        raise ApiError(403, "seed_key_not_accepted", "The seed key is for the command line only.")
+
+    monkeypatch.setattr(auth, "require_principal", seed)
+    assert api_client.post(URL, json={"question": "Is the trial recruiting?"}, headers=HEADERS).status_code == 403
+    assert fake_gate.calls == []

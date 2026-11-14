@@ -4,6 +4,14 @@ A card is ONE verbatim quote stored on the report, with the record field it sits
 the discovery's quotes, each pinned to its `version_id`. Nothing is retrieved and nothing is taken from
 outside the report. A related record's quote is never a card: its field is not this record's.
 
+Only the discovery's quotes pinned to the REPORT'S OWN `version_id` are cards (`pinned_version`): a quote pinned to any
+other version would be cited under this report's `source_ref` while coming from somewhere else. Related-evidence quotes
+(a related record's quote, or the new quote of a relationship) are never used. This is a deviation from V70, which allows them;
+it is deliberate, because their field cannot be shown to be this record's.
+
+A quote with a format (Cf) character (zero-width, right-to-left override, tag characters), one that talks to a model or a
+reader, or one that recommends or advises (`advises`) is not a card either, in any field.
+
 Fail closed, in this order (a card that fails any step is not a card):
 
 1. The quote is whitespace-normalised: every run of whitespace, a blank line included, becomes one space.
@@ -27,9 +35,12 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from bisect import bisect_right
 from dataclasses import dataclass
 from typing import Any
+
+from dxp.interview.textfold import skeleton
 
 __all__ = [
     "Card",
@@ -44,8 +55,12 @@ __all__ = [
     "load_cards",
     "looks_like_instruction",
     "mention_names",
+    "advises",
+    "has_format_character",
     "narrative_unsafe",
     "normalise_text",
+    "pinned_version",
+    "says_what_was_done",
     "shape_ok",
     "STRUCTURED_FIELDS",
 ]
@@ -56,13 +71,29 @@ FIELD_OTHER = "other"
 NARRATIVE_FIELDS = frozenset({"summary", "description"})
 STRUCTURED_FIELDS = frozenset({"status", "dates", "conditions", "phase", "design", "interventions", "sponsor", "location", "enrollment", "results"})
 
-# A quote that talks to a model never answers a question, even though it may be verbatim.
+# A quote that talks to a model never answers a question, even though it may be verbatim. It is matched on the
+# skeleton of the quote (no format characters, accents folded, look-alike letters mapped, lower case), so
+# "Ign<ZWSP>ore" and a Cyrillic "о" in "ignоre" are read as the English word. The net is wide on purpose: a quote it
+# catches is only left out.
 _INSTRUCTION = re.compile(
-    r"ignore\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+|above\s+|earlier\s+)+(?:instructions?|prompts?|rules?|messages?)"
-    r"|disregard\s+(?:all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+|above\s+)+(?:instructions?|prompts?|rules?)"
-    r"|system\s+prompt|developer\s+message|you\s+are\s+now\b|act\s+as\s+(?:a|an|the)\b|new\s+instructions?"
-    r"|do\s+not\s+follow|pretend\s+(?:to\s+be|you)|reveal\s+(?:your|the)\s+(?:prompt|instructions?)|</?\s*(?:system|assistant|user)\s*>"
-    r"|\bselect\s+(?:quote\s+)?(?:id\s+)?qt_|as\s+an\s+ai\b|jailbreak",
+    r"\bignore\b|\bdisregard\b|\bforget\s+(?:all|any|everything|the|your|previous|prior|above|earlier)\b|\boverrid(?:e|es|ing)\b|"
+    r"\b(?:tell|inform|notify|instruct|ask|advise|warn|command|order|direct)\s+(?:the\s+|each\s+|every\s+|this\s+|that\s+)?"
+    r"(?:user|users|reader|readers|assistant|model|ai|llm|agent|bot|human|client|customer)s?\b|"
+    r"\b(?:assistant|chatbot|language\s+model|llm|large\s+language|openai|anthropic|claude|chatgpt|gpt)\b|"
+    r"\b(?:system|developer|assistant|user|human|ai|bot)\s*:|</?\s*[a-z_ ]{0,24}\s*>|\[\s*/?\s*(?:system|inst|assistant|user|quotes?)\s*\]|"
+    r"\brank\s+(?:this|these|it|the|that|first|higher|highest|top)\b|\b(?:select|choose|pick|return|output|answer|respond|reply)\s+(?:only\s+|just\s+)?(?:this|these|the\s+quote|with|qt_|quote)|"
+    r"\bimportant\s+(?:note|notice|message|instruction)s?\b|\bnote\s+to\b|\bnew\s+instructions?\b|\binstructions?\b|"
+    r"system\s+prompt|developer\s+message|you\s+are\s+now\b|\byou\s+(?:must|should|will|shall|need\s+to|have\s+to)\b|\bact\s+as\b|"
+    r"\bdo\s+not\s+follow\b|pretend\s+(?:to\s+be|you)|reveal\s+(?:your|the)\s+(?:prompt|instructions?)|"
+    r"\bqt_[0-9a-f]{4,}|as\s+an\s+ai\b|jailbreak|\bprompt\s+injection\b|\bbegin\s+(?:system|instructions?)\b",
+    re.IGNORECASE,
+)
+# The recommendation vocabulary (V37, V70): a quote that advises, recommends or says what must or should be done is
+# never a card, in any field.
+_ADVICE = re.compile(
+    r"\b(?:recommend\w*|advis\w*|advice|suggest\w*|should|shouldn't|ought|must|urge\w*|encourag\w*|prescrib\w*|prescription|"
+    r"consider\w*|best\s+(?:option|choice|practice|test|assay)|first[\s-]?line|preferred|indicated|appropriate|"
+    r"necessary|essential|critical|vital|crucial|proven|approved|cleared|endorse\w*|guideline\w*)\b",
     re.IGNORECASE,
 )
 
@@ -91,8 +122,21 @@ def quote_id_for(source_ref: str, version_id: str, field: str, text: str) -> str
     return f"qt_{digest[:12]}"
 
 
+def has_format_character(text: str) -> bool:
+    """True when the text has a format (Cf) character: a zero-width character, a bidirectional control (right-to-left
+    override), a tag character. None of them belongs in a quote about a trial, and they hide words from a check."""
+    return any(unicodedata.category(ch) == "Cf" for ch in text)
+
+
 def looks_like_instruction(text: str) -> bool:
-    return bool(_INSTRUCTION.search(text))
+    """True when the quote talks to a model or a reader. The format characters are stripped (and a quote that has any
+    is refused by `has_format_character`) before the words are matched."""
+    return bool(_INSTRUCTION.search(skeleton(text)) or _INSTRUCTION.search(text))
+
+
+def advises(text: str) -> bool:
+    """True when the quote recommends or advises (the recommendation vocabulary)."""
+    return bool(_ADVICE.search(skeleton(text)))
 
 
 def is_accepted(report: dict[str, Any]) -> bool:
@@ -167,7 +211,13 @@ def comparison_like(text: str) -> bool:
 
 def claim_like(text: str) -> bool:
     """True when the text has a claim-like construction. It fails closed: it is a net, not a definition, and a
-    quote it catches is only left out of the answer. The record's own plain fields never match."""
+    quote it catches is only left out of the answer. The record's own plain fields never match. It is run on the
+    text as it is and on its skeleton (no format characters, look-alike letters mapped), and it includes the
+    recommendation vocabulary and the verbs of use (used, underwent, approved, recommended) for EVERY field."""
+    return _claim_like(text) or (skeleton(text) != text.lower() and _claim_like(skeleton(text))) or advises(text)
+
+
+def _claim_like(text: str) -> bool:
     return bool(
         _COMPARATIVE.search(text)
         or _PERFORMANCE_VERB.search(text)
@@ -333,8 +383,26 @@ def narrative_ok(text: str, names: list[str]) -> bool:
     return bool(words) and all(word.lower() in _NARRATIVE_WORDS for word in words) and not claim_like(text) and not narrative_unsafe(text, names)
 
 
+# What was done with, or to, something: a verb of use, of a procedure undergone, of approval or of recommendation. A name
+# in the record is "named in the record", never used, undergone, approved or recommended (V37), so a quote with one of
+# these words is not a card in ANY field, whatever its label says.
+_USED_NET = re.compile(
+    r"\b(?:use[sd]?|using|usage|utili[sz]\w*|employ\w*|appl(?:y|ies|ied|ying)|underw\w+|undergo\w*|undergon\w*|receiv\w*|"
+    r"administer\w*|perform\w*|conduct(?:s|ed|ing)?|carried|approv\w*|clear(?:ed|ance)|authori[sz]\w*|licen[sc]\w*|"
+    r"recommend\w*|endorse\w*|adopt\w*|implement\w*)\b",
+    re.IGNORECASE,
+)
+
+
+def says_what_was_done(text: str) -> bool:
+    return bool(_USED_NET.search(text) or _USED_NET.search(skeleton(text)))
+
+
 def shape_ok(field: str, text: str, names: list[str]) -> bool:
-    """The one test every intent applies to a card: the shape of its field. No shape, no answer."""
+    """The one test every intent applies to a card: the shape of its field. No shape, no answer. The verbs of use,
+    procedure, approval and recommendation (`says_what_was_done`) are a net over EVERY field."""
+    if says_what_was_done(text):
+        return False
     if field in NARRATIVE_FIELDS:
         return narrative_ok(text, names)
     return structured_ok(field, text, names)
@@ -447,13 +515,21 @@ def _quote_version(report: dict[str, Any], quote: dict[str, Any]) -> Any:
     return quote.get("version_id") or report.get("version_id")
 
 
+def pinned_version(report: dict[str, Any]) -> str | None:
+    """The version the report is pinned to. A quote pinned to any other version is not a card: it would be cited under
+    this report's `source_ref` while coming from another version of the source, or from another source."""
+    version = report.get("version_id")
+    return version if isinstance(version, str) and version else None
+
+
 def discovery_versions(report: dict[str, Any]) -> set[str]:
     """The version IDs the discovery quotes are pinned to, so the caller can read their raw text once."""
     versions: set[str] = set()
+    pinned = pinned_version(report)
     for quote in (report.get("discovery") or {}).get("quotes") or []:
         if isinstance(quote, dict):
             version = _quote_version(report, quote)
-            if isinstance(version, str) and version:
+            if isinstance(version, str) and version and version == pinned:
                 versions.add(version)
     return versions
 
@@ -468,7 +544,9 @@ def _usable(text: Any, version_id: Any, source_ref: Any, found: Any) -> bool:
         and isinstance(source_ref, str)
         and bool(source_ref)
         and len(normalise_text(text)) <= MAX_QUOTE_CHARS
+        and not has_format_character(text)
         and not looks_like_instruction(text)
+        and not advises(text)
         and _MARKER_LOOKALIKE.search(text) is None
     )
 
@@ -496,6 +574,8 @@ def load_cards(report: dict[str, Any], raw_texts: dict[str, str | None] | None =
         if not isinstance(quote, dict):
             continue
         text, version_id = quote.get("text"), _quote_version(report, quote)
+        if pinned_version(report) is None or version_id != pinned_version(report):
+            continue
         if not _usable(text, version_id, source_ref, quote.get("quote_found")):
             continue
         shown = normalise_text(text)

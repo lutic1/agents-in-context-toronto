@@ -26,7 +26,7 @@ from typing import Any
 
 from dxp.interview import intents
 from dxp.interview.cards import Card, claim_like, comparison_like
-from dxp.interview.medical import has_non_latin_letter
+from dxp.interview.textfold import has_non_latin_letter, strip_invisible
 
 __all__ = ["Verdict", "classify_intent", "off_topic_words", "vocabulary"]
 
@@ -63,6 +63,7 @@ def classify_intent(question: str) -> Verdict:
     "more sensitive", a percentage) has none: the record's fields are not a place to look that up."""
     if has_non_latin_letter(question):
         return Verdict(None, REASON_NON_LATIN)
+    question = strip_invisible(question)
     lowered = question.lower().replace("\u2019", "'")
     if spaced_letters(lowered):
         return Verdict(None, REASON_SPACED)
@@ -107,9 +108,12 @@ def off_topic_words(question: str, record_words: frozenset[str], intent: intents
         for candidate in intents.INTENTS:
             every_keyword |= intents.keyword_stems(candidate)
     outside: list[str] = []
-    # A one-letter token is skipped only when it directly follows an apostrophe (the "s" of "record's"); any other
-    # one-letter token is a word like the rest and must be a stopword, a keyword or in the record.
-    cleaned = re.sub(r"['\u2019][a-z]{1,2}\b", " ", question.lower())
+    # No single-letter token is exempt. Only the English contractions are read as words: "n't" is "not", and "'s", "'re",
+    # "'ve", "'ll", "'d", "'m" after a word are dropped. Any other one-letter token ("m", "e", "s") is a word like the
+    # rest and must be a stopword, a keyword or in the record.
+    cleaned = strip_invisible(question).lower().replace("\u2019", "'")
+    cleaned = re.sub(r"n't\b", " not", cleaned)
+    cleaned = re.sub(r"(?<=[a-z])'(?:s|re|ve|ll|d|m)\b", " ", cleaned)
     if spaced_letters(cleaned):
         return ["spaced letters"]
     for token in intents.tokenise(cleaned):

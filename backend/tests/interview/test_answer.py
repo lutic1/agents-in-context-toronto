@@ -8,7 +8,7 @@ import pytest
 
 from dxp.api.errors import ApiError
 from dxp.interview import cards, compose, framing, service, texts
-from dxp.interview.verify import CLAIM_KINDS, verify_answer
+from dxp.interview.verify import verify_answer
 
 from .conftest import (
     Q_CONDITIONS,
@@ -29,8 +29,17 @@ def card_of(text: str) -> cards.Card:
     return next(c for c in cards.load_cards(make_report(), {VERSION_ID: RAW_TEXT}) if c.text == text)
 
 
-async def verify(answer_cards, answer=None, raw=None, check=None):
-    return await verify_answer(answer if answer is not None else compose.render(answer_cards), answer_cards, raw if raw is not None else {VERSION_ID: RAW_TEXT}, check)
+SOURCE_FIELDS = {"overall_status": "RECRUITING", "has_results": False}  # what conftest.make_report says
+
+
+async def verify(answer_cards, answer=None, raw=None, check=None, source_fields=SOURCE_FIELDS):
+    return await verify_answer(
+        answer if answer is not None else compose.render(answer_cards),
+        answer_cards,
+        raw if raw is not None else {VERSION_ID: RAW_TEXT},
+        check,
+        source_fields=source_fields,
+    )
 
 
 # --- the happy path and the Decision ------------------------------------------------------------------------
@@ -73,11 +82,13 @@ async def test_the_question_is_truncated_in_the_decision(store, fake_llm, fake_g
     assert len(fake_gate.calls[0][1].inputs["question"]) <= 200
 
 
-async def test_every_claim_kind_is_sent_to_the_gate_for_every_cited_quote(store, fake_llm, fake_gate, ctx) -> None:
+async def test_the_real_claim_results_are_recorded_and_no_placeholder_claim_is_sent(store, fake_llm, fake_gate, ctx) -> None:
     await service.answer_question(REPORT_ID, "What is the study design?", ctx)
     action = fake_gate.calls[0][1]
-    assert len(action.claims) == 3 * len(action.inputs["cited"])
-    assert [c.claim_kind for c in action.claims[:3]] == list(CLAIM_KINDS)
+    assert action.claims == [], "the lane states no claim of its own; the old passed=False placeholders are gone"
+    checks = action.inputs["claim_checks"]
+    assert [c["quote_id"] for c in checks] == [c["quote_id"] for c in action.inputs["cited"]]
+    assert all(c["passed"] is True and c["quote_id"] in c["detail"] for c in checks)
 
 
 async def test_the_gate_blocking_a_claim_refuses_the_answer(store, fake_llm, fake_gate, ctx) -> None:
@@ -92,7 +103,7 @@ async def test_the_gate_blocking_a_claim_refuses_the_answer(store, fake_llm, fak
 async def test_a_composed_answer_verifies() -> None:
     verdict = await verify([card_of(Q_STATUS)])
     assert verdict.ok, verdict.problems
-    assert len(verdict.claims) == 3
+    assert len(verdict.claim_checks) == 1 and verdict.claim_checks[0]["passed"] is True
 
 
 async def test_a_quote_not_in_its_pinned_version_is_rejected() -> None:
@@ -287,3 +298,95 @@ def test_no_secret_names_in_the_lane() -> None:
 
 def test_the_conditions_quote_is_a_plain_card() -> None:
     assert card_of(Q_CONDITIONS).field == "conditions"
+
+
+# --- red team 4: the gate runs before the model, the action is settled, the Decision has an ID target ------------------------------
+
+
+async def test_the_decision_has_an_id_target_so_the_real_gate_can_derive_an_id(store, fake_llm, fake_gate, ctx) -> None:
+    for question in ("What is the status?", "Should I join?", "What is the Moon?"):
+        await service.answer_question(REPORT_ID, question, ctx)
+    assert [call[1].inputs["id_target"] for call in fake_gate.calls] == [REPORT_ID] * 3
+
+
+async def test_a_blocked_question_costs_no_model_call_for_any_reason(store, fake_llm, fake_gate, ctx) -> None:
+    for check in ("team_scope", "policy_checks", "evidence_checks", "grant_expiry"):
+        fake_gate.block("answer_question", check)
+        response = await service.answer_question(REPORT_ID, "What is the study design?", ctx)
+        assert response.refused is True and response.refusal_reason == "blocked" and response.citations == []
+    assert fake_llm.calls == [], "the design intent has several cards, so an allowed question is ranked; a blocked one is not"
+
+
+async def test_the_gate_is_evaluated_before_the_model_is_asked(store, fake_llm, fake_gate, ctx) -> None:
+    order: list[str] = []
+    real_evaluate = fake_gate.evaluate
+
+    async def evaluate(c, action):
+        order.append("gate")
+        return await real_evaluate(c, action)
+
+    original_call = fake_llm.__class__.__call__
+
+    async def call(self, *args, **kwargs):
+        order.append("model")
+        return await original_call(self, *args, **kwargs)
+
+    import dxp.gate
+
+    dxp.gate.evaluate = evaluate  # restored by the fake_gate fixture's monkeypatch
+    fake_llm.__class__.__call__ = call
+    try:
+        await service.answer_question(REPORT_ID, "What is the study design?", ctx)
+    finally:
+        fake_llm.__class__.__call__ = original_call
+    assert order == ["gate", "model"]
+
+
+async def test_the_decision_names_the_cited_quotes_before_the_model_orders_them(store, fake_llm, fake_gate, ctx) -> None:
+    fake_llm.ids = []
+    response = await service.answer_question(REPORT_ID, "What is the study design?", ctx)
+    cited = fake_gate.calls[0][1].inputs["cited"]
+    assert len(cited) == len(response.citations) > 1
+    assert {c["version_id"] for c in cited} == {VERSION_ID}
+
+
+async def test_the_action_is_settled_done_with_the_outcome_and_the_cited_quotes(store, fake_llm, fake_gate, ctx, settled) -> None:
+    await service.answer_question(REPORT_ID, "What is the status?", ctx)
+    [(action_id, status, result)] = settled.calls
+    assert action_id.startswith("act_") and status == "done"
+    assert result == {"outcome": "answered", "cited": [{"quote_id": quote_id(Q_STATUS), "version_id": VERSION_ID}]}
+
+
+async def test_a_medical_refusal_and_a_not_in_record_reply_are_settled_done(store, fake_llm, fake_gate, ctx, settled) -> None:
+    await service.answer_question(REPORT_ID, "Should I join?", ctx)
+    await service.answer_question(REPORT_ID, "What is the Moon?", ctx)
+    assert [(s, r["outcome"]) for _, s, r in settled.calls] == [("done", "refused_medical_advice"), ("done", "not_in_record")]
+
+
+async def test_a_blocked_question_settles_nothing(store, fake_llm, fake_gate, ctx, settled) -> None:
+    fake_gate.block("answer_question")
+    await service.answer_question(REPORT_ID, "What is the status?", ctx)
+    assert settled.calls == []
+
+
+async def test_a_failure_after_the_gate_settles_the_action_failed_and_says_not_in_record(store, fake_llm, fake_gate, ctx, settled) -> None:
+    seen = []
+
+    def quote_check(quote, raw):
+        seen.append(quote)
+        return len(seen) <= 1  # true while the answer is planned, false once the model step verifies again
+
+    response = await service.answer_question(REPORT_ID, "What is the status?", ctx, quote_check=quote_check)
+    assert response.answer == texts.NOT_IN_RECORD and response.citations == []
+    assert [(s, r["outcome"], r["cited"]) for _, s, r in settled.calls] == [("failed", "not_in_record", [])]
+
+
+async def test_a_settle_that_fails_never_changes_the_reply(monkeypatch, store, fake_llm, fake_gate, ctx) -> None:
+    import dxp.gate
+
+    async def broken(*args, **kwargs):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(dxp.gate, "mark_action", broken)
+    response = await service.answer_question(REPORT_ID, "What is the status?", ctx)
+    assert response.refused is False and response.citations

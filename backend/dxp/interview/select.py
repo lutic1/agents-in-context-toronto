@@ -1,12 +1,13 @@
 """Ranking (V70). The model only RANKS the eligible cards of the matched intent; it never writes text.
 
-By the time this runs the question has passed the gate (not medical, one intent, no off-topic word) and every
+The cards shown never depend on the model: they are the first MAX_SELECTED eligible cards in report order, so the same
+question gives the same quotes (red team, part 3). The model may only change their order. By the time this runs the question has passed the gate (not medical, one intent, no off-topic word) and every
 card here is already allowed to answer it: its field belongs to the intent and it holds no claim-like wording.
 The model gets the question, the intent and, for each card, only its ID, its field and the length of its text. It
 never sees a quote's text, so no text inside a record can reach it as an instruction. It returns IDs in order.
-Anything else it returns is ignored: unknown IDs, repeats, extra keys, free text. A card the model does not
-mention follows in report order, so no eligible card is dropped by a model and a failing or silent model changes
-the order at most. With one eligible card there is nothing to rank and no model call is made.
+Anything else it returns is ignored: unknown IDs (a card outside the shown ones included), repeats, extra keys, free
+text. A card the model does not mention follows in report order, so no card is dropped by a model and a failing or
+silent model changes the order at most. With one card to show there is nothing to rank and no model call is made.
 """
 
 from __future__ import annotations
@@ -61,10 +62,11 @@ def _parse_ids(result: Any) -> list[str]:
 
 
 async def rank_cards(question: str, intent: str, eligible: list[Card], call: LlmCall | None = None) -> list[Card]:
-    """The eligible cards in the model's order, then the rest in report order, at most three. A model failure
-    leaves report order."""
+    """The first MAX_SELECTED eligible cards (report order), in the model's order, then the rest in report order. A
+    model failure leaves report order. The set of cards never depends on the model."""
+    eligible = list(eligible)[:MAX_SELECTED]
     if len(eligible) <= 1:
-        return list(eligible)
+        return eligible
     if call is None:
         from dxp import llm
 
@@ -82,4 +84,4 @@ async def rank_cards(question: str, intent: str, eligible: list[Card], call: Llm
         if card is not None and card not in ordered:
             ordered.append(card)
     ordered += [c for c in eligible if c not in ordered]
-    return ordered[:MAX_SELECTED]
+    return ordered
