@@ -108,10 +108,12 @@ export default function AvatarPlayer({ reportId }: AvatarPlayerProps) {
       </div>
 
       {/* Captions: what the avatar is saying now. The whole script is also below, always. */}
-      <p className="min-h-[1.5em] text-body" data-testid="avatar-caption">
-        {state === "speaking" ? <span className="sr-only">Caption: </span> : null}
-        {state === "speaking" ? caption || script : null}
-      </p>
+      {state === "speaking" ? (
+        <p className="text-body" data-testid="avatar-caption">
+          <span className="sr-only">Caption: </span>
+          {caption || script}
+        </p>
+      ) : null}
 
       {/* The live region for state changes (polite). */}
       <div role="status" className="text-body">

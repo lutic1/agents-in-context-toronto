@@ -110,6 +110,7 @@ def test_provider_failure_is_unavailable_and_leaks_nothing(api_client, reviewer,
 
 def test_no_key_is_unavailable_and_makes_no_call(api_client, reviewer, fake_gate, live, media_store, monkeypatch) -> None:
     monkeypatch.delenv("LIVEAVATAR_API_KEY")
+    monkeypatch.delenv("HEYGEN_API_KEY", raising=False)  # the fallback name (tests/conftest.py sets it)
     body = post(api_client).json()
     assert body["unavailable_reason"] == "no_key" and body["session"] is None
     assert body["media"]["status"] == "unavailable"
@@ -119,8 +120,17 @@ def test_no_key_is_unavailable_and_makes_no_call(api_client, reviewer, fake_gate
 
 def test_blank_key_counts_as_no_key(api_client, reviewer, fake_gate, live, monkeypatch) -> None:
     monkeypatch.setenv("LIVEAVATAR_API_KEY", "   ")
+    monkeypatch.delenv("HEYGEN_API_KEY", raising=False)
     assert post(api_client).json()["unavailable_reason"] == "no_key"
     assert live.calls == []
+
+
+def test_heygen_key_name_is_read_as_a_fallback(api_client, reviewer, fake_gate, live, monkeypatch) -> None:
+    monkeypatch.delenv("LIVEAVATAR_API_KEY")
+    monkeypatch.setenv("HEYGEN_API_KEY", "fallback-key")
+    body = post(api_client).json()
+    assert body["unavailable_reason"] is None and body["session"] is not None
+    assert "fallback-key" not in json.dumps(body)
 
 
 def test_no_avatar_id_is_unavailable(api_client, reviewer, fake_gate, live, monkeypatch) -> None:
