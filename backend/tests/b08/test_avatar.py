@@ -136,9 +136,9 @@ def test_an_unset_avatar_id_uses_dxp_avatar_outside_sandbox(api_client, reviewer
 
 
 def test_voice_id_defaults_to_dxp_voice_and_env_overrides(monkeypatch) -> None:
-    monkeypatch.delenv("ELEVENLABS_VOICE_ID", raising=False)
+    monkeypatch.delenv("LIVEAVATAR_VOICE_ID", raising=False)
     assert voice_id() == DXP_VOICE_ID == "4d175bd2-b678-46f6-bb01-38b2270147fa"
-    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "voice-override")
+    monkeypatch.setenv("LIVEAVATAR_VOICE_ID", "voice-override")
     assert voice_id() == "voice-override"
 
 
@@ -288,8 +288,20 @@ async def test_http_client_sends_the_documented_full_mode_request(monkeypatch) -
         "is_sandbox": False,
         "interactivity_type": "PUSH_TO_TALK",
         "max_session_duration": 120,
-        "avatar_persona": {"language": "en"},
+        "avatar_persona": {"language": "en", "voice_id": DXP_VOICE_ID},
     }
+
+
+async def test_sandbox_requests_keep_the_sandbox_voice(monkeypatch) -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(body=json.loads(request.content))
+        return httpx.Response(200, json={"code": 1000, "data": {"session_id": "s-1", "session_token": "tok-1"}})
+
+    _http_client(monkeypatch, handler)
+    await HttpLiveAvatarClient(FAKE_KEY).create_session_token(avatar_id=AVATAR_ID, max_session_duration=60, is_sandbox=True)
+    assert seen["body"]["avatar_persona"] == {"language": "en"}
 
 
 @pytest.mark.parametrize(

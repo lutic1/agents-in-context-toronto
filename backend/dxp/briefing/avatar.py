@@ -63,9 +63,12 @@ KEY_ENV = "LIVEAVATAR_API_KEY"  # the only secret; read here only, never logged 
 AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: overrides which LiveAvatar avatar speaks (a UUID)
 SANDBOX_ENV = "LIVEAVATAR_SANDBOX"  # "true" asks for sandbox mode, which consumes no credits
 MAX_SECONDS_ENV = "LIVEAVATAR_MAX_SECONDS"
-VOICE_ID_ENV = "ELEVENLABS_VOICE_ID"  # not secret: overrides the voice for the LITE audio path
+VOICE_ID_ENV = "LIVEAVATAR_VOICE_ID"  # not secret: overrides the LiveAvatar voice record (a UUID)
 
 # DxP's chosen stock avatar and voice (Vlad, 14 Nov). Identifiers, not secrets; env vars override them.
+# The avatar is LiveAvatar's public "Lily (Friendly)". The voice is a LiveAvatar voice record ("Jessica"),
+# an ElevenLabs voice imported into LiveAvatar, so FULL mode speaks with it via avatar_persona.voice_id.
+# It is not a raw ElevenLabs voice ID (B06 uses ELEVENLABS_VOICE_ID for that).
 DXP_AVATAR_ID = "eb961787-3605-49e9-b703-3402c12ccdb4"
 DXP_VOICE_ID = "4d175bd2-b678-46f6-bb01-38b2270147fa"
 # Verified against the sandbox on 14 Nov: sandbox sessions accept only this free avatar.
@@ -73,11 +76,7 @@ SANDBOX_AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a"
 
 
 def voice_id() -> str:
-    """The voice the avatar speaks with (ELEVENLABS_VOICE_ID, else DxP's chosen voice).
-
-    Used by the LiveAvatar LITE audio path (proposed, pending Luis's V70 amendment); FULL mode
-    does not send it.
-    """
+    """The LiveAvatar voice the avatar speaks with (LIVEAVATAR_VOICE_ID, else DxP's chosen voice)."""
     return os.environ.get(VOICE_ID_ENV, "").strip() or DXP_VOICE_ID
 
 # A short ceiling: FULL mode costs 2 credits a minute, so one session is capped at 6 credits.
@@ -131,7 +130,8 @@ class HttpLiveAvatarClient:
             # The avatar only speaks what the page gives it with `repeat(text)`.
             "interactivity_type": "PUSH_TO_TALK",
             "max_session_duration": max_session_duration,
-            "avatar_persona": {"language": "en"},
+            # DxP's voice outside sandbox; sandbox sessions keep the sandbox avatar's own voice.
+            "avatar_persona": {"language": "en"} if is_sandbox else {"language": "en", "voice_id": voice_id()},
         }
         try:
             async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as http:
