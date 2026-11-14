@@ -118,7 +118,11 @@ class HttpLiveAvatarClient:
             "mode": "FULL",
             "avatar_id": avatar_id,
             "is_sandbox": is_sandbox,
-            # The interview page keeps the microphone off until the Reviewer pushes to talk.
+            # LiveAvatar has only CONVERSATIONAL and PUSH_TO_TALK; neither is a no-listening mode. In
+            # PUSH_TO_TALK, voice detection and speech recognition stay off until the app sends
+            # `user.start_push_to_talk`. Nothing in DxP ever sends it or starts listening (Luis, V70:
+            # no voice input today), and the app's Permissions-Policy (#45) blocks the microphone.
+            # The avatar only speaks what the page gives it with `repeat(text)`.
             "interactivity_type": "PUSH_TO_TALK",
             "max_session_duration": max_session_duration,
             "avatar_persona": {"language": "en"},

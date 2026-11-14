@@ -335,3 +335,27 @@ def test_nothing_in_the_loop_imports_the_avatar_or_reads_its_key() -> None:
             offenders.append(rel)
     # the app registers the router and the contract tests name the route; neither calls the avatar
     assert [o for o in offenders if o not in {"api/app.py"}] == []
+
+
+# --- no voice input (Luis, V70) -------------------------------------------------
+
+
+def test_no_web_code_starts_listening_or_uses_push_to_talk() -> None:
+    """LiveAvatar has no non-listening mode, so PUSH_TO_TALK stays and nothing may ever signal it."""
+    import re
+
+    repo = pathlib.Path(__file__).resolve().parents[3]
+    web = repo / "web"
+    pattern = re.compile(r"push.?to.?talk|startListening|start_listening|start_push", re.IGNORECASE)
+    skip = {"node_modules", ".next", ".git"}
+    offenders = []
+    for path in web.rglob("*"):
+        if skip & set(path.relative_to(web).parts) or not path.is_file():
+            continue
+        if path.suffix not in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".html"} or path.name == "package-lock.json":
+            continue
+        if pattern.search(path.read_text(errors="ignore")):
+            offenders.append(path.relative_to(repo).as_posix())
+    assert offenders == []
+    # the mic is blocked for every page (#45)
+    assert "microphone=()" in (web / "next.config.ts").read_text()
