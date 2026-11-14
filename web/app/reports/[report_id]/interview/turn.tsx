@@ -1,7 +1,6 @@
 "use client";
 
 import { CloudOff, ShieldX, SearchX, Volume2 } from "lucide-react";
-import { forwardRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,18 +15,13 @@ export type Turn = { id: string; question: string; outcome: TurnOutcome | null }
  * loading, answered (with its citations), not in the record, refused (medical advice), blocked by the gate,
  * and the error states (API unreachable, interview off, report not accepted, and the rest).
  */
-export const TurnView = forwardRef<HTMLElement, { turn: Turn; speak: ((text: string) => void) | null }>(function TurnView(
-  { turn, speak },
-  ref,
-) {
+export function TurnView({ turn, speak }: { turn: Turn; speak: ((text: string) => void) | null }) {
   const { id, question, outcome } = turn;
   return (
     <article
-      ref={ref}
-      tabIndex={-1}
       aria-labelledby={`${id}-question`}
       aria-busy={outcome === null}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-sm focus:outline-none focus-visible:ring-3 focus-visible:ring-ring"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-sm"
     >
       <h2 id={`${id}-question`} className="text-heading">
         <span className="sr-only">Question: </span>
@@ -36,7 +30,7 @@ export const TurnView = forwardRef<HTMLElement, { turn: Turn; speak: ((text: str
       {outcome === null ? <Loading /> : <Outcome id={id} outcome={outcome} speak={speak} />}
     </article>
   );
-});
+}
 
 function Loading() {
   return (

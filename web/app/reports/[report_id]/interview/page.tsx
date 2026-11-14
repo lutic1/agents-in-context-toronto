@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Interview this evidence" };
  * own verbatim quotes. A supporting page; no other page depends on it.
  *
  * This page needs the response header `Permissions-Policy: microphone=()` (set for /reports/:report_id/interview
- * in next.config.ts, which B01 owns) as the outermost layer of the avatar's microphone block. See avatar-adapter.ts.
+ * in B01's next.config.ts for every path, camera too) as the outermost layer of the avatar's microphone block. See avatar-adapter.ts.
  */
 export default async function InterviewPage({ params }: PageProps<"/reports/[report_id]/interview">) {
   const { report_id } = await params;

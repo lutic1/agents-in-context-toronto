@@ -9,8 +9,8 @@ import type { InterviewCitation } from "./interview-api";
 export function CitationsPanel({ turnId, citations }: { turnId: string; citations: InterviewCitation[] }) {
   if (citations.length === 0) return null;
   return (
-    <section aria-labelledby={`${turnId}-citations`} className="rounded-md border border-border bg-background p-4">
-      <h3 id={`${turnId}-citations`} className="flex items-center gap-2 text-table font-semibold">
+    <div className="rounded-md border border-border bg-background p-4">
+      <h3 className="flex items-center gap-2 text-table font-semibold">
         <Quote className="size-4" strokeWidth={1.75} aria-hidden="true" />
         Citations ({citations.length})
       </h3>
@@ -31,7 +31,7 @@ export function CitationsPanel({ turnId, citations }: { turnId: string; citation
           </li>
         ))}
       </ol>
-    </section>
+    </div>
   );
 }
 

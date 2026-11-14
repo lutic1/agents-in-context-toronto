@@ -2,7 +2,7 @@
 
 import { FileClock, SearchX, ToggleLeft } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 
 import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
@@ -48,21 +48,9 @@ export function InterviewView({ reportId }: { reportId: string }) {
   const [announce, setAnnounce] = useState("");
   const [speak, setSpeak] = useState<((text: string) => void) | null>(null);
   const counter = useRef(0);
-  const turnRefs = useRef(new Map<string, HTMLElement>());
-  const focusTurn = useRef<string | null>(null);
   const fieldId = useId();
 
   const onSpeaker = useCallback((fn: ((text: string) => void) | null) => setSpeak(() => fn), []);
-
-  // Move focus to a turn once its answer has arrived, so the result is read and reachable by keyboard.
-  useEffect(() => {
-    const id = focusTurn.current;
-    if (!id) return;
-    const outcome = turns.find((t) => t.id === id)?.outcome;
-    if (!outcome) return;
-    turnRefs.current.get(id)?.focus();
-    focusTurn.current = null;
-  }, [turns]);
 
   async function submit() {
     const text = question.trim();
@@ -73,7 +61,6 @@ export function InterviewView({ reportId }: { reportId: string }) {
     setQuestion("");
     setAnnounce("Looking through the accepted record.");
     setTurns((current) => [{ id, question: text, outcome: null }, ...current]);
-    focusTurn.current = id;
     const outcome = await askQuestion(reportId, text);
     setTurns((current) => current.map((t) => (t.id === id ? { ...t, outcome } : t)));
     setAnnounce(announcement(outcome));
@@ -150,14 +137,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
               <ol className="flex flex-col gap-4" aria-label="Questions and answers, newest first">
                 {turns.map((turn) => (
                   <li key={turn.id}>
-                    <TurnView
-                      turn={turn}
-                      speak={speak}
-                      ref={(node) => {
-                        if (node) turnRefs.current.set(turn.id, node);
-                        else turnRefs.current.delete(turn.id);
-                      }}
-                    />
+                    <TurnView turn={turn} speak={speak} />
                   </li>
                 ))}
               </ol>
