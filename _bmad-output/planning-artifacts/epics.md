@@ -281,6 +281,7 @@ So that jobs on Modal can read them without the laptop.
 **When** `python -m dxp.sources.load` runs
 **Then** every item is upserted with `_id` = `<source>:<source_item_id>`, `window` (`baseline` or `heldback`) and `sets` taken from the manifest ID lists, never from a date comparison
 **And** running it twice changes nothing, and never overwrites the `raw_text` of an item that Evidence points at
+**And** each item carries its `source_date`, which becomes `evidence.source_date` and the "data as of" date on screen: a trial's `last_update_posted`, a PubMed item's publication date, and the FDA list's download date
 **And** the counts it prints match the manifests
 **And** a missing PubMed `.jsonl` (a laptop without it) is skipped with a warning, not an error.
 
@@ -336,12 +337,12 @@ So that 300 to 500 items are processed without anyone watching and without excee
 
 **Acceptance Criteria:**
 
-**Given** `POST /api/v1/jobs { mode, source, set }` with the `X-DxP-Key` header
+**Given** `POST /api/v1/jobs { mode, source, set, limit?, actor }` with the `X-DxP-Key` header, where `limit` takes the most recent N items of the set
 **When** no job is running
 **Then** the API starts the job with `.spawn()` on the job function passed to `api.create_app()`, with a 3600-second Modal timeout, and returns the `Job`
 **And** while one is running it returns 409
 **And** the job is one LangGraph run fanning out with `Send` at `max_concurrency` 16; each item node catches its own error and returns a failure record
-**And** `jobs` holds `counts { total, done, failed, early_research }` and one failure line per failed item, readable at `GET /jobs/<job_id>`
+**And** `jobs` holds `counts { total, done, failed, early_research, filed }` (`filed` = Proposed changes filed), `actor`, `started_at`, `finished_at`, one failure line per failed item, and `active`: the `source_ref` and step (triage, extract or check) of each item in progress, added when it starts and removed when it ends; all readable at `GET /jobs/<job_id>`
 **And** `processed_at` is set per filed item, so starting the same job again skips finished items
 **And** a `pubmed` job runs with tracing off; a `clinicaltrials.gov` job is traced in LangSmith
 **And** a job with no progress for 10 minutes counts as stalled: `POST /jobs` treats it as not running, so the same job can be started again and resumes
@@ -376,7 +377,7 @@ So that the live demo can be retaken from the same starting point.
 **Acceptance Criteria:**
 
 **Given** production (`DXP_DB=dxp`) is seeded (Story 1.2) and loaded (Story 1.4)
-**When** the `baseline` jobs run, `clinicaltrials.gov` set `recent_baseline_narrow` (293) and then the 150 most recent `pubmed` items of set `small`, in the deployed app or with `modal run --detach`
+**When** the `baseline` jobs run, `clinicaltrials.gov` set `recent_baseline_narrow` (293) and then the 150 most recent `pubmed` items of set `small` in the `baseline` window (never the held-back items), in the deployed app or with `modal run --detach`
 **Then** both finish with a failure count under 5 percent, and no Alert exists
 **And** re-running either job processes nothing new
 **And** `mongodump` of `dxp` is saved outside the repository, and the retake procedure (`delete_many` per collection, then `mongorestore`) is written in the README.
@@ -464,7 +465,7 @@ So that I can decide each one without opening the source.
 **Acceptance Criteria:**
 
 **Given** a live job has filed `pending` Proposed changes on tracked Diagnostics
-**When** I call `GET /api/v1/proposals?status=pending`
+**When** I call `GET /api/v1/proposals?status=pending`, optionally with `diagnostic_id=` for one Record's pending changes
 **Then** each Proposal carries diagnostic name, field, new value and label, `current_value`, Evidence with source and data date, `check` with confidence and flags, `mode` and `trigger`
 **And** low-confidence proposals come first, then proposals flagged by a Learned rule, then the rest
 **And** for a `list` field the proposal adds an entry and never replaces one
@@ -520,7 +521,7 @@ So that I can see how the picture of a diagnostic changed.
 
 **Given** a Record with superseded or rejected values
 **When** I expand a field's history
-**Then** each earlier value shows its quote, source, data date, state, `decided_by` and `decided_at`, newest first
+**Then** each earlier value shows its quote, source, data date, state, `decided_by`, `decided_at` and the reason for an edit or rejection (kept on the value entry by Story 2.3), newest first
 **And** the Lifecycle stage shows each earlier stage with its date.
 
 ### Story 2.6: Draft, activate and switch off a Learned rule
@@ -585,7 +586,8 @@ So that I hear about what matters and nothing else.
 **Then** one update Alert is created with that trigger
 **And** tumour type alone never matches, and Baseline Diagnostics never get a first Alert
 **And** Alert IDs come from `identity.derive`, so a retry creates no second Alert
-**And** each Alert has a one-line `why` naming the Team's matching interest and the change, written by the model through `llm` with a template fallback, and links to the Evidence
+**And** each Alert has a one-line `why` naming the Team's matching interest and the change, written by the model through `llm` with a template fallback
+**And** each Alert carries `diagnostic_name`, the current `lifecycle_stage`, `from_stage` for a stage advance, and the Evidence of the value that triggered it (quote, source, link, data date), so the screen needs no second call
 **And** a Diagnostic created in this run gets its first Alert only, with no update Alerts from the same run
 **And** each Alert emits `alert_created`
 **And** `GET /alerts?team_id=` lists a Team's Alerts and `POST /alerts/<alert_id>/dismiss` dismisses one.
@@ -755,7 +757,8 @@ So that I know where the evidence is weak.
 **Given** the category page
 **When** I pick a modality
 **Then** every Diagnostic in it shows all ten fields
-**And** a Record with fewer than half its fields filled is marked thin, one whose newest Evidence is over a year old is marked stale, and empty fields show "no data for this indication".
+**And** a Record with fewer than half its fields filled is marked thin, one whose newest Evidence is over a year old is marked stale, and empty fields show "no data for this indication"
+**And** thin, stale and the filled count come from the read model as `completeness { filled, of, thin, stale }` (computed in `search.readmodel`, not in the web app), and the Categories are a map in `schema/registry.py` from a Category name to modality values (for example "Liquid biopsy" = ctDNA NGS, ctDNA PCR and cfDNA NGS).
 
 ### Story 4.7: Add a value by hand
 
@@ -803,11 +806,11 @@ So that the Graph view never derives links itself.
 
 **Given** `GET /api/v1/graph?after=<seq>`
 **When** it is called
-**Then** it returns nodes with IDs `<type>:<value>`, type, label, Lifecycle stage and Early research for Diagnostics, and links with kind
+**Then** it returns nodes with IDs `<type>:<value>`, type, label, Lifecycle stage, Early research and sample type for Diagnostics, and links with kind
 **And** nodes and links whose `seq` is above `after` carry `changed: true`
 **And** an optional `focus=<node_id>&depth=<n>` returns that node's neighbourhood using `$graphLookup` over `edges`
 **And** an optional `team_id=<team_id>` returns the neighbourhood of the Team's profile biomarkers, modalities and drugs, for the Home hero (Story 6.4)
-**And** `POST /teams/<team_id>/seen { seq }` stores the Team's `last_seen_seq`
+**And** `POST /teams/<team_id>/seen { seq }` stores the Team's `last_seen_seq` and `last_seen_at`, so screens can say "since 12 November"
 **And** the seeded FDA data alone produces links that cross categories, such as one biomarker shared by a tissue test and a plasma test.
 
 ### Story 5.2: Graph view with click-through
@@ -1058,4 +1061,5 @@ Departures from the architecture spine introduced by these stories, to confirm o
 
 - Story 2.1 adds a `dry_run` job mode beside `baseline` and `live` (AD-4); it writes nothing.
 - Story 4.4 adds `POST /shortlists` and `GET /shortlists` to the AD-14 route table.
+- Fields added to AD-14 shapes so the screens in the UX can be built: `Job` gets `limit`, `actor`, `started_at`, `finished_at`, `counts.filed` and `active` (Story 1.7); `Alert` gets `diagnostic_name`, `lifecycle_stage`, `from_stage` and its Evidence (Story 3.1); graph nodes get `sample_type` (Story 5.1); `GET /graph` takes `team_id` (Story 5.1).
 - Story 1.1 serves `GET /changes` by plain polling; the long-poll in AD-10 is optional.

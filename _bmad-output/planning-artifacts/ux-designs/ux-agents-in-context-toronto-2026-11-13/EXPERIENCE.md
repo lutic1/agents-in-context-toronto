@@ -1,7 +1,7 @@
 ---
 name: DxProvida (DxP)
 title: DxProvida (DxP) Experience
-status: draft
+status: final
 created: 2026-11-13
 updated: 2026-11-13
 sources:
@@ -11,6 +11,8 @@ sources:
 ---
 
 # DxProvida (DxP) — Experience Spine
+
+Key-screen mockups for every surface in the Information Architecture table are in [`mockups/`](mockups/index.html) (for example `mockups/review.html`, `mockups/graph.html`). The demo data they share is in `.working/shared-story.md`. This file and `DESIGN.md` win over any mockup where they disagree.
 
 ## Foundation
 
@@ -48,7 +50,7 @@ Microcopy. DxP speaks plainly to a scientist in a hurry. It names things the way
 |---|---|
 | "No data for this indication" | "N/A", "—", "Unknown" |
 | "Stage not determined" | "Unstaged", "TBD" |
-| "3 changes since your last visit, 2 November" | "You have new updates!" |
+| "5 changes since your last visit, 12 November" | "You have new updates!" |
 | "Accept", "Edit", "Reject"; toast "Accepted", "Edited", "Rejected" | "Submit", "Confirm action" |
 | "Reason for rejecting (DxP will suggest a rule from it)" | "Comment (optional)" |
 | "DxP suggests this rule: …" | "AI-generated rule" |
@@ -63,7 +65,7 @@ Behavioural. Visual specs live in `DESIGN.md` Components.
 
 | Component | Where | Behaviour |
 |---|---|---|
-| Stage track | Diagnostics list, Record header, comparison table, graph tooltip, Alerts | Read-only. Tooltip names all nine stages and the date each was reached. A just-advanced segment shows `{colors.eosin}` until the Team marks as seen. |
+| Stage track | Diagnostics list, Record header, comparison table, graph tooltip, Alerts | Read-only. Tooltip names all nine stages and the date each was reached. A just-advanced segment shows `{colors.eosin}` with the word "Changed" until the Team marks as seen, on Graph, the Home hero and Alerts only; elsewhere the segment is a plain fill. |
 | Evidence quote | Record, comparison table cell, Review row, Alert | Always shows source, identifier link and "data as of". Opens in the right-hand panel from a table cell (click or Enter). Never shows a value without it. |
 | Value with history | Record | Current value(s) first. "History" disclosure lists superseded and rejected values newest first with Evidence, who decided and when (Story 2.5). Unreviewed values show "Unreviewed" and, for a Reviewer, Accept / Edit / Reject inline. |
 | Proposal row | Review | Diagnostic, field, current → new written as a sentence ("Add trial NCT06422546 to Trials"), quote, confidence, rule flags. The focused row shows full Accept / Edit / Reject buttons; other rows show the same three as compact ghost buttons on one line, so every action stays reachable without hover. Edit opens an inline field plus a required reason. Reject opens a required reason. On save, the row collapses with its toast and the next row takes focus. |
@@ -143,7 +145,7 @@ The memory tag text follows the agreed wording: "Agent Memory (public preview)" 
 
 The video is judged, so the demo surfaces are tuned for a 1440 × 900 recording [ASSUMPTION]:
 
-- Browser zoom 110% for recording; nothing essential below the fold on Jobs, Review, Graph and Home.
+- Browser zoom 100% for recording (the type is already sized for camera); nothing essential below the fold on Jobs, Review, Graph and Home. Find and Categories also work down to 1309px wide.
 - Before recording, choose the demo Team and set "your name"; the Team's `last_seen_seq` is set before the live run so the Graph and Home show changes.
 - The one motion moment (graph pulse) is the visual climax; nothing else animates.
 
@@ -170,12 +172,12 @@ Protagonists: Rowan, Director of Diagnostics at a pharmaceutical therapy-area te
 
 Failure: a job item fails. It appears in the failures list with its source; the job continues.
 
-### Flow 2 — Back after six weeks (UJ-1)
+### Flow 2 — Back the day after the live run (UJ-1)
 
-1. Rowan opens DxP. Home greets them with the welcome-back panel: "Last time you were comparing MRD tests for early-stage relapse monitoring. 4 changes since 2 October."
-2. Rowan presses "Reopen" on the last Intended use. Find opens with the original text and its parsed chips.
-3. Rowan removes the tissue-only chip, adds sample type: plasma. The table re-runs without a model call.
-4. **Climax:** the table fills: one row per Diagnostic, each cell a value with its quote one click away, "No data for this indication" where nothing is published. Rowan ticks three rows, saves the Shortlist as "Relapse monitoring, stage I–III" and exports it with every reference.
+1. Rowan opens DxP. Home greets them with the welcome-back panel: "Last time you were looking at plasma EGFR and KRAS genotyping in advanced NSCLC. 5 changes since 12 November."
+2. Rowan presses "Reopen" on the last Intended use. Find opens with the original text and its parsed chips, including "Tumour stage or line: advanced or metastatic", which leaves only one Diagnostic.
+3. Rowan removes that chip. The table re-runs without a model call: "6 diagnostics, was 1", with Undo.
+4. **Climax:** the table fills: one row per Diagnostic, each cell a value with its quote one click away, "No data for this indication" where nothing is published. Rowan ticks three rows, saves the Shortlist under the Intended use "Plasma EGFR and KRAS genotyping in advanced NSCLC" and exports it with every reference.
 
 Failure: memory is unavailable. The panel still shows what changed and the last Intended use, and says "Memory unavailable right now".
 
@@ -187,6 +189,6 @@ Failure: memory is unavailable. The panel still shows what changed and the last 
 
 ### Flow 4 — Filling a Category's gaps (UJ-2)
 
-1. A domain expert opens Categories and picks ctDNA.
-2. Thin and stale Records are marked. One Record has no sample type.
-3. **Climax:** they add "plasma" with a note and their name; the value appears for everyone, marked "Manually sourced".
+1. Rowan opens Categories and picks Liquid biopsy.
+2. Thin and stale Records are marked, with the filled count from the read model. The tumour-informed ctDNA MRD approach is Thin, 4 of 10, with no clinical use.
+3. **Climax:** Rowan adds "Disease monitoring" with a note; the value appears for everyone, marked "Manually sourced" with Rowan's name, and the row goes to 5 of 10 and loses its Thin mark.
