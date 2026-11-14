@@ -79,3 +79,14 @@ def test_a_results_sentence_is_still_tagged_and_judged():
     action = file_module.report_action("rep_1", draft, draft)
     gate_checks.GateAction.coerce(action).validate()
     assert any(c["claim_kind"] == "claim_performed_or_results" for c in action.inputs["claims"])
+
+
+def test_each_gated_draft_records_its_summary_for_the_audit():
+    """I1: a memory's added sentence lives in the summary; the gated draft's inputs must carry it
+    so the audit shows draft 1 and draft 2 as written (V14), even when no claim policy applies."""
+    added = "This is a new trial signal worth investigating, not evidence about any assay."
+    draft = {**DRAFT, "draft": 2, "summary": f"The trial profiles blood and tissue. {added}", "claims": [],
+             "quotes": [{"text": "q", "quote_found": True, "version_id": "sv_aaaaaaaaaaaaaaaa"}]}
+    action = file_module.report_action("rep_1", draft, draft)
+    gate_checks.GateAction.coerce(action).validate()
+    assert added in action.inputs["summary"]

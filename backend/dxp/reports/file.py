@@ -95,6 +95,7 @@ def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) ->
             "id_target": gate_target(report_id, number, attempt),
             "source_ref": draft.get("source_ref"),
             "headline": one.get("headline"),
+            "summary": one.get("summary"),  # the audit shows each draft's full wording (V14, memory before/after)
             "gap": one.get("gap"),
             "claims": gate_claims(one),
             "source_fields": dict(draft.get("source_fields") or {}),
