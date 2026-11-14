@@ -19,6 +19,7 @@ export const FEATURE_NAMES = [
   "task_run",
   "revert",
   "live_stream",
+  "interview",
 ] as const;
 
 export type FeatureName = (typeof FEATURE_NAMES)[number];
