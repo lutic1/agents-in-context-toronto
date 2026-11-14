@@ -32,7 +32,7 @@ GitHub Actions secrets (set by Luis) reach CI only; they never reach Modal or Ve
 | `ELEVENLABS_API_KEY` | not passed | Media tests use fakes |
 | `LIVEAVATAR_API_KEY` | not passed | Media tests use fakes |
 
-**Name mismatch, for Luis:** the plan and the code use `HEYGEN_API_KEY` (OD7, B08), but the Actions secret is named `LIVEAVATAR_API_KEY`. Nothing is renamed in code. The Modal secret must use the plan's name, `HEYGEN_API_KEY`. Decide with Vlad (B08) whether the key is a HeyGen key or a LiveAvatar key, and whether the Actions secret should be renamed.
+**Key name (V70):** the avatar is LiveAvatar, and B08 reads only `LIVEAVATAR_API_KEY`. `HEYGEN_API_KEY` is no longer used. The Modal secret also carries `LIVEAVATAR_AVATAR_ID` and `LIVEAVATAR_VOICE_ID` (not secret); `ELEVENLABS_VOICE_ID` is optional (B06 defaults to ElevenLabs "Jessica").
 
 The workflow never prints a secret; GitHub masks them in logs. Backend flags stay off in CI (`DXP_FEATURES` empty).
 
@@ -52,7 +52,7 @@ The workflow never prints a secret; GitHub masks them in logs. Backend flags sta
 | `DXP_EMBEDDING` | no | yes (required) | yes | `auto`, `voyage` or `none`, by the OD1 result |
 | `DXP_FEATURES` | no | optional | yes | Backend flags; leave it out of the secret while every flag is off |
 | `ELEVENLABS_API_KEY` | no | optional (OD3) | yes | Without it the briefing says "unavailable" |
-| `HEYGEN_API_KEY` | no | optional (OD7) | yes | Without it the avatar says "unavailable" |
+| `LIVEAVATAR_API_KEY` | no | optional (OD7, V70) | yes | Without it the avatar says "unavailable" |
 | `VOYAGE_API_KEY` | no | only if cleared (OD1) | yes | |
 | `DXP_DB` | no | no | yes | Passed at deploy time from the shell by `modal_app.py` (`modal.Secret.from_dict`); required, never defaulted |
 | `DXP_SEED_KEY` | no | no | yes | Command line only (seed, prior collection) |
@@ -119,7 +119,7 @@ modal secret create dxp --force \
   DXP_ALLOWED_ORIGINS="$DXP_ALLOWED_ORIGINS" \
   DXP_EMBEDDING="$DXP_EMBEDDING" \
   ELEVENLABS_API_KEY="$ELEVENLABS_API_KEY" \
-  HEYGEN_API_KEY="$HEYGEN_API_KEY"
+  LIVEAVATAR_API_KEY="$LIVEAVATAR_API_KEY"
 # Add VOYAGE_API_KEY="$VOYAGE_API_KEY" only if OD1 cleared it.
 # Add DXP_FEATURES="..." only when a backend flag is turned on (see "Feature flags").
 # Leave out any optional key that is still empty in .env (ElevenLabs, HeyGen).
@@ -161,7 +161,7 @@ Recorded here as each check is run. Results are not filled in until someone has 
 | OD5 | Change streams on the sandbox tier (`events.watch()` receives an insert); a long-lived `StreamingResponse` from `@modal.asgi_app`, and through a Vercel streaming proxy, with the point where each is cut | Gregorio (checked at 10:45, decided with Luis by 11:45) | To be recorded |
 | OD6 | `mongodump` and `mongorestore` of a test database against the sandbox | Luis (by 12:20; proven at the I1 snapshot) | To be recorded |
 | OD3 | `ELEVENLABS_API_KEY` set in the Modal secret | Luis | To be recorded |
-| OD7 | `HEYGEN_API_KEY` set in the Modal secret (account check by Vlad) | Luis | To be recorded |
+| OD7 | `LIVEAVATAR_API_KEY` set in the Modal secret (account check by Vlad) | Luis | To be recorded |
 | Deploy | Production URL loads the shell; `/api/v1/schema` answers; a stub route returns the 501 error shape | Luis | To be recorded |
 | Links | `${DXP_BASE_URL}/reports/<report_id>` and `/diagnostics/<dx_id>` resolve | Luis (during A04), the integrator in I1 | To be recorded |
 
