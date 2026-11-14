@@ -2,7 +2,7 @@
 
 import { FileClock, SearchX, ToggleLeft } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
@@ -16,6 +16,7 @@ import { isUnreachable, useApi } from "@/lib/use-api";
 import { AvatarPanel } from "./avatar-panel";
 import { askQuestion, QUESTION_LIMIT, VOICE_LABEL, type TurnOutcome } from "./interview-api";
 import { TurnView, type Turn } from "./turn";
+import { VoiceInput } from "./voice-input";
 
 /** Announced to screen readers when a question finishes. */
 function announcement(outcome: TurnOutcome): string {
@@ -41,6 +42,7 @@ function announcement(outcome: TurnOutcome): string {
 export function InterviewView({ reportId }: { reportId: string }) {
   const interviewOn = isEnabled("interview");
   const avatarOn = isEnabled("avatar");
+  const voiceOn = isEnabled("voice_input");
   const report = useApi("/reports/{report_id}", { path: { report_id: reportId }, enabled: interviewOn });
 
   const [question, setQuestion] = useState("");
@@ -48,11 +50,29 @@ export function InterviewView({ reportId }: { reportId: string }) {
   const [pending, setPending] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [speak, setSpeak] = useState<((text: string) => void) | null>(null);
+  // True while the avatar session is starting or speaking: recording is off then (V73).
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  // Bumped when a transcript lands in the box, so the box takes focus once it holds the new text.
+  const [focusTick, setFocusTick] = useState(0);
   const counter = useRef(0);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fieldId = useId();
 
   const onSpeaker = useCallback((fn: ((text: string) => void) | null) => setSpeak(() => fn), []);
+
+  // A transcript is only ever put in the box for the user to read and edit. It is never submitted from here.
+  const onTranscript = useCallback((text: string) => {
+    setQuestion((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text).slice(0, QUESTION_LIMIT));
+    setFocusTick((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    if (focusTick === 0) return;
+    const field = fieldRef.current;
+    if (!field) return;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  }, [focusTick]);
 
   async function submit() {
     const text = question.trim();
@@ -118,8 +138,16 @@ export function InterviewView({ reportId }: { reportId: string }) {
                 }}
               />
               <p id={`${fieldId}-help`} className="text-caption text-muted-foreground">
-                Typed questions only. Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
+                {voiceOn ? "Type or record your question, then read and edit it before you ask. " : "Typed questions only. "}Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
               </p>
+              {voiceOn ? (
+                <VoiceInput
+                  reportId={reportId}
+                  disabled={avatarBusy || pending}
+                  onTranscript={onTranscript}
+                  onStatus={setAnnounce}
+                />
+              ) : null}
               <div className="flex items-center justify-between gap-3">
                 <p id={`${fieldId}-count`} className="text-caption text-muted-foreground">
                   {question.length} of {QUESTION_LIMIT} characters
@@ -149,7 +177,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
               </ol>
             )}
           </div>
-          {avatarOn ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} /> : null}
+          {avatarOn ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
         </div>
       </Body>
     </div>

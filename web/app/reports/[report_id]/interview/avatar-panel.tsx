@@ -28,10 +28,13 @@ const UNAVAILABLE: Record<string, string> = {
 export function AvatarPanel({
   reportId,
   onSpeaker,
+  onBusyChange,
 }: {
   reportId: string;
   /** Hands the page a `speak(text)` while a session is ready, and null otherwise. */
   onSpeaker: (speak: ((text: string) => void) | null) => void;
+  /** True while the session is starting or speaking. The page turns off its own recorder then (V73). */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [speaking, setSpeaking] = useState(false);
@@ -40,6 +43,11 @@ export function AvatarPanel({
   const adapterRef = useRef<AvatarAdapter | null>(null);
   // True once the page is gone. A start that is still in flight when this flips must end its own session.
   const cancelledRef = useRef(false);
+
+  const busy = phase === "starting" || speaking;
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
 
   const stop = useCallback(async () => {
     const adapter = adapterRef.current;
@@ -124,7 +132,7 @@ export function AvatarPanel({
       <p className="mt-1 flex items-start gap-2 text-caption text-muted-foreground">
         <MicOff className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
         <span>
-          Microphone off. Nothing is listened to. The avatar reads aloud only the answer text shown on this page.
+          The avatar never listens: its microphone is off. It reads aloud only the answer text shown on this page.
         </span>
       </p>
 

@@ -183,7 +183,13 @@ def imports_of(path: Path) -> set[str]:
 def test_only_the_briefing_route_reaches_the_briefing_generator():
     """Filing a report, the pipeline, the Slack alert, the decision and the tasks make no ElevenLabs
     call, because none of them imports `briefing` or the ElevenLabs SDK."""
-    allowed = {"briefing", "api/routes_briefing.py", "api/routes_avatar.py"}  # avatar: B08's own route
+    allowed = {
+        "briefing",
+        "api/routes_briefing.py",
+        "api/routes_avatar.py",  # avatar: B08's own route
+        # V73: transcription reuses B06's ElevenLabs client, so the key is still read in briefing/audio.py only
+        "interview/transcribe.py",
+    }
     offenders = []
     for path in BACKEND.rglob("*.py"):
         rel = path.relative_to(BACKEND).as_posix()
