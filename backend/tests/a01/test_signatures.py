@@ -109,3 +109,28 @@ async def test_unfinished_stubs_raise_not_implemented(module: str, name: str) ->
         result = function(*_dummy_args(function))
         if inspect.isawaitable(result):
             await result
+
+
+def test_store_names_the_drafts_use() -> None:
+    from dxp import store
+
+    assert callable(store.db) and callable(store.collection)
+    params = inspect.signature(store.emit_event).parameters
+    assert list(params)[0] == "event" and params["session"].kind is inspect.Parameter.KEYWORD_ONLY
+
+
+async def test_emit_event_requires_a_dedupe_key() -> None:
+    from dxp import store
+
+    with pytest.raises(ValueError):
+        await store.emit_event({"type": "report_filed"})
+
+
+def test_decision_model_validates_an_ad14_dict() -> None:
+    from dxp.api.models import Decision
+
+    decision = Decision.model_validate({
+        "id": "dec_1", "stamp": {"kind": "seed", "principal": "seed"}, "kind": "apply_value",
+        "destination": "ledger", "grant_id": "seed", "grant_version": 1, "outcome": "allowed",
+    })
+    assert decision.outcome == "allowed" and decision.run_id is None

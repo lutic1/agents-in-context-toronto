@@ -19,8 +19,32 @@ from dxp.store.client import get_db
 _MAX_ATTEMPTS = 50
 
 
-async def emit_event(event_type: str, *, dedupe_key: str, stamp: dict[str, Any] | None, session: Any | None = None, **fields: Any) -> int:
-    """Insert one event and return its seq; an existing `dedupe_key` returns the stored seq."""
+async def emit_event(
+    event: str | dict[str, Any],
+    *,
+    session: Any | None = None,
+    dedupe_key: str | None = None,
+    stamp: dict[str, Any] | None = None,
+    **fields: Any,
+) -> int:
+    """Insert one event and return its seq; an existing `dedupe_key` returns the stored seq.
+
+    Two call forms, same result:
+    - emit_event({"type": ..., "dedupe_key": ..., "stamp": ..., <Event fields>}, session=s)
+    - emit_event("action_allowed", dedupe_key=..., stamp=..., session=s, <Event fields>)
+    `_id` and `seq` are assigned here and ignored if passed.
+    """
+    if isinstance(event, dict):
+        fields = {**event, **fields}
+        event_type = fields.pop("type")
+        dedupe_key = dedupe_key or fields.pop("dedupe_key", None)
+        stamp = stamp if stamp is not None else fields.pop("stamp", None)
+    else:
+        event_type = event
+    fields.pop("_id", None)
+    fields.pop("seq", None)
+    if not dedupe_key:
+        raise ValueError("emit_event needs a dedupe_key (AD-10).")
     events = get_db()["events"]
     for _ in range(_MAX_ATTEMPTS):
         found = await events.find_one({"dedupe_key": dedupe_key}, {"_id": 1}, session=session)

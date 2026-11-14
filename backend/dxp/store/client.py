@@ -30,6 +30,16 @@ def get_db() -> AsyncDatabase:
     return get_client()[_require("DXP_DB")]
 
 
+def db() -> AsyncDatabase:
+    """The one database (DXP_DB). Same as get_db()."""
+    return get_db()
+
+
+def collection(name: str):
+    """One collection of the one database."""
+    return get_db()[name]
+
+
 async def close() -> None:
     global _client
     if _client is not None:

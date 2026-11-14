@@ -50,3 +50,13 @@ async def test_validators_from_store_schemas_are_applied(db, monkeypatch) -> Non
     options = info["cursor"]["firstBatch"][0]["options"]
     assert options["validator"]["$jsonSchema"]["required"] == ["members"]
     assert options["validationLevel"] == "strict" and options["validationAction"] == "error"
+
+
+async def test_emit_event_accepts_an_event_document(db) -> None:
+    from dxp import store
+
+    seq = await store.emit_event({"type": "report_filed", "dedupe_key": "t:doc", "stamp": {"kind": "run", "principal": "dxp-curator"}, "report_id": "rep_t"})
+    again = await store.emit_event({"type": "report_filed", "dedupe_key": "t:doc", "stamp": None})
+    assert again == seq
+    assert (await store.collection("events").find_one({"_id": seq}))["report_id"] == "rep_t"
+    assert store.db().name == db.name
