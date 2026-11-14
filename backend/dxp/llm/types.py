@@ -89,6 +89,9 @@ class ValueCheck(BaseModel):
     flags: list[dict] = Field(default_factory=list)
     checked: bool = False
     detail: str | None = None
+    # Hash of the source text the verdict was given against: a second
+    # check() on the same text reuses it instead of asking again.
+    source_hash: str | None = None
 
     @property
     def passed(self) -> bool:

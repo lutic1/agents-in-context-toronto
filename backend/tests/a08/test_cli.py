@@ -1,7 +1,8 @@
-"""The print-only command (Story 1.5): item building and rendering, offline."""
+"""The print-only command (Story 1.5): A05's item building and rendering, offline."""
 
 from dxp.llm.cli import item_from_study, render
 from dxp.llm.types import Extraction, Finding, FindingValue, NameMention, ValueCheck
+from dxp.sources import load as source_load
 
 STUDY = {
     "protocolSection": {
@@ -16,12 +17,14 @@ STUDY = {
 }
 
 
-def test_item_from_study_keeps_interventions_verbatim(fake_registry):
+def test_item_from_study_is_a05s_source_version():
     item = item_from_study(STUDY)
     assert item["source_ref"] == "clinicaltrials.gov:NCT00000001"
-    assert item["version_id"].startswith("sv_")
+    assert item["version_id"] == item["_id"] == source_load.version_id_for(
+        item["source_ref"], "2026-11-12", item["content_hash"]
+    )
     assert item["interventions"] == [{"type": "DIAGNOSTIC_TEST", "name": "Assay X", "otherNames": ["Brand Y"]}]
-    assert "Intervention: DIAGNOSTIC_TEST: Assay X (other names: Brand Y)" in item["raw_text"]
+    assert "Assay X (DIAGNOSTIC_TEST); other names: Brand Y" in item["raw_text"]
     assert item["has_results"] is False and item["overall_status"] == "RECRUITING"
 
 

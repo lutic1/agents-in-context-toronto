@@ -16,9 +16,10 @@ failure record to the Finding.
 
 from __future__ import annotations
 
+import hashlib
 import json
 
-from dxp.evidence import quote_in_source
+from dxp.evidence import normalise_for_quote, quote_in_source
 from dxp.llm import client
 from dxp.llm.prompts import check as prompt
 from dxp.llm.types import CheckOut, Finding, LLMFailure, ValueCheck
@@ -28,8 +29,19 @@ def _item_line(index: int, field: str, value: str, quote: str) -> str:
     return json.dumps({"index": index, "field": field, "value": value, "quote": quote}, ensure_ascii=False)
 
 
+def _source_hash(source_text: str) -> str:
+    return hashlib.sha256(normalise_for_quote(source_text or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _reusable(c: ValueCheck, source_hash: str) -> bool:
+    """A verdict already given against this same text (for example by
+    `extract`, before the pipeline calls `check` again) is kept, not re-asked."""
+    return c.checked and c.source_hash == source_hash
+
+
 async def check_finding(finding: Finding, source_text: str, *, lane: str = "ingest") -> Finding:
     checked = finding.model_copy(deep=True)
+    source_hash = _source_hash(source_text)
 
     # (index -> check object to fill) for every quote that was found.
     pending: list[tuple[int, ValueCheck]] = []
@@ -38,6 +50,8 @@ async def check_finding(finding: Finding, source_text: str, *, lane: str = "inge
     for value in checked.values:
         c = value.check
         c.quote_found = quote_in_source(value.quote, source_text)
+        if c.quote_found and value.value is not None and _reusable(c, source_hash):
+            continue
         c.supported = False
         c.checked = False
         if not c.quote_found:
@@ -54,13 +68,16 @@ async def check_finding(finding: Finding, source_text: str, *, lane: str = "inge
     if stage is not None:
         c = stage.check
         c.quote_found = quote_in_source(stage.quote, source_text)
-        c.supported = False
-        c.checked = False
-        if c.quote_found:
+        if c.quote_found and _reusable(c, source_hash):
+            pass
+        else:
+            c.supported = False
+            c.checked = False
+        if c.quote_found and not c.checked:
             index = len(pending)
             pending.append((index, c))
             lines.append(_item_line(index, "lifecycle_stage", stage.raw, stage.quote))
-        else:
+        elif not c.quote_found:
             c.detail = "quote_not_found"
 
     if not pending:
@@ -88,6 +105,7 @@ async def check_finding(finding: Finding, source_text: str, *, lane: str = "inge
         if index in verdicts:
             c.supported = bool(verdicts[index])
             c.checked = True
+            c.source_hash = source_hash
             c.detail = None if c.supported else "not_supported"
         else:
             c.detail = "no_verdict"
