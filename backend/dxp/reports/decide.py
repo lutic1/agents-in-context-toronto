@@ -403,6 +403,9 @@ async def finish_accepting(report_id: str) -> dict[str, Any] | None:
         )
         if res.modified_count:
             await _emit_decided(current, "accepted", decided_by, approval.get("decision_id"), session)
+            # Settle the approval's own action here, so the recovery path settles it too.
+            approved = await db()["decisions"].find_one({"_id": approval.get("decision_id")}, session=session)
+            await settle_action(approved, "done", session=session)
 
     await in_transaction(work)
     return await get_report(report_id)
@@ -504,3 +507,5 @@ async def recover_accepting() -> None:
             await finish_accepting(report_id)
         except AcceptanceIncomplete:
             log.warning("report %s stays accepting: a proposal did not apply", report_id)
+        except Exception:  # noqa: BLE001 - one stuck report never blocks the others or a decision
+            log.exception("report %s stays accepting: its acceptance could not be finished", report_id)

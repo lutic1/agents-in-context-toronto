@@ -48,6 +48,7 @@ TASK_RUN_FLAG = "task_run"
 DEFAULT_CONDITION = "non-small cell lung cancer"
 DEFAULT_TESTING = ["ctDNA or plasma", "tissue profiling"]
 MAX_RESULTS = 5
+NO_GAP = "the report names no gap for the task to answer"
 
 
 class TaskNotAuthorised(Exception):
@@ -160,6 +161,11 @@ async def authorise_report(report_id: str, reviewer_id: str | None = None, origi
         return await _stored_outcome(report, approval)
 
     task_id = approval.get("task_id") or task_id_for(report_id)
+    if not (report.get("gap") or "").strip():
+        # The evidence is already accepted: a report with no gap records a blocked task step
+        # with its reason instead of failing every later decision and recovery.
+        await rd.mark_task_step(report_id, "blocked", reason=NO_GAP)
+        return None, None
     who = approval.get("reviewer") or approval.get("decided_by") or reviewer_id or rd.REVIEWER_GRANT
     grant = await rd.reviewer_grant(who)
     scope = await rd.db()["research_scopes"].find_one({"_id": report.get("scope_id")}) if report.get("scope_id") else None
@@ -220,6 +226,10 @@ async def authorise(report_id: str, reviewer: Principal) -> Task:
     blocked Decision) when the step is blocked."""
     task, decision = await authorise_report(report_id, reviewer.id if reviewer is not None else None)
     if task is None:
+        if decision is None:
+            stored = await rd.get_report(report_id)
+            reason = ((stored or {}).get("approval") or {}).get("reason") or "not authorised"
+            raise TaskNotAuthorised(None, reason)
         raise TaskNotAuthorised(decision, rd.failure_reason(decision))
     return task_model(task)
 
