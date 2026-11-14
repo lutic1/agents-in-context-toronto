@@ -251,3 +251,33 @@ def test_team_id_rule_for_memory_kinds():
     assert outcome(rctx, ok, Loaded(grant=sam(), policies=POLICIES, now=NOW))[1] is None
     bad = GateAction(kind="create_memory", destination="ledger", target={"report_id": "rep_1"}, team_id="team_other")
     assert outcome(rctx, bad, Loaded(grant=sam(), policies=POLICIES, now=NOW))[1] == "team_scope"
+
+
+def test_check4_fails_closed_when_no_check_is_recorded():
+    _, failed, _ = outcome(run_ctx(), scope_change(checks=[]), loaded())
+    assert failed == "evidence_checks"
+    checks, failed, _ = outcome(run_ctx(), GateAction(
+        kind="file_proposal", destination="ledger", target={"report_id": "rep_1", "draft": 2, "scope_id": SCOPE_ID},
+        claims=[{"claim_kind": "claim_planned", "text": "It is recruiting."}],
+        source_fields={"overall_status": "RECRUITING", "has_results": False}), loaded())
+    assert failed == "evidence_checks" and "no check recorded" in checks[3]["detail"]
+
+
+def test_check2_judges_the_diagnostic_a_mention_resolves_to_whatever_the_target():
+    """I1 must-show 3: the FoundationOne CDx mention linked to the plasma scope (scope-targeted)."""
+    action = scope_change(target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_m",
+                                  "field": "evidence_collection"},
+                          mention={"name": "FoundationOne CDx", "resolved_diagnostic_id": TISSUE_DX})
+    checks, failed, _ = outcome(run_ctx(), action, loaded())
+    assert failed == "team_scope"
+    assert "'FoundationOne CDx'" in checks[1]["detail"] and TISSUE_DX in checks[1]["detail"]
+    # an in-scope mention is allowed
+    ok = scope_change(mention={"name": "FoundationOne Liquid CDx", "resolved_diagnostic_id": PLASMA_DX[0]})
+    assert outcome(run_ctx(), ok, loaded())[1] is None
+
+
+def test_unknown_claim_kind_is_refused():
+    action = GateAction(kind="file_proposal", destination="ledger", target={"report_id": "rep_1", "draft": 1},
+                        claims=[{"claim_kind": "", "text": "It showed X."}])
+    with pytest.raises(ValueError):
+        action.validate()

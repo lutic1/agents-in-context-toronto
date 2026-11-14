@@ -131,11 +131,22 @@ class FakeCursor:
         return list(self._docs if length is None else self._docs[:length])
 
 
+class FakeWriteError(Exception):
+    """A document the collection's validator rejects (Atlas raises WriteError, code 121)."""
+
+
 class FakeCollection:
-    def __init__(self, name: str):
+    def __init__(self, name: str, check: Any = None):
         self.name = name
         self.docs: dict[Any, dict] = {}
         self.unique: list[tuple[str, ...]] = []
+        self.check = check  # doc -> list of validator errors, or None
+
+    def _validate(self, doc: dict) -> None:
+        if self.check is not None:
+            problems = self.check(doc)
+            if problems:
+                raise FakeWriteError(f"{self.name} {doc.get('_id')}: {problems}")
 
     def _violates_unique(self, doc: dict, skip_id: Any = _MISSING) -> bool:
         for keys in self.unique:
@@ -151,6 +162,7 @@ class FakeCollection:
         await asyncio.sleep(0)
         if doc["_id"] in self.docs or self._violates_unique(doc):
             raise DuplicateKeyError(f"E11000 duplicate key {self.name} {doc['_id']}")
+        self._validate(doc)
         self.docs[doc["_id"]] = copy.deepcopy(doc)
         return InsertResult(doc["_id"])
 
@@ -203,6 +215,7 @@ class FakeCollection:
                 self._apply(new, update, inserting=False)
                 if self._violates_unique(new, skip_id=_id):
                     raise DuplicateKeyError(f"E11000 duplicate key {self.name}")
+                self._validate(new)
                 changed = new != d
                 self.docs[_id] = new
                 return UpdateResult(1, 1 if changed else 0)
@@ -212,6 +225,7 @@ class FakeCollection:
         self._apply(new, update, inserting=True)
         if new.get("_id") in self.docs or self._violates_unique(new):
             raise DuplicateKeyError(f"E11000 duplicate key {self.name}")
+        self._validate(new)
         self.docs[new["_id"]] = new
         return UpdateResult(0, 0, new["_id"])
 
@@ -222,18 +236,23 @@ class FakeCollection:
             if matches(d, flt):
                 new = copy.deepcopy(d)
                 self._apply(new, update, inserting=False)
+                self._validate(new)
                 self.docs[_id] = new
                 n += 1
         return UpdateResult(n, n)
 
 
 class FakeDB:
-    def __init__(self) -> None:
+    """``validators`` maps a collection name to a checker (doc -> errors), applied on every write,
+    as Atlas applies A03's ``$jsonSchema`` validators with ``validationAction: error``."""
+
+    def __init__(self, validators: dict[str, Any] | None = None) -> None:
         self.collections: dict[str, FakeCollection] = {}
+        self.validators = validators or {}
 
     def __getitem__(self, name: str) -> FakeCollection:
         if name not in self.collections:
-            self.collections[name] = FakeCollection(name)
+            self.collections[name] = FakeCollection(name, self.validators.get(name))
         return self.collections[name]
 
     def snapshot(self) -> dict[str, dict]:

@@ -250,6 +250,20 @@ class GateAction:
         ]
         return cls(**values)
 
+    def validate(self) -> None:
+        """Refuse a malformed action before any Decision is written."""
+        if self.kind not in KNOWN_KINDS | SUPERSEDED_KINDS:
+            raise ValueError(f"unknown action kind {self.kind!r} (AD-14)")
+        if self.destination not in KNOWN_DESTINATIONS:
+            raise ValueError(f"unknown destination {self.destination!r} (AD-14)")
+        for c in self.claims:
+            if c.get("claim_kind") not in claim_checks.CLAIM_POLICIES:
+                # The decisions validator allows only the three claim kinds, and the drafter
+                # tags every claim with one (V7): an untagged or unknown kind is a caller error.
+                raise ValueError(
+                    f"claim_kind {c.get('claim_kind')!r} is not one of {list(claim_checks.CLAIM_POLICIES)}"
+                )
+
     @property
     def is_report_level(self) -> bool:
         """The report-level file_proposal (target ``<report_id>|draft<n>``), V24."""
@@ -322,11 +336,13 @@ def _scope_rule(grant: Mapping[str, Any]) -> str:
 
 
 def _target_diagnostics(action: GateAction) -> list[str]:
+    """Every Diagnostic the action touches: its target, a report's Diagnostics, and the
+    Diagnostic a proposed mention link resolves to, whatever the target (V37)."""
     ids: list[str] = []
-    dx = action.target.get("diagnostic_id")
-    if dx:
-        ids.append(dx)
-    for d in action.target.get("diagnostic_ids") or []:
+    candidates = [action.target.get("diagnostic_id"), *(action.target.get("diagnostic_ids") or [])]
+    if action.mention:
+        candidates.append(action.mention.get("resolved_diagnostic_id"))
+    for d in candidates:
         if d and d not in ids:
             ids.append(d)
     return ids
@@ -464,6 +480,13 @@ def _requires_failures(policies: list[dict[str, Any]], checks: list[dict[str, An
     for p in policies:
         req = p.get("requires") or {}
         pid = f"{p.get('policy_id')}@v{p.get('version')}"
+        needs = [k for k in ("quote_found", "supported") if req.get(k)]
+        if req.get("min_confidence") is not None:
+            needs.append("min_confidence")
+        if needs and not checks:
+            # Fail closed: a requires key with no check to meet it is unmet (Story 9.3).
+            failures.append(f"{pid}: no check recorded for {', '.join(needs)}")
+            continue
         for i, chk in enumerate(checks):
             where = f"check {i + 1}" if len(checks) > 1 else "the change's check"
             if req.get("quote_found") and chk.get("quote_found") is not True:

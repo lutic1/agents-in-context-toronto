@@ -31,6 +31,9 @@ TISSUE = "FoundationOne CDx"
 SCOPE_ID = "scope_plasma_ctdna_nsclc"
 TEAM_ID = "team_liquid_biopsy_dx"
 ANCHOR = "clinicaltrials.gov:NCT04712877"
+SV_ANCHOR = "sv_" + "a1" * 8
+TEST_CURSOR = "2000-01-01"  # test-only placeholder, not the OD2 cursor
+SEED_ENV = {"DXP_AGENT_KEY": "test-agent-key-a06", "DXP_API_KEY": "test-api-key-a06", "DXP_SEED_KEY": "test-seed-key-a06"}
 
 
 # --- stand-in for the store's event writer on the fake backend ---------------
@@ -109,43 +112,32 @@ class World:
         self.dx_tissue = dx(TISSUE)
         self.dx_f1l = self.dx_plasma[0]
         self.run_id = "run_test0001"
+        self.team_id: str | None = None
+        self.grants: dict[str, dict] = {}
         self.policy_set_version: str | None = None
         self._adm = 0
 
     async def seed(self) -> None:
+        """Grants, policies and the scope from A03's seed data and builders (``dxp.gate.seed``),
+        so every document passes A03's validators; then Diagnostics, the anchor and a run."""
+        from dxp.gate import seed as gate_seed
+        from dxp.gate.policy_sets import current_set
+
         db = self.db
-        scope = {"scope_id": SCOPE_ID, "diagnostic_ids": self.dx_plasma}
-        await db["grants"].insert_one(grant_doc(
-            "lbdx", principal="dxp-curator", kind="agent", startable_by=["sam"], scope=scope,
-            actions=["search_source", "file_proposal", "notify_slack"],
-            destinations=["source:clinicaltrials.gov", "ledger", "slack:#all-mango-db-hackathon"],
-        ))
-        await db["grants"].insert_one(grant_doc(
-            "sam", principal="sam", kind="person", startable_by=[], scope=scope,
-            actions=["decide_report", "authorise_task", "create_memory", "correct_memory", "revoke_memory",
-                     "review_value", "resolve_notification", "revert_report", "generate_briefing",
-                     "generate_avatar_video"],
-            destinations=["ledger", "tts:elevenlabs", "video:heygen"],
-        ))
-        await db["grants"].insert_one(grant_doc(
-            "seed", principal="seed", kind="seed", startable_by=[], scope={"all": True},
-            actions=["apply_value"], destinations=["ledger"], acting_for=None, team_id=None,
-        ))
-        await db["policies"].insert_one(policy_doc(
-            "evidence_quote", ["file_proposal", "file_related_evidence"],
-            {"quote_found": True, "supported": True, "min_confidence": 0.6},
-        ))
-        for pid in CLAIM_POLICY_IDS:
-            await db["policies"].insert_one(policy_doc(pid, ["file_proposal"], {"claim_checks": [pid]}))
-        await db["research_scopes"].insert_one({
-            "_id": SCOPE_ID, "name": "Plasma ctDNA genotyping assays in NSCLC", "team_id": TEAM_ID,
-            "assays": PLASMA, "aliases": ["ctDNA", "cell-free DNA", "liquid biopsy"],
-            "condition": "non-small cell lung cancer", "source": "clinicaltrials.gov",
-            "cursor": {"last_update_post_date": "2026-11-01", "set_at": NOW, "set_by_run_id": None},
-        })
+        data = gate_seed.load_seed_data()
+        for scope in data["research_scopes"]:
+            scope.setdefault("cursor", {})["last_update_post_date"] = TEST_CURSOR
+        built = gate_seed.build_all(data, SEED_ENV, NOW)
+        for coll in ("grants", "policies", "research_scopes"):
+            for doc in built[coll]:
+                await db[coll].insert_one(doc)
+        self.grants = {g["grant_id"]: g for g in built["grants"]}
+        self.team_id = self.grants["lbdx"]["team_id"]
+        assert set(self.grants["lbdx"]["scope"]["diagnostic_ids"]) == set(self.dx_plasma)
         for name in PLASMA + [TISSUE]:
             key = normalise_name(name)
-            await db["aliases"].insert_one({"_id": key, "diagnostic_id": dx(name), "name": name})
+            await db["aliases"].insert_one({"_id": key, "diagnostic_id": dx(name), "name": name,
+                                            "created_mode": "baseline"})
             await db["diagnostics"].insert_one({
                 "_id": dx(name), "name": name, "id_alias": key, "aliases": [key],
                 "lifecycle_stage": "regulatory_approval", "fields": {}, "rev": 0,
@@ -153,17 +145,34 @@ class World:
                 "created_run_id": None, "created_mode": "baseline",
             })
         await db["source_items"].insert_one({
-            "_id": ANCHOR, "source": "clinicaltrials.gov", "current_version_id": "sv_anchor0000000001",
+            "_id": ANCHOR, "source": "clinicaltrials.gov", "current_version_id": SV_ANCHOR,
             "overall_status": "RECRUITING", "has_results": False, "scope_ids": [SCOPE_ID], "window": "discovered",
         })
-        from dxp.gate.policy_sets import current_set
-
         self.policy_set_version = (await current_set()).id
-        await db["runs"].insert_one({
-            "_id": self.run_id, "agent": "dxp-curator", "initiated_by": "sam", "grant_id": "lbdx",
-            "grant_version": 1, "policy_set_version": self.policy_set_version, "status": "running",
-            "mode": "live", "set": "discover", "scope_id": SCOPE_ID, "team_id": TEAM_ID,
+        await self.add_run(self.run_id)
+
+    async def add_run(self, run_id: str) -> None:
+        """A complete ``runs`` document (A03 validator), discover set, running."""
+        await self.db["runs"].insert_one({
+            "_id": run_id, "agent": "dxp-curator", "initiated_by": "sam", "grant_id": "lbdx",
+            "grant_version": 1, "policy_set_version": self.policy_set_version, "team_id": self.team_id,
+            "set": "discover", "kind": "discover", "scope_id": SCOPE_ID, "task_id": None,
+            "status": "running", "in_flight": 0, "mode": "live", "started_at": NOW,
         })
+
+    async def new_grant_version(self, grant_id: str, status: str = "revoked") -> dict:
+        """The next version of a seeded grant, ``revoked`` or ``expired`` (A03's ``new_grant_version``)."""
+        from dxp.gate import seed as gate_seed
+
+        return await gate_seed.new_grant_version(self.db, grant_id, status, env=SEED_ENV)
+
+    def rep(self, name: str) -> str:
+        """A report ID in the real form (``derive("rep_", run_id, source_ref)``, AD-3)."""
+        return derive("rep_", self.run_id, f"clinicaltrials.gov:{name}")
+
+    @property
+    def report_id(self) -> str:
+        return self.rep("NCT04712877")
 
     async def admit(self, key: str | None = None, run_id: str | None = None, status: str = "admitted") -> str:
         self._adm += 1
@@ -195,7 +204,7 @@ class World:
         ctx = {
             "kind": "reviewer", "principal": "sam", "grant_id": "sam", "initiated_by": "sam",
             "request_id": uuid.uuid4().hex,
-            "cause": {"report_id": "rep_x", "origin_run_id": self.run_id},
+            "cause": {"report_id": self.rep("cause"), "origin_run_id": self.run_id},
             "stamp": {"kind": "reviewer", "run_id": None, "principal": "sam", "agent": None,
                       "initiated_by": "sam", "grant_id": "sam", "grant_version": 1},
         }
@@ -270,7 +279,12 @@ async def open_world(backend: str) -> tuple[World, Callable[[], Awaitable[None]]
 
     restore: dict[str, Any] = {}
     if backend == "fake":
-        db = FakeDB()
+        from a03.jsonschema_lite import validate
+
+        from dxp.store import schemas
+
+        db = FakeDB({name: (lambda doc, v=v: validate(v, doc)) for name, v in schemas.VALIDATORS.items()
+                     for v in [{"$jsonSchema": v}]})
         db["events"].unique.append(("dedupe_key",))
         for name in ("db", "get_db"):
             restore[name] = getattr(store, name)

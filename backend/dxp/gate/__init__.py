@@ -68,10 +68,7 @@ async def evaluate(ctx: RunContext, action: ProposedAction) -> Decision:
     ctx = GateCtx.coerce(ctx)
     action = GateAction.coerce(action)
     ctx.validate()
-    if action.kind not in checks.KNOWN_KINDS | checks.SUPERSEDED_KINDS:
-        raise ValueError(f"unknown action kind {action.kind!r} (AD-14)")
-    if action.destination not in checks.KNOWN_DESTINATIONS:
-        raise ValueError(f"unknown destination {action.destination!r} (AD-14)")
+    action.validate()
 
     decision_id, action_id = decisions.ids_for(ctx, action)
     stored = await deps.db()["decisions"].find_one({"_id": decision_id}, session=ctx.session)

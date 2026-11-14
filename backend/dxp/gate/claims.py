@@ -10,8 +10,8 @@ The three claim policies:
 
 * ``claim_performed_or_results``: a sentence stating that an assay was
   performed, detected something, showed or produced results needs
-  ``has_results: true`` or a checked quote saying it was performed with
-  results.
+  ``has_results: true`` or its own checked quote saying it was performed with
+  results. A claim of this kind that makes no such statement passes.
 * ``claim_planned``: when the trial is NOT_YET_RECRUITING or RECRUITING (or
   otherwise planned), it must be described as planned or ongoing.
 * ``claim_preclinical``: cell-line or animal evidence must be labelled
@@ -45,6 +45,16 @@ _PERFORMED = re.compile(
     r"was performed|were performed|has been performed|have been performed|"
     r"resulted in|results showed|results show|reported (?:a|an|that)|"
     r"sensitivity of|specificity of|concordance of"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Past-tense performed or results wording: what a quote must say to support a performance claim.
+_PERFORMED_PAST = re.compile(
+    r"\b("
+    r"showed|demonstrated|detected|found that|produced|yielded|achieved|revealed|confirmed|"
+    r"was performed|were performed|has been performed|have been performed|resulted in|"
+    r"results showed|reported (?:a|an|that)"
     r")\b",
     re.IGNORECASE,
 )
@@ -122,17 +132,18 @@ def _policy_applies(policy: str, claim_kind: str, text: str, quote: str) -> bool
 def _judge(policy: str, text: str, quote: str, source: Mapping[str, Any], quotes: list[str]) -> tuple[bool, str]:
     """Judge one claim under one policy. Returns (passed, detail)."""
     if policy == CLAIM_PERFORMED_OR_RESULTS:
+        if not states_performed_or_results(text):
+            return True, "no performance or results statement"
         if source.get("has_results") is True:
             return True, "the source has posted results (has_results: true)"
-        supporting = [q for q in quotes if states_performed_or_results(q)]
-        if quote and quote in quotes and states_performed_or_results(quote):
-            supporting.append(quote)
-        if supporting:
-            return True, f"a checked quote says it was performed with results: {supporting[0][:300]!r}"
+        # Only the claim's own quote, found word for word, may support it, and only when it
+        # says in the past tense that something was performed or produced results.
+        if quote and quote in quotes and _PERFORMED_PAST.search(quote):
+            return True, f"the claim's own checked quote says it was performed with results: {quote[:300]!r}"
         return False, (
             "states that something was performed or produced results, but the source has "
-            f"has_results: {source.get('has_results')!r} and no checked quote says it was "
-            "performed with results"
+            f"has_results: {source.get('has_results')!r} and the claim's own checked quote does not say "
+            "it was performed with results"
         )
     if policy == CLAIM_PLANNED:
         status = (source.get("overall_status") or "").upper()

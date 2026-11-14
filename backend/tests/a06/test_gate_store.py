@@ -9,7 +9,7 @@ from __future__ import annotations
 from dxp import gate
 from dxp.api.models import Decision
 
-from .world import ANCHOR, SCOPE_ID, TEAM_ID, derive, grant_doc
+from .world import ANCHOR, SCOPE_ID, SV_ANCHOR, derive
 
 GOOD = {"quote_found": True, "supported": True, "confidence": 0.9}
 
@@ -17,7 +17,7 @@ GOOD = {"quote_found": True, "supported": True, "confidence": 0.9}
 def scope_action(**kw):
     a = {"kind": "file_proposal", "destination": "ledger",
          "target": {"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_scope1"},
-         "evidence_ref": {"source_ref": ANCHOR, "version_id": "sv_anchor0000000001"}, "checks": [GOOD]}
+         "evidence_ref": {"source_ref": ANCHOR, "version_id": SV_ANCHOR}, "checks": [GOOD]}
     a.update(kw)
     return a
 
@@ -33,7 +33,7 @@ async def test_allowed_writes_decision_action_and_event(world):
     assert stored["policy_set_version"] == w.policy_set_version
     assert stored["agent"] == "dxp-curator" and stored["initiated_by"] == "sam"
     assert stored["authorised_by"]["grant_id"] == "lbdx" and stored["authorised_by"]["granted_by"] == "luis"
-    assert stored["evidence_ref"]["version_id"] == "sv_anchor0000000001"
+    assert stored["evidence_ref"]["version_id"] == SV_ANCHOR
     assert [c["check"] for c in stored["checks"]] == list(gate.CHECK_ORDER)
     act = await w.db["actions"].find_one({"_id": d.action_id})
     assert act["status"] == "queued" and act["decision_id"] == d.decision_id and act["admission_id"] == adm
@@ -69,7 +69,7 @@ async def test_each_check_blocks_on_its_own_and_leaves_records_and_slack_untouch
         mention={"name": "FoundationOne CDx", "resolved_diagnostic_id": w.dx_tissue}))
     adm = await w.admit()
     cases["destination_action"] = (w.run_ctx(adm), {"kind": "notify_slack", "destination": "ledger",
-                                                     "target": {"report_id": "rep_1"}})
+                                                     "target": {"report_id": w.rep("1")}})
     adm = await w.admit()
     cases["evidence_checks"] = (w.run_ctx(adm), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_e"},
@@ -84,8 +84,7 @@ async def test_each_check_blocks_on_its_own_and_leaves_records_and_slack_untouch
         assert await w.business_state() == before
         assert await w.count("actions", {"kind": "notify_slack"}) == 0
 
-    await w.db["grants"].insert_one(grant_doc("lbdx", 2, status="revoked", principal="dxp-curator", kind="agent",
-                                              scope={}, actions=[], destinations=[]))
+    await w.new_grant_version("lbdx", "revoked")
     adm = await w.admit()
     before = await w.business_state()
     d = await w.evaluate(w.run_ctx(adm), scope_action(
@@ -107,18 +106,16 @@ async def test_a_repeat_of_the_same_run_step_returns_the_stored_decision(world):
 async def test_reviewer_decisions_carry_reviewer_stamp_and_a_retry_gets_a_new_decision(world):
     w = world
     action = {"kind": "decide_report", "destination": "ledger",
-              "target": {"report_id": "rep_1", "scope_id": SCOPE_ID}}
-    await w.db["grants"].insert_one(grant_doc("sam", 2, status="revoked", principal="sam", kind="person",
-                                              scope={}, actions=[], destinations=[]))
+              "target": {"report_id": w.rep("1"), "scope_id": SCOPE_ID}}
+    await w.new_grant_version("sam", "revoked")
     d1 = await w.evaluate(w.reviewer_ctx(), action)
     assert d1.blocked and d1["run_id"] is None and d1["agent"] is None and d1["initiated_by"] == "sam"
-    assert d1["request_id"] and d1["cause"]["report_id"] == "rep_x"
+    assert d1["request_id"] and d1["cause"]["report_id"] == w.rep("cause")
     assert [c["passed"] for c in d1["checks"]] == [False, "n/a", "n/a", "n/a", "n/a"]
-    await w.db["grants"].insert_one(grant_doc(
-        "sam", 3, principal="sam", kind="person", scope={"scope_id": SCOPE_ID, "diagnostic_ids": w.dx_plasma},
-        actions=["decide_report"], destinations=["ledger"]))
+    v3 = {**w.grants["sam"], "_id": "sam@v3", "version": 3, "status": "active"}
+    await w.db["grants"].insert_one(v3)
     d2 = await w.evaluate(w.reviewer_ctx(), action)
-    assert d2.allowed and d2.decision_id != d1.decision_id
+    assert d2.allowed and d2.decision_id != d1.decision_id, (d2["checks"], d2["claims"])
     assert d2["checks"][3]["passed"] == "n/a" and d2["checks"][4]["passed"] == "n/a"
     assert d2["policy_set_version"] == w.policy_set_version
 
@@ -126,11 +123,11 @@ async def test_reviewer_decisions_carry_reviewer_stamp_and_a_retry_gets_a_new_de
 async def test_revert_report_decision_id_is_derived_without_the_request_id(world):
     w = world
     action = {"kind": "revert_report", "destination": "ledger",
-              "target": {"report_id": "rep_9", "scope_id": SCOPE_ID}}
+              "target": {"report_id": w.rep("9"), "scope_id": SCOPE_ID}}
     d1 = await w.evaluate(w.reviewer_ctx(), action)
     d2 = await w.evaluate(w.reviewer_ctx(), action)
     assert d1.allowed and d1.decision_id == d2.decision_id
-    assert d1.decision_id == derive("dec_", "-", "revert_report", "-", "rep_9")
+    assert d1.decision_id == derive("dec_", "-", "revert_report", "-", w.rep("9"))
     assert await w.count("decisions", {"kind": "revert_report"}) == 1
 
 
@@ -138,7 +135,7 @@ async def test_authorise_task_uses_its_explicit_derived_decision_id(world):
     w = world
     dec_id = derive("dec_", "dec_approval", "authorise_task")
     d = await w.evaluate(w.reviewer_ctx(), {"kind": "authorise_task", "destination": "ledger",
-                                               "target": {"task_id": "task_1", "report_id": "rep_1"},
+                                               "target": {"task_id": "task_1", "report_id": w.rep("1")},
                                                "decision_id": dec_id})
     assert d.decision_id == dec_id and d.allowed
 
@@ -156,23 +153,26 @@ async def test_blocked_claim_on_report_draft_then_redraft_allowed(world):
     base = {"kind": "file_proposal", "destination": "ledger",
             "source_fields": {"overall_status": "RECRUITING", "has_results": False},
             "retrieval": {"method": "vector_search", "top_k": 5, "items": []},
+            "checks": [GOOD],
             "memories_used": [{"memory_id": "mem_m1", "version": 1, "author": "sam",
-                                   "source": {"decision_id": "dec_m1", "report_id": "rep_m1"}}]}
+                                   "source": {"decision_id": "dec_m1", "report_id": w.rep("m1")}}]}
     adm1 = await w.admit()
     d1 = await w.evaluate(w.run_ctx(adm1), {**base,
-        "target": {"report_id": "rep_a", "draft": 1, "scope_id": SCOPE_ID},
+        "target": {"report_id": w.rep("a"), "draft": 1, "scope_id": SCOPE_ID},
         "claims": [{"claim_kind": "claim_performed_or_results",
                     "text": "NCT04712877 showed blood profiling detecting actionable drivers."}]})
     assert d1.blocked and d1.failed_check == "evidence_checks"
     assert "claim_performed_or_results" in d1["checks"][3]["detail"]
     assert d1["claims"][0]["failed_policies"] == ["claim_performed_or_results", "claim_planned"]
-    assert d1.decision_id == derive("dec_", w.run_id, "file_proposal", "-", "rep_a|draft1")
+    assert d1.decision_id == derive("dec_", w.run_id, "file_proposal", "-", f"{w.rep('a')}|draft1")
     assert await w.count("actions") == 0 and await w.count("reports") == 0
     adm2 = await w.admit()
     d2 = await w.evaluate(w.run_ctx(adm2), {**base,
-        "target": {"report_id": "rep_a", "draft": 2, "scope_id": SCOPE_ID},
-        "claims": [{"claim_kind": "claim_planned", "text": "NCT04712877 is recruiting; no results posted."}]})
-    assert d2.allowed and d2.decision_id != d1.decision_id
+        "target": {"report_id": w.rep("a"), "draft": 2, "scope_id": SCOPE_ID},
+        "claims": [{"claim_kind": "claim_performed_or_results",
+                    "text": "NCT04712877 is recruiting; no results posted."},
+                   {"claim_kind": "claim_planned", "text": "NCT04712877 is recruiting; no results posted."}]})
+    assert d2.allowed and d2.decision_id != d1.decision_id, (d2["checks"], d2["claims"])
     assert d2["memories_used"][0]["memory_id"] == "mem_m1" and d2["retrieval"]["method"] == "vector_search"
 
 
@@ -188,7 +188,7 @@ async def test_mark_action_is_conditional(world):
 async def test_memory_kind_team_scope(world):
     w = world
     d = await w.evaluate(w.reviewer_ctx(), {"kind": "create_memory", "destination": "ledger",
-                                               "target": {"report_id": "rep_1"}, "team_id": TEAM_ID})
+                                               "target": {"report_id": w.rep("1")}, "team_id": w.team_id})
     assert d.allowed
 
 
@@ -210,7 +210,7 @@ async def test_evaluate_takes_the_frozen_run_context_and_proposed_action(world):
     assert isinstance(d, Decision) and d.outcome == "allowed" and d.agent == "dxp-curator"
     assert d.run_grant_version == 1 and d.seq is not None and d.action_id
     blocked = await gate.evaluate(ctx, ProposedAction(
-        kind="file_proposal", destination="ledger", target={"report_id": "rep_f", "scope_id": SCOPE_ID},
+        kind="file_proposal", destination="ledger", target={"report_id": w.rep("f"), "scope_id": SCOPE_ID},
         inputs={"draft": 1, "source_fields": {"overall_status": "RECRUITING", "has_results": False}},
         claims=[{"claim_kind": "claim_performed_or_results", "text": "It showed EGFR detection.", "passed": False}]))
     assert blocked.outcome == "blocked" and blocked.failed_check == "evidence_checks"
@@ -224,7 +224,7 @@ async def test_unknown_kinds_and_destinations_are_contract_errors(world):
     adm = await w.admit()
     with pytest.raises(ValueError):
         await gate.evaluate(w.run_ctx(adm), {"kind": "notify_slack", "destination": "slack:#random",
-                                             "target": {"report_id": "rep_1"}})
+                                             "target": {"report_id": w.rep("1")}})
     with pytest.raises(ValueError):
         await gate.evaluate(w.run_ctx(adm), scope_action(kind="launch_rocket"))
     assert await w.count("decisions") == 0
@@ -235,7 +235,7 @@ async def test_a_blocked_decision_always_lists_five_checks_in_order(world):
     w = world
     cases = [
         ("team_scope", scope_action(target={"diagnostic_id": w.dx_tissue, "proposal_id": "p_5a"})),
-        ("destination_action", {"kind": "notify_slack", "destination": "ledger", "target": {"report_id": "rep_5"}}),
+        ("destination_action", {"kind": "notify_slack", "destination": "ledger", "target": {"report_id": w.rep("5")}}),
         ("evidence_checks", scope_action(target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5c"},
                                          checks=[{"quote_found": False}])),
     ]
@@ -251,9 +251,80 @@ async def test_a_blocked_decision_always_lists_five_checks_in_order(world):
     d = await gate.evaluate(w.run_ctx(released), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5d"}))
     assert d.failed_check == "run_authorised" and len(d.checks) == 5
-    await w.db["grants"].insert_one(grant_doc("lbdx", 2, status="revoked", principal="dxp-curator", kind="agent",
-                                              scope={}, actions=[], destinations=[]))
+    await w.new_grant_version("lbdx", "revoked")
     adm = await w.admit()
     d = await gate.evaluate(w.run_ctx(adm), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5e"}))
     assert d.failed_check == "grant_active" and [c.passed for c in d.checks] == [False] + ["n/a"] * 4
+
+
+async def test_check4_with_no_check_recorded_blocks(world):
+    w = world
+    adm = await w.admit()
+    d = await w.evaluate(w.run_ctx(adm), scope_action(checks=[]))
+    assert d.blocked and d.failed_check == "evidence_checks" and "no check recorded" in d["checks"][3]["detail"]
+
+
+def _grant_version_nullable() -> bool:
+    from dxp.api.models import Decision
+
+    return Decision.model_fields["grant_version"].is_required() is False or "None" in str(
+        Decision.model_fields["grant_version"].annotation)
+
+
+async def test_missing_grant_is_a_recorded_block_with_null_version(world):
+    import pytest
+
+    if not _grant_version_nullable():
+        pytest.skip("needs PR #34 (A01): Decision.grant_version may be null; until then the API model requires an int")
+    w = world
+    ctx = w.reviewer_ctx(grant_id="nosuch")
+    ctx["stamp"] = {**ctx["stamp"], "grant_id": "nosuch", "grant_version": None}
+    d = await w.evaluate(ctx, {"kind": "decide_report", "destination": "ledger",
+                               "target": {"report_id": w.report_id, "scope_id": SCOPE_ID}})
+    assert d.failed_check == "grant_active" and d["grant_version"] is None
+    assert d["authorised_by"]["grant_version"] is None
+
+
+async def test_unknown_claim_kind_writes_no_decision(world):
+    import pytest
+
+    w = world
+    adm = await w.admit()
+    with pytest.raises(ValueError):
+        await gate.evaluate(w.run_ctx(adm), {"kind": "file_proposal", "destination": "ledger",
+                                             "target": {"report_id": w.report_id, "draft": 1, "scope_id": SCOPE_ID},
+                                             "checks": [GOOD], "claims": [{"claim_kind": "other", "text": "x"}]})
+    assert await w.count("decisions") == 0
+
+
+async def test_missing_grant_is_recorded_with_null_version_in_the_store(world):
+    """The stored Decision is valid under A03's validator (grant_version null), whatever the API model."""
+    from dxp.gate import decisions
+    from dxp.gate.checks import GateAction, GateCtx
+
+    w = world
+    ctx = GateCtx.coerce({**w.reviewer_ctx(grant_id="nosuch")})
+    action = GateAction.coerce({"kind": "decide_report", "destination": "ledger",
+                                "target": {"report_id": w.report_id, "scope_id": SCOPE_ID}})
+    dec_id, act_id = decisions.ids_for(ctx, action)
+    loaded, psv = await gate._load(ctx, action)
+    results, failed, claims = gate.checks.run_checks(ctx, action, loaded)
+    doc = decisions.build_decision(ctx, action, decision_id=dec_id, grant=loaded.grant, policy_set_version=psv,
+                                   checks=results, failed_check=failed, claims=claims, now=loaded.now)
+    stored = await decisions.record(ctx, action, doc, act_id)  # the fake applies A03's validator
+    assert stored["failed_check"] == "grant_active" and stored["grant_version"] is None
+    assert stored["authorised_by"]["grant_version"] is None
+
+
+async def test_the_fake_backend_applies_a03_validators(world):
+    """So the fake-backend runs also prove the documents pass A03's $jsonSchema validators."""
+    import pytest
+
+    from .fakedb import FakeDB, FakeWriteError
+
+    w = world
+    if not isinstance(w.db, FakeDB):
+        pytest.skip("checks the in-memory backend only; Atlas applies the validators itself")
+    with pytest.raises(FakeWriteError):
+        await w.db["proposals"].insert_one({"_id": "p_bad", "op": "add", "status": "pending"})

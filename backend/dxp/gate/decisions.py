@@ -208,7 +208,7 @@ def authorised_by(ctx: GateCtx, grant: dict[str, Any] | None, policy_set_version
         "acting_for": grant.get("acting_for"),
         "granted_by": grant.get("granted_by"),
         "grant_id": grant.get("grant_id", ctx.grant_id),
-        "grant_version": grant.get("version") or ctx.run_grant_version or 0,
+        "grant_version": grant.get("version") or ctx.run_grant_version,
         "expires_at": grant.get("expires_at"),
         "policy_set_version": policy_set_version,
     }
@@ -270,7 +270,7 @@ def build_decision(
         "checks": checks,
         "failed_check": failed_check,
         "grant_id": (grant or {}).get("grant_id", ctx.grant_id),
-        "grant_version": (grant or {}).get("version") or ctx.run_grant_version or 0,
+        "grant_version": (grant or {}).get("version") or ctx.run_grant_version,
         "run_grant_version": ctx.run_grant_version,
         "policy_set_version": policy_set_version,
         "outcome": "blocked" if failed_check else "allowed",
