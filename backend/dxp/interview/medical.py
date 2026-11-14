@@ -6,9 +6,16 @@ detector is a list of named patterns over a normalised question. It errs toward 
 refusal costs a rephrase, a missed medical question costs far more. Questions about what the record
 says (status, names, quotes, sources, related evidence) must still pass; the tests hold both lists.
 
-Other languages: a question that is not plain English (a letter outside basic Latin, or Latin text
-with non-English function words) cannot be read by these patterns, so it gets the same fixed refusal
-and no model call (rule "non_english"). Typos and look-alike letters are repaired before matching.
+A deny-list can never be complete, so two fail-closed layers sit under it (red-team round):
+
+- clinical vocabulary with no record-lookup vocabulary (status, sponsor, quote, record, ...) is refused (rule
+  "clinical_no_lookup"): a question about the record names the record; one that only talks medicine is asking medicine;
+- clinical vocabulary with a first-person or third-party marker (I, my, my cousin, someone, the heroine) is refused
+  (rule "clinical_personal").
+
+Other languages: only text that is mostly known English words (function words plus the record's own vocabulary)
+is read by these patterns. Anything else, any Latin-script language, ROT13 or gibberish, gets the same fixed
+refusal and no model call (rule "non_english"). Typos and look-alike letters are repaired before matching.
 """
 
 from __future__ import annotations
@@ -123,15 +130,79 @@ _FOREIGN_WEAK = frozenset(
 )
 
 
+_ENGLISH = frozenset(
+    """
+    the and for are was were what which who whom whose when where why how does did doing this that these those with without from about
+    there here any all been being have has had having will would could should can may might must shall you your yours not its our ours
+    per but their they them then than into onto also such each other others more most some only own same very too just still yet
+    already ever never again between among over under after before during while because since until upon within across through
+    does don doesn didn isn aren wasn weren won wouldn couldn shouldn can cannot let lets say says said tell tells told ask asked
+    give gives given show shows shown list lists listed name names named quote quotes quoted source sources cite cites cited citation
+    citations related relate relates relationship relationships record records report reports accepted version versions field fields
+    status state states stated overall recruiting recruitment recruit enrolled enrolling enrollment enroll estimated expected planned
+    sponsor sponsors sponsored funded funds fund funding collaborator collaborators investigator investigators principal official title
+    summary summarise summarize summarized brief detailed description describe describes described mention mentions mentioned mentioning
+    trial trials study studies design designed phase type types arm arms group groups cohort cohorts intervention interventions
+    outcome outcomes primary secondary measure measures endpoint endpoints condition conditions eligibility criteria inclusion exclusion
+    location locations site sites country countries city start started date dates completion complete completed update updated updates
+    posted results result data first last latest recent new newest old oldest early earlier late later current currently open closed
+    active ongoing terminated withdrawn suspended unknown headline gap gaps question questions answer answers cites support supports
+    supported extend extends extended contradict contradicts evidence quote proof claim claims number numbers many much long often
+    one two three four five six seven eight nine ten first second third next previous another others else anything everything something
+    nothing anyone everyone someone nobody name called identify identifies identified find found see look looks looking read says
+    explain explains explained clarify mean means meant meaning stand stands standing include includes included including contain
+    contains contained involve involves involved involving use used uses using blood plasma tissue tumor tumour sample samples draw draws
+    ctdna cfdna dna rna gene genes genetic genomic genomics molecular profiling profile assay assays panel panels test tests testing
+    tested diagnostic diagnostics lung cancer cancers nsclc stage staged disease diseases patient patients participant participants people
+    person adult adults age ages year years month months week weeks day days time times duration length period lasts last
+    foundationone liquid cdx foundation medicine guardant tempus signatera natera sensitivity specificity detection detect detected
+    mutation mutations variant variants biomarker biomarkers genotyping genotype sequencing sequence next generation ngs liquid biopsy
+    related extends supports advanced metastatic early recurrent resectable localized resection surgery treatment therapy drug drugs
+    approved approval regulatory fda company manufacturer maker vendor product products device devices kit kits platform
+    yes true false whether either neither both between versus than like unlike same different similar difference differences
+    higher lower greater fewer less least best good better bad worse big small large high low full partial total whole part parts
+    key main major minor main other common specific general particular certain possible likely unlikely available unavailable
+    public private clinical clinicaltrials gov registry register registered registration identifier identifiers reference references
+    link links page pages text word words sentence sentences line lines paragraph table section sections content contents
+    ordered order orders sort sorted rank ranked ranking compare compared comparison contrast against along alongside beside beyond
+    which whichever whatever whoever whenever wherever however therefore thus hence moreover furthermore otherwise instead meanwhile
+    summarising summarizing overview overviews outline outlined highlight highlights highlighted point points pointed noted note notes
+    uncertainty uncertainties limitation limitations caveat caveats open remains remain remaining unresolved unanswered missing
+    count counts counted total totals amount amounts size sizes percent percentage
+    world cup country city capital president king queen war won win wins game games team teams price prices stock stocks market markets
+    cost costs pay paid money company companies health hospital hospitals university research researcher researchers scientist scientists
+    work works worked working make makes made making take takes took taking get gets got getting go goes went going come comes came coming
+    know knows knew think thinks thought want wants need needs needed help helps helped try tries tried keep keeps kept put puts turn turns
+    move moves run runs ran how way ways thing things man men woman women child children family home house water food life living live
+    lives die died death born birth work job jobs school class book books story stories news report weather time today tomorrow yesterday
+    right left back front top bottom side inside outside above below near far close away together apart alone every always sometimes
+    usually often rarely once twice few several enough half double single multiple various own whole entire based using via per
+    works explain explained discuss discusses discussed define defines defined definition example examples case cases reason reasons
+    cause causes caused effect effects impact impacts model models method methods process processes system systems step steps result
+    pcr protein proteins cell cells mouse mice animal animals human humans science technology tech software computer internet website
+    language languages english french spanish german chinese japanese science history math maths physics chemistry biology
+    ceo founder founded founders owner owners leader leaders director directors employee employees staff boss
+    recipe recipes poem poems joke jokes song songs movie movies music sport sports
+    """.split()
+)
+
+
 def _not_plain_english(question: str) -> bool:
-    """True when the question has a letter outside basic Latin, or reads as another Latin-script language."""
+    """True when the question is not mostly known English words. Fails closed: any other Latin-script language,
+    ROT13 and gibberish all read as unknown words, so they are refused without listing them."""
     text = unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH)
     if any(ch.isalpha() and ord(ch) > 127 for ch in text):
         return True
     tokens = re.findall(r"[a-z]+", text.lower())
     if any(t in _FOREIGN_STRONG for t in tokens):
         return True
-    return sum(1 for t in tokens if t in _FOREIGN_WEAK) >= 2
+    if sum(1 for t in tokens if t in _FOREIGN_WEAK) >= 2:
+        return True
+    words = [t for t in tokens if len(t) >= 3]
+    if not words:
+        return False
+    known = sum(1 for t in words if t in _ENGLISH)
+    return known * 2 < len(words)
 
 
 _RELATIVE = r"(?:mother|mom|mum|father|dad|wife|husband|partner|spouse|son|daughter|child|children|brother|sister|friend|grandmother|grandfather|grandma|grandpa|aunt|uncle|relative|family member|loved one|boyfriend|girlfriend|neighbou?r|colleague|client)"
@@ -226,8 +297,56 @@ _RULES: list[tuple[str, re.Pattern[str]]] = [
         ("prognosis", r"\b(?:my|his|her|their|the\s+patient'?s?)\s+(?:prognosis|survival|life\s+expectancy|chances|odds)\b|\blife\s+expectancy\b|\bhow\s+long\s+(?:will|do|does|can|would)\s+(?:i|he|she|they|a\s+patient|the\s+patient|my\s+\w+)\s+(?:live|survive|have\s+left|last)\b|\bchances?\s+of\s+(?:survival|surviving|dying|recovery|recovering|cure|remission)\b"),
         ("interpret_results", r"\binterpret\s+(?:my|his|her|their|these|this|the)\s+(?:\w+\s+){0,2}(?:results?|scan|biopsy|labs?|ctdna|mutation|genomic|blood)\b"),
         ("clinical_decision", rf"\b(?:should|must|ought\s+to)\s+(?:\w+\s+){{0,3}}(?:{_CLINICIAN}|patients?)\s+(?:\w+\s+){{0,3}}{_MED_VERB}\b"),
+        # Red-team round: role-play, one-word asks, hedged and indirect questions.
+        ("roleplay_clinician", r"\b(?:pretend|role\s?play|act(?:ing)?\s+as|imagine\s+(?:you|that)|you\s+are\s+(?:now\s+)?an?)\b.*\b(?:oncolog\w*|doctors?|clinicians?|physicians?|nurses?|medic\w*|surgeons?)\b"),
+        ("self_identified_clinician", r"\b(?:as|i\s+am|im|i'?m)\s+an?\s+(?:\w+\s+)?(?:physicians?|nurses?|clinicians?|doctors?|oncologists?|surgeons?|pharmacists?|gps?)\b"),
+        ("ought_to", r"\b(?:ought|supposed)\s+(?:to|one)\b"),
+        ("one_word_ask", r"^\s*(?:treatments?|diagnos[ie]s|therapy|therapies|dose|dosage|recommendations?|advice|cure|prognosis|medication)(?:\s+please)?\W*$"),
+        ("is_it_cancer", r"\bis\s+(?:a\s+|an\s+|it\s+|this\s+|that\s+)?[\w\s]{0,12}(?:nodules?|lumps?|mass|cough|spots?|shadows?)\b.*\bcancer\b"),
+        ("likely_to_recur", r"\b(?:likely|chances?|risks?|probab\w*)\b.*\b(?:come\s+back|recur\w*|relaps\w*|spread)\b"),
+        ("side_effects", r"\bside\s+effects?\b|\badverse\s+(?:events?|effects?|reactions?)\b"),
+        ("safe_word", r"\b(?:un)?safe(?:ly|ty)?\b"),
+        ("therapy_follows", r"\b(?:what|which)\s+(?:\w+\s+){0,2}(?:therapy|therapies|treatments?|drugs?|medications?)\s+(?:\w+\s+){0,2}(?:follows?|suits?|fits?|applies|apply|works?|helps?)\b|\bwhat\s+follows\b"),
+        ("treatment_decisions", r"\b(?:treatment|therapy)\s+(?:decisions?|choices?|planning|selection)\b|\bdecid\w*\s+(?:\w+\s+){0,3}(?:treatment|therapy)\b"),
+        ("can_a_patient", r"\b(?:can|could|may|would|will|should)\s+(?:a|an|the|any|this|that)\s+(?:(?!records?|reports?|trials?|stud(?:y|ies)|quotes?|sources?)\w+\s+){0,3}patients?\b(?!\s+(?:population|cohort|group|arm|arms|data|characteristics|enrol\w*|eligib\w*|number|count))"),
+        ("how_do_i_know", r"\bhow\s+(?:do|can|would|will)\s+(?:i|we)\s+know\b"),
+        ("tell_the_plan", r"\b(?:tell|give|show)\s+(?:me|us)\s+(?:the\s+|a\s+|my\s+)?(?:plan|regimen|protocol|schedule)\b"),
     ]
 ]
+
+
+_CLINICAL = re.compile(
+    r"\b(?:cancers?|nsclc|sclc|carcinomas?|tumou?rs?|nodules?|lumps?|lesions?|scans?|therap\w+|treat\w*|chemo\w*|drugs?|doses?|dosing|dosage|"
+    r"symptoms?|patients?|doctors?|oncolog\w*|physicians?|clinicians?|nurses?|surgeons?|diagnos\w*|prognos\w*|risks?|recurr\w*|relaps\w*|"
+    r"side\s+effects?|safe|safely|regimens?|surgery|surgical|operation|biops\w*|cure[sd]?|medic\w*|prescri\w*|pills?|egfr|kras|mutations?|"
+    r"deletions?|metasta\w*|radiotherapy|radiation|immunotherapy|coughs?|coughing|moles?|pain|fevers?|screening|meds?|mri|x-?rays?|ct\s+scans?|"
+    r"life[\s-]?saving|serious|dangerous|malignan\w*|benign|contagious|worr(?:y|ied|ies)|"
+    r"stage\s+(?:i{1,3}v?|iv|[1-4])[abc]?\d?|osimertinib|erlotinib|gefitinib|afatinib|dacomitinib|pembrolizumab|nivolumab|atezolizumab|"
+    r"durvalumab|cisplatin|carboplatin|pemetrexed|alectinib|lorlatinib|crizotinib|brigatinib|sotorasib|adagrasib|amivantamab|lazertinib|"
+    r"capmatinib|tepotinib|selpercatinib|paclitaxel|docetaxel|tagrisso|keytruda|opdivo)\b"
+)
+# What a question about the record itself names. A question with clinical words and none of these is asking medicine.
+_LOOKUP = re.compile(
+    r"\b(?:status|recruit\w*|enrol\w*|sponsors?|names?|named|quotes?|quoted|sources?|related|results?\s+posted|purpose|versions?|citations?|"
+    r"cited|cites?|mention\w*|records?|reports?|headline|accepted|trial|trials|study|studies|listed|lists?|fields?|summar\w*|title|nct\w*|"
+    r"relationship|extends?|supports?|evidence|criteria|phase|completion|interventions?|arms?|locations?|stated|says?|describ\w*)\b"
+)
+# A first-person or third-party marker: the question is about someone, not about the record.
+_PERSONAL = re.compile(
+    r"\b(?:i|im|ive|id|me|my|mine|myself|we|our|ours|mum|mom|dad|cousin|colleague|heroine|hero|someone|somebody|person|friend|aunt|uncle|"
+    r"wife|husband|sister|brother|mother|father|neighbou?r|boss|coworker|character|protagonist)\b"
+)
+
+
+def _layer_rule(text: str) -> str | None:
+    text = text.replace("foundation medicine", " ")  # a company name in the record, not medicine
+    if not _CLINICAL.search(text):
+        return None
+    if _PERSONAL.search(text):
+        return "clinical_personal"
+    if not _LOOKUP.search(text):
+        return "clinical_no_lookup"
+    return None
 
 
 def medical_advice_rule(question: str) -> str | None:
@@ -237,6 +356,10 @@ def medical_advice_rule(question: str) -> str | None:
         for name, pattern in _RULES:
             if pattern.search(text):
                 return name
+    for text in _variants(question):
+        layer = _layer_rule(text)
+        if layer is not None:
+            return layer
     if _not_plain_english(question):
         return NON_ENGLISH_RULE
     return None
