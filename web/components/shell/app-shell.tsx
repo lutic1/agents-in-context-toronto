@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Suspense fallback={<div className="h-16 border-b border-border bg-glass-strong" aria-hidden="true" />}>
         <TopBar />
       </Suspense>
-      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-content flex-1 px-8 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-content flex-1 px-4 py-8 md:px-8">
         <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
       </main>
       <Footer />

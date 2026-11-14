@@ -149,9 +149,11 @@
   html {
     @apply font-sans;
     background: var(--field-base);
-    /* The top bar is sticky and 64px high; keep focused controls clear of it
-       (WCAG 2.2 SC 2.4.11). The bottom value is for B04's sticky decisions bar. */
-    scroll-padding-top: 5rem;
+    /* The top bar is sticky only at md and up, where it is one 64px row; keep
+       focused controls clear of it there (WCAG 2.2 SC 2.4.11). Below md it
+       scrolls away with the page. The bottom value is for B04's sticky
+       decisions bar. */
+    scroll-padding-top: 0;
     scroll-padding-bottom: 5rem;
   }
   body {
@@ -160,9 +162,22 @@
     line-height: 1.5;
     min-height: 100dvh;
   }
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+}
+
+/* Unlayered on purpose: it beats the layered outline-none utilities that
+   shadcn components carry, so every focusable control keeps a 2px ink outline
+   (1.4.11 and 2.4.7: ink on slide is well above 3:1). */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+/* Skip-link target: focused by script, not a control. */
+main:focus-visible {
+  outline: none;
+}
+@media (min-width: 48rem) {
+  html {
+    scroll-padding-top: 5rem;
   }
 }
 
