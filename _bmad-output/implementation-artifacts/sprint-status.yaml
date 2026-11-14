@@ -390,7 +390,7 @@ owners:
   10-9-the-follow-up-task-runs-under-its-own-grant-and-gate:
     owner: "Luis"
     prs: "A25, B04, I3b"
-    scope: supporting
+    scope: stretch
   10-10-report-page-with-decisions-and-the-memory-panel:
     owner: "Vlad"
     prs: "B04, I3"
