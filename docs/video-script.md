@@ -74,7 +74,7 @@ Re-time after any edit. A segment whose measured time is less than 0.5 s inside 
 6. The report must show "Named in the record" for both names and the intervention uncertainty. Do not zoom on or read any statement about an assay.
 
 **Captions (2 at most at once, 6 words in all)**
-- 0:16 to 0:20 tag "Atlas Vector Search" (3 words), or "Atlas Search (text)" for the fallback.
+- 0:16 to 0:20 tag "Atlas Vector Search" (3 words), or "Atlas Search (text)" for the fallback. [[PENDING: Vector Search or text search (OD1)]]
 - 0:22 to 0:25 tag "Memory in Atlas" (3 words), only if the M1 chip is visible and the tag was proven. [[PENDING: whether memories in Atlas were proven (I1, S3)]]
 
 **Narration (24 words, 13.33 s)**
