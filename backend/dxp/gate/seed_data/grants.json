@@ -1,0 +1,97 @@
+{
+  "//": [
+    "Hand-written grants (Story 9.2, AD-18, D16, D32, D45, D56, V1, V29, V48: revert_report is on sam@v1 from the start). Loaded by python -m dxp.gate.seed.",
+    "No key and no key hash lives here: key_env names the environment variable whose value the seed hashes at run time (D48).",
+    "scope.diagnostic_trade_names are the exact FDA trade-name strings (D45); the seed turns each into derive('dx_', normalise_name(name)).",
+    "team_name is turned into team_id by the seed (derive('team_', team_name)), and acting_for is that team_id; A13 must give the Team the same ID.",
+    "Task grants (task-<hex>@v1) are never seeded: A24 inserts each one at approval.",
+    "Never edit a seeded version in place: a change is a new version (bump version and _id)."
+  ],
+  "grants": [
+    {
+      "_id": "lbdx@v1",
+      "grant_id": "lbdx",
+      "version": 1,
+      "principal": "dxp-curator",
+      "principal_name": "dxp-curator",
+      "kind": "agent",
+      "key_env": "DXP_AGENT_KEY",
+      "granted_by": "luis",
+      "startable_by": ["sam"],
+      "team_name": "Team Liquid Biopsy Dx",
+      "scope": {
+        "scope_id": "scope_plasma_ctdna_nsclc",
+        "diagnostic_trade_names": [
+          "FoundationOne Liquid CDx",
+          "Guardant360 CDx",
+          "Guardant360® Liquid CDx",
+          "Agilent Resolution ctDx FIRST assay"
+        ]
+      },
+      "destinations": ["source:clinicaltrials.gov", "ledger", "slack:#all-mango-db-hackathon"],
+      "actions": ["search_source", "file_proposal", "notify_slack"],
+      "limits": null,
+      "task_id": null,
+      "expires_at": "2026-11-16T05:00:00Z",
+      "status": "active"
+    },
+    {
+      "_id": "sam@v1",
+      "grant_id": "sam",
+      "version": 1,
+      "principal": "sam",
+      "principal_name": "Sam",
+      "kind": "person",
+      "key_env": "DXP_API_KEY",
+      "granted_by": "luis",
+      "startable_by": [],
+      "team_name": "Team Liquid Biopsy Dx",
+      "scope": {
+        "scope_id": "scope_plasma_ctdna_nsclc",
+        "diagnostic_trade_names": [
+          "FoundationOne Liquid CDx",
+          "Guardant360 CDx",
+          "Guardant360® Liquid CDx",
+          "Agilent Resolution ctDx FIRST assay"
+        ]
+      },
+      "destinations": ["ledger", "tts:elevenlabs", "video:heygen"],
+      "actions": [
+        "decide_report",
+        "authorise_task",
+        "create_memory",
+        "correct_memory",
+        "revoke_memory",
+        "review_value",
+        "resolve_notification",
+        "revert_report",
+        "generate_briefing",
+        "generate_avatar_video"
+      ],
+      "limits": null,
+      "task_id": null,
+      "expires_at": "2026-11-16T05:00:00Z",
+      "status": "active"
+    },
+    {
+      "_id": "seed@v1",
+      "grant_id": "seed",
+      "version": 1,
+      "principal": "seed",
+      "principal_name": "seed",
+      "kind": "seed",
+      "key_env": "DXP_SEED_KEY",
+      "acting_for": null,
+      "granted_by": "luis",
+      "startable_by": [],
+      "team_name": null,
+      "scope": {"all": true},
+      "destinations": ["ledger"],
+      "actions": ["apply_value"],
+      "limits": null,
+      "task_id": null,
+      "expires_at": "2026-11-16T05:00:00Z",
+      "status": "active"
+    }
+  ]
+}
