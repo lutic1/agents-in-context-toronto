@@ -57,6 +57,9 @@ log = logging.getLogger("dxp.briefing.avatar")
 LIVEAVATAR_API_URL = "https://api.liveavatar.com"
 TOKEN_PATH = "/v1/sessions/token"
 KEY_ENV = "LIVEAVATAR_API_KEY"  # the only secret; read here only, never logged or returned
+# The plan, .env.example and docs/deploy.md still name HEYGEN_API_KEY (OD7). Until those files
+# are brought in step, it is read as a fallback so a deployment set up from them still works.
+KEY_FALLBACK_ENV = "HEYGEN_API_KEY"
 AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: which LiveAvatar avatar speaks (a UUID)
 SANDBOX_ENV = "LIVEAVATAR_SANDBOX"  # "true" asks for sandbox mode, which consumes no credits
 MAX_SECONDS_ENV = "LIVEAVATAR_MAX_SECONDS"
@@ -310,7 +313,7 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
     # 2. Allowed: mint the token, or record why the avatar is unavailable.
     session: AvatarSession | None = None
     reason: UnavailableReason | None = None
-    api_key = os.environ.get(KEY_ENV, "").strip()
+    api_key = os.environ.get(KEY_ENV, "").strip() or os.environ.get(KEY_FALLBACK_ENV, "").strip()
     avatar_id = os.environ.get(AVATAR_ID_ENV, "").strip()
     max_seconds = _max_seconds()
     if not api_key:
