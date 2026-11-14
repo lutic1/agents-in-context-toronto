@@ -1206,8 +1206,11 @@ export interface components {
             expires_at: string | null;
             /** Grant Id */
             grant_id: string;
-            /** Grant Version */
-            grant_version: number;
+            /**
+             * Grant Version
+             * @description null when no grant version exists (check 1 blocked)
+             */
+            grant_version: number | null;
             /** Granted By */
             granted_by: string | null;
             /** Initiated By */
@@ -1349,9 +1352,9 @@ export interface components {
             grant_id: string;
             /**
              * Grant Version
-             * @description evaluated
+             * @description evaluated; null when the grant does not exist (check 1 blocked)
              */
-            grant_version: number;
+            grant_version: number | null;
             /**
              * Id
              * @description decision_id, dec_

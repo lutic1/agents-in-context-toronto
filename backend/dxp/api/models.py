@@ -164,7 +164,7 @@ class AuthorisedBy(Shape):
     acting_for: str | None = None
     granted_by: str | None = None
     grant_id: str
-    grant_version: int
+    grant_version: int | None = Field(default=None, description="null when no grant version exists (check 1 blocked)")
     expires_at: datetime | None = None
     policy_set_version: str | None = None
 
@@ -478,7 +478,7 @@ class Decision(Shape):
     checks: list[CheckResult] = []
     failed_check: str | None = None
     grant_id: str
-    grant_version: int = Field(description="evaluated")
+    grant_version: int | None = Field(description="evaluated; null when the grant does not exist (check 1 blocked)")
     run_grant_version: int | None = Field(default=None, description="pinned at run start")
     policy_set_version: str | None = None
     outcome: Outcome
