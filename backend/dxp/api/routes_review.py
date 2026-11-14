@@ -9,15 +9,11 @@ Decision (D5).
 
 from __future__ import annotations
 
-import hashlib
-
 from fastapi import APIRouter, Query, Request  # noqa: F401
 
-from dxp import store
 from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
-from dxp.gate import policy_sets
 from dxp.ledger import review as ledger_review
 from dxp.search import readmodel
 
@@ -44,12 +40,10 @@ async def caller(request: Request) -> m.Principal:
 async def caller_grant(request: Request) -> m.Grant:
     """The latest version of the grant that carries the caller's key, whatever its status:
     check 1 of the gate judges the status (D17)."""
-    key_hash = hashlib.sha256(_key(request).encode("utf-8")).hexdigest()
-    match = await store.get_db()["grants"].find_one({"key_hash": key_hash}, {"grant_id": 1}, sort=[("version", -1)])
-    grant = await policy_sets.current_grant(match["grant_id"]) if match else None
-    if grant is None:
+    doc = await auth.grant_for_key(_key(request))  # A03 (PR #17)
+    if doc is None:
         raise ApiError(401, "unknown_key", "Unknown API key.")
-    return grant
+    return m.Grant.model_validate({**doc, "id": doc["_id"]})
 
 
 async def reviewer_context(request: Request) -> m.RunContext:

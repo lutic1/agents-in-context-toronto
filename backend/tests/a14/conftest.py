@@ -201,9 +201,8 @@ def grant_doc(grant_id: str, principal: str, kind: str, key: str, actions: list[
 
 @pytest.fixture
 def principals(monkeypatch: pytest.MonkeyPatch) -> dict[str, m.Principal]:
-    """Fake A03: SAM_KEY resolves to sam, SEED_KEY to seed, anything else is a 401."""
+    """Fake A03 (resolve_actor, grant_for_key): SAM_KEY resolves to sam, SEED_KEY to seed, anything else is a 401."""
     import dxp.api.auth
-    import dxp.gate.policy_sets
     from dxp.api.errors import ApiError
 
     people = {
@@ -220,12 +219,13 @@ def principals(monkeypatch: pytest.MonkeyPatch) -> dict[str, m.Principal]:
             raise ApiError(401, "unknown_key", "Unknown API key.")
         return people[api_key]
 
-    async def current_grant(grant_id: str) -> m.Grant | None:
-        doc = grants.get(grant_id)
-        return m.Grant.model_validate({**doc, "id": doc["_id"]}) if doc else None
+    async def grant_for_key(api_key: str | None, db=None) -> dict[str, Any] | None:
+        person = people.get(api_key or "")
+        return grants[person.id] if person else None
 
     monkeypatch.setattr(dxp.api.auth, "resolve_actor", resolve_actor)
-    monkeypatch.setattr(dxp.gate.policy_sets, "current_grant", current_grant)
+    # A03's grant_for_key is on main once PR #17 merges; until then it is added here.
+    monkeypatch.setattr(dxp.api.auth, "grant_for_key", grant_for_key, raising=False)
     return people
 
 

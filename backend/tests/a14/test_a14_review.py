@@ -7,10 +7,8 @@ import pytest
 from tests.a14.conftest import (
     DX_ID,
     HEADERS,
-    SAM_KEY,
     SEED_KEY,
     diagnostic_doc,
-    grant_doc,
 )
 
 URL = f"/api/v1/diagnostics/{DX_ID}/values/{{value_id}}/review"
@@ -37,7 +35,6 @@ def gate(fake_gate, fake_db, monkeypatch):
 @pytest.fixture
 def seeded(fake_db, principals, recoveries):
     fake_db["diagnostics"].docs[DX_ID] = diagnostic_doc()
-    fake_db["grants"].docs["sam@v1"] = grant_doc("sam", "sam", "person", SAM_KEY, ["review_value"])
     return fake_db
 
 
