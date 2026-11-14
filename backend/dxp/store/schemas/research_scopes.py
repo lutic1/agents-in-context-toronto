@@ -5,7 +5,8 @@ aliases (search terms only, never used to resolve a name, V34), condition,
 source: "clinicaltrials.gov", cursor: { last_update_post_date, set_at,
 set_by_run_id } }`. The cursor date is the ClinicalTrials.gov `YYYY-MM-DD`
 text used in `AREA[LastUpdatePostDate]RANGE[<cursor>,MAX]`; a parsed BSON date
-is also accepted. Only `discovery` (A05) moves the cursor after the seed.
+is also accepted. Only `discovery` (A05) moves the cursor after the seed, by a
+conditional update on `version` that also increments it (seeded as 1).
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ CURSOR = document(
 )
 
 JSON_SCHEMA = document(
-    ["_id", "name", "team_id", "assays", "condition", "source", "cursor"],
+    ["_id", "name", "team_id", "assays", "condition", "source", "cursor", "version"],
     {
         "_id": pattern("^scope_[a-z0-9_]+$"),
         "name": STRING,

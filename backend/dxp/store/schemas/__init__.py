@@ -66,15 +66,18 @@ VALIDATION_LEVEL = "strict"
 VALIDATION_ACTION = "error"
 
 
-def validator(name: str) -> dict[str, Any]:
-    """The full validator document (`$jsonSchema`, and `$expr` where one applies)."""
-    return _MODULES[name].VALIDATOR
+def validator(name: str) -> dict[str, Any] | None:
+    """The full validator document (`$jsonSchema`, and `$expr` where one applies),
+    or `None` for a collection that has none (`store.ensure_indexes()` calls this
+    for every collection)."""
+    module = _MODULES.get(name)
+    return None if module is None else module.VALIDATOR
 
 
 def collection_options(name: str) -> dict[str, Any]:
     """Keyword arguments for `db.create_collection(name, **options)`."""
     return {
-        "validator": validator(name),
+        "validator": _MODULES[name].VALIDATOR,
         "validationLevel": VALIDATION_LEVEL,
         "validationAction": VALIDATION_ACTION,
     }

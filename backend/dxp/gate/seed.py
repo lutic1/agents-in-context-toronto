@@ -217,9 +217,9 @@ async def seed(db: Any, env: Mapping[str, str] | None = None, data_dir: Path = S
     for policy in docs["policies"]:
         summary["policies"][policy["_id"]] = await _insert_if_absent(db["policies"], policy, ("created_at",))
     for scope in docs["research_scopes"]:
-        # The cursor belongs to discovery once seeded (AD-25); compare the rest.
+        # The cursor and its version belong to discovery once seeded (AD-25); compare the rest.
         summary["research_scopes"][scope["_id"]] = await _insert_if_absent(
-            db["research_scopes"], scope, ("created_at", "cursor")
+            db["research_scopes"], scope, ("created_at", "cursor", "version")
         )
     current = await policy_sets.record_current_set(db)
     summary["policy_set"] = policy_sets.display_policy_set(current["_id"], len(current["members"]))

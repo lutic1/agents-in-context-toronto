@@ -51,6 +51,17 @@ def test_every_contract_collection_has_a_validator():
         assert "$jsonSchema" in options["validator"]
 
 
+def test_validator_answers_for_every_store_collection():
+    """A01's `ensure_indexes()` asks for every collection; one without a validator gets None."""
+    from dxp import store
+
+    for name in store.COLLECTIONS:
+        result = schemas.validator(name)
+        assert result is None or "$jsonSchema" in result
+    assert schemas.validator("aliases") is None
+    assert schemas.validator("grants")["$jsonSchema"] is schemas.VALIDATORS["grants"]
+
+
 @pytest.mark.parametrize("collection", sorted(valid_documents()))
 def test_valid_document_passes(collection):
     assert validate(schemas.validator(collection), valid_documents()[collection]) == []
@@ -186,6 +197,7 @@ def test_bad_policy_is_rejected(tmp_path, keys, field, value, why):
         ("cursor.last_update_post_date", "14 Nov 2026", "a cursor that is not YYYY-MM-DD"),
         ("source", "pubmed", "a scope on another source"),
         ("assays", [], "a scope with no assays"),
+        ("version", None, "a scope without its version"),
     ],
 )
 def test_bad_scope_is_rejected(tmp_path, keys, path, value, why):

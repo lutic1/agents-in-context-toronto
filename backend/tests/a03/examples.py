@@ -1,8 +1,8 @@
 """Example documents for the A03 tests: one valid document per collection and
 the seeded grants, policies and scope built by `gate.seed` with test keys.
 
-`TEST_CURSOR` is a test-only value. The real cursor is Luis's 10:45 choice (OD2)
-and goes into `gate/seed_data/research_scopes.json`.
+`TEST_CURSOR` is a test-only value. The real cursor is Luis's 10:45 choice (OD2),
+which is in `gate/seed_data/research_scopes.json` (2026-11-11).
 """
 
 from __future__ import annotations

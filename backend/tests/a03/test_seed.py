@@ -81,12 +81,13 @@ def test_seed_refuses_without_the_od2_cursor_and_writes_nothing(fake_db, tmp_pat
     assert all(not c.docs for c in fake_db.collections.values())
 
 
-def test_committed_seed_data_waits_on_the_od2_cursor():
+def test_committed_seed_data_has_the_od2_cursor_and_version():
     scopes = json.loads((seed.SEED_DATA / "research_scopes.json").read_text(encoding="utf-8"))
-    cursor = scopes["research_scopes"][0]["cursor"]
-    assert "WAITING ON LUIS" in cursor["//"]
-    # Flip this assertion when Luis writes the 10:45 cursor in.
-    assert cursor["last_update_post_date"] is None
+    scope = scopes["research_scopes"][0]
+    assert scope["cursor"]["last_update_post_date"] == "2026-11-11"  # Luis's OD2 choice
+    assert scope["version"] == 1
+    assert scope["name"] == "Plasma ctDNA genotyping assays in NSCLC"
+    assert scope["aliases"] == ["ctDNA", "cell-free DNA", "liquid biopsy"]  # search terms only (V34)
 
 
 @pytest.mark.parametrize("missing", ["DXP_AGENT_KEY", "DXP_API_KEY", "DXP_SEED_KEY"])
@@ -127,7 +128,9 @@ def test_only_the_seed_key_runs_the_seed_again(fake_db, tmp_path, keys):
 def test_scope_cursor_is_left_to_discovery(fake_db, tmp_path, keys):
     data = seed_data_dir(tmp_path)
     run(seed.seed(fake_db, keys, data))
-    fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]["cursor"]["last_update_post_date"] = "2099-01-01"
+    stored = fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]
+    stored["cursor"]["last_update_post_date"] = "2099-01-01"  # as discovery would advance it
+    stored["version"] = 2
     run(seed.seed(fake_db, keys, data))
     assert (
         fake_db["research_scopes"].docs["scope_plasma_ctdna_nsclc"]["cursor"]["last_update_post_date"] == "2099-01-01"
