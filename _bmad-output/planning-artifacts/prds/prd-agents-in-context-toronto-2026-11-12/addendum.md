@@ -1,7 +1,7 @@
 ---
 title: "PRD Addendum: DxProvida (DxP)"
 created: 2026-11-12
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # PRD Addendum: DxProvida (DxP)
@@ -124,7 +124,7 @@ Ten skills under `.claude/skills/dxp-*` hold the detail, each written from offic
 - **Atlas cluster.** A free cluster is not enough: without a payment method it allows 3 embedding queries a minute, 100 operations a second and 3 search indexes. Ask MongoDB staff for Flex or M10. M10 also meets the Agent Memory requirement.
 - **Agent Memory.** It is a separate platform to provision, not a cluster switch: a command-line tool, a Voyage key, a model key, a service account and IP access list entries.
 - **Claude API tier.** The 300 to 500 item batch is confirmed only for the Start tier and above, at a concurrency of 16. Limits for the lowest tier are not published. Check the key's tier.
-- **Paid plans.** HeyGen's free plan is watermarked and not licensed for a public video (Creator is USD 29 a month, or an API wallet from USD 5). ElevenLabs' free plan has no commercial licence and requires attribution (Starter is USD 6).
+- **Paid plans.** HeyGen is deferred (readiness fix D55): it is not in the plan and no clips are made. For later reference, HeyGen's free plan is watermarked and not licensed for a public video (Creator is USD 29 a month, or an API wallet from USD 5). ElevenLabs' free plan has no commercial licence and requires attribution (Starter is USD 6).
 - **LangSmith.** A new organisation needs an agent record and two extra environment variables; setting the old project variable sends no traces. The free plan allows 5,000 traces a month.
 
 ### For architecture
@@ -141,13 +141,13 @@ Ten skills under `.claude/skills/dxp-*` hold the detail, each written from offic
 
 ### For the video
 
-- Render the HeyGen clips on Saturday morning; queues can be long. Only HeyGen API v3 works.
+- HeyGen is deferred (readiness fix D55): it is not in the plan and no HeyGen clips are made for the 60-second video or the live demo. If it is ever used later, only HeyGen API v3 works, and render queues can be long.
 - Give judges the production URL. Vercel preview URLs ask for a login.
 - The event page publishes no criteria for the ElevenLabs prize.
 
 ## 5. The pivot to Problem Statement 1 (13 Nov)
 
-The full change, with the Saturday timeline and the PR plan, is in `../../sprint-change-proposal-2026-11-13.md`. This section records only why, and the design notes for the GitHub action.
+The full change, with the Saturday timeline and the PR plan, is in `../../sprint-change-proposal-2026-11-13.md`. This section records only why, the demo scenario and the design notes for the Slack alert. The readiness fixes of 14 Nov (`../../readiness-fixes-2026-11-14.md`, D1 to D57) win over both documents where they disagree. The Slack change of 14 Nov (`../../sprint-change-proposal-2026-11-14-slack.md`, S1 to S13) wins over all three wherever they mention the external system.
 
 ### Why Statement 1
 
@@ -167,16 +167,66 @@ After a party-mode session, Luis chose Statement 1, "Agents You Can Audit", for 
 
 ### What changed in the wow moment
 
-Before: agents working with memory, a Learned rule from a rejection, and the change landing in the Graph view (§3). After: a real Review issue in GitHub, an out-of-scope Action blocked before it runs, a stop mid-run, and an audit that answers "who authorised this, and under what authority?" The MongoDB capability is named at each step.
+Before: agents working with memory, a Learned rule from a rejection, and the change landing in the Graph view (§3). After: a real Slack alert in `#all-mango-db-hackathon` that links back to the proposal in DxP, an out-of-scope Action blocked before it runs, a stop mid-run, and an audit that answers "who authorised this, and under what authority?" The MongoDB capability is named at each step.
 
-### Design notes for the GitHub action (FR-35 to FR-37)
+### The demo scenario (updated 14 Nov)
 
-- **Destination.** One repository, `dxp-review-sandbox`, created for the demo. The token is fine-grained, limited to that repository and to issues only, and kept in `.env` (NFR14). No other external action is in scope.
-- **Order of operations.** Pass the Policy gate (FR-33). Write the Action to Atlas with its action ID and status `queued`. Claim it with one conditional update from `queued` to `dispatching` (FR-37). Create the issue. Read it back and store the issue number and URL. Mark the Action done.
-- **Action ID in the issue.** The action ID goes in the issue body (and may go in the title) so the repository can be searched for it. This is what makes reconciliation possible.
-- **Ambiguous results.** A timeout or a 5xx error does not mean the issue was not created. The system searches the repository for the action ID first. If it finds the issue, it records it. If it does not, and the answer is still unclear, the Action is marked `unknown` and a person reconciles it. The system never retries creation blindly (FR-36).
-- **Issue content.** The Diagnostic, the Proposed change, a short Evidence quote with its source link, the `run_id` and the action ID. Never PubMed abstract text beyond a short quote, and never a secret or a personal email address.
-- **Stop.** A stop prevents new admissions only. An Action already in `dispatching` may finish; the Run stays `stopping` until it does (FR-38).
-- **Audit.** Each Action keeps four timestamps (proposed, decided, sent, observed) and the external result, so the audit can show the gap between "sent" and "observed" when a result was ambiguous (FR-39).
-- **Test without GitHub.** Simulate a timeout after creation, and two workers claiming the same Action, before relying on the live repository.
+Decided in `../../readiness-fixes-2026-11-14.md` (D9, D30 to D34, D45, D46, D52, D54, D56). The demo uses a change the rules allow, from real data. No Lifecycle stage change is demonstrated, and the SuperARMS stage-advance story is removed.
+
+- Selected trial NCT04712877 names FoundationOne Liquid CDx (a plasma test) and FoundationOne CDx (a tissue test). Both are FDA-seeded. Hand-written aliases make both Findings resolve to the seeded Diagnostics: "FoundationOne Liquid" maps to FoundationOne Liquid CDx, and "FoundationOne" not followed by "Liquid" maps to FoundationOne CDx (PRD §4.1, "Data notes").
+- The agent `dxp-curator` acts under the Grant `lbdx@v1`, Team "Team Liquid Biopsy Dx". Its scope uses exactly these trade-name strings: "FoundationOne Liquid CDx", "Guardant360 CDx", "Guardant360® Liquid CDx" and "Agilent Resolution ctDx FIRST assay" (`normalise_name()` removes "®" and folds case). Every other Diagnostic is out of scope. Sam is the Reviewer principal `sam` with grant `sam@v1`; the seed principal is `seed` with grant `seed@v1`.
+- The Selected trial set is 20 named public trials, fetched by NCT ID during the event (NFR7) and processed in the order listed in PRD §4.1, NCT04712877 first. The live Run is paced with `DXP_DEMO_PACE` (one item at a time, a few seconds per item), so the stop lands mid-run. Selected trials are stored with `window: "selected"`.
+- The gate is evaluated once per change, and each filed proposal gets its own `notify_slack` Action, so there is one Slack alert per proposal.
+- The order, for both the 60-second video and the live demo:
+  1. Start the Run, choosing the Grant labelled with its Team.
+  2. The proposal to add NCT04712877 to FoundationOne Liquid CDx's trials is allowed: a pending Proposed change plus a Slack alert. The second screen shows the alert arriving in `#all-mango-db-hackathon`; its "Review in DxP" link opens the focused proposal. Then the same trial's proposal for FoundationOne CDx is blocked before execution: check 2 fails, because the tissue test is outside the Team's scope. No proposal is filed and no Slack message is sent.
+  3. Stop the Run while items remain.
+  4. Sam approves the pending proposal in DxP. Approval and rejection happen in DxP, never in Slack. It appears under "After the run".
+  5. Ask the scripted question in the Audit view: "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?"
+- **Video timings (D52).** 0 to 10 s: the problem and the scope. 10 to 30 s: the allowed proposal and its Slack alert, then the blocked change. 30 to 45 s: stop the Run. 45 to 60 s: Sam approves in DxP, then "who authorised this?" in the Audit view.
+- The impact view and the audio briefing are shown only if each passed its own acceptance check.
+- **Reset before each take.** A snapshot is taken after seeding and before any Run. The reset restores it with `mongodump` and `mongorestore`. It runs before the video (16:30) and again between submission and the live demo (16:55 to 17:10).
+
+### Design notes for the Slack alert (FR-35 to FR-37)
+
+*Updated 14 Nov to match the readiness fixes (D4 to D8, D13, D16 to D28, D42, D44, D46, D47, D50, D53, D56) and the Slack change (S1 to S13).*
+
+- **Destination.** One Slack channel, `#all-mango-db-hackathon`, reached through an incoming webhook. The action kind is `notify_slack` and the destination is `slack:#all-mango-db-hackathon`. The agent's Grant allows the actions `file_proposal` and `notify_slack` and the destinations `ledger` and `slack:#all-mango-db-hackathon`; a notification to any other destination fails check 3. No other external action is in scope.
+- **Configuration.** `SLACK_WEBHOOK_URL` holds the webhook. It is a credential: it lives only in `.env` and in the Modal secret, and is never committed, logged, stored in an audit record or shown on screen (NFR14). `DXP_BASE_URL` is the production web address, used to build links back to DxP; the sender refuses to start without it.
+- **Notify only.** The message has links and no interactive elements: no approve or reject buttons and no Slack actions. Slack sends nothing back to DxP, and DxP exposes no Slack callback route. Approval and rejection happen in DxP, never in Slack.
+- **Who acts.** The Run was started with `POST /runs { grant_id, set }` by `initiated_by`, under a Grant whose `startable_by` includes them; the Grant defines the Team. The worker acts as the agent `dxp-curator`, with the agent's key and the `run_id`; the key must resolve to the Run's `agent` (FR-31, FR-32). A key resolves to its principal whatever its Grant's status, so a revoked or expired Grant leaves a blocked Decision, and 401 means only an unknown key.
+- **Order of operations.** After extraction, take an admission for the Action while the Run is `running`, with `item_key = "<source_ref>|<kind>|<diagnostic_id>|<proposal_id or '-'>"` (FR-38). Run the Policy gate (FR-33) and record the Decision, allowed or blocked (FR-34). If blocked, stop there: no Action, no Record change, no Slack post; emit `action_blocked` with the `decision_id`. If allowed, the ledger files the Proposed change once, as pending (it is never applied directly, on a new Diagnostic or an existing one), and write the Action to Atlas with its action ID, its `decision_id` and status `queued`. Claim it with one conditional update from `queued` to `dispatching` (FR-37). Post the alert to the webhook. Record the outcome with an update conditional on the current status (see "Sending and its outcome"). Nothing is written back to the proposal: its `notification { action_id, status, posted_at }` is built at read time from its `notify_slack` Action. Release the admission once. After the last item the pipeline calls `runs.finish`.
+- **The alert asks for review in DxP.** The Slack alert tells a person that a pending Proposed change is waiting. Applying it happens only through a Reviewer decision in DxP, written with `run_id: null`, a Reviewer stamp (`agent: null`, `initiated_by` the Reviewer) and `cause: { proposal_id, origin_run_id }`, under the Reviewer grant `sam@v1`. The decision calls the ledger's apply. Applying is all or nothing and recoverable: `pending` to `applying` to `applied`, with the proposal ID recorded in `applied_proposal_ids` so the update runs once. Edges are upserted after the update and `value_applied` is emitted with a `dedupe_key`; recovery always re-upserts the edges and re-emits the event (FR-16).
+- **The message (S5).** A Block Kit alert with:
+  - a header "New diagnostic evidence for review", plus the action ID;
+  - the Diagnostic name;
+  - the Evidence: the trial NCT ID with its ClinicalTrials.gov link, and the quote of at most 300 characters;
+  - the Proposed change, for example "Add trial NCT04712877 to Trials";
+  - who acted: the agent, the `run_id`, the Grant `{grant_id}@v{version}` and the policy set `ps_…`;
+  - a context line: "Approve or reject in DxP. Slack only notifies."
+
+  Never PubMed abstract text beyond a short quote, and never a secret or a personal email address.
+- **Links back to DxP (S6).** Built from `DXP_BASE_URL`. "Review in DxP" links to `${DXP_BASE_URL}/review?proposal=<p_id>`: the Review page (`web/app/review/`, PR B04) loads that proposal with `GET /proposals/<p_id>`, which returns one proposal whatever its status, opens with it focused, and shows "Proposal not found" if the ID is unknown. "Open diagnostic" links to `${DXP_BASE_URL}/diagnostics/<dx_id>`, the Record page (`web/app/diagnostics/[id]`, PR B04). Story 9.4 tests that both links resolve on the deployed web app.
+- **Action ID in the alert.** The action ID goes in the alert header, so a Reviewer can find it in the channel when an outcome is unknown.
+- **Sending and its outcome (S7).** A webhook post cannot be looked up afterwards, so DxP records exactly what it observed. The statuses are `queued`, `dispatching`, `delivered`, `failed` and `unknown`, plus `reconciling` at read time only. Every update is conditional on the current status.
+  - **HTTP 200 with body `ok`:** `delivered`, with the time posted and the response.
+  - **HTTP 4xx** (for example `invalid_payload`, `no_service`, `channel_not_found`): `failed`, never retried.
+  - **HTTP 429:** nothing was posted. Retry once, after `Retry-After`, while still holding the claim. A second 429 means `failed`.
+  - **Timeout, connection error or HTTP 5xx:** the outcome is ambiguous, so the Action is `unknown`. It is never retried automatically, because a retry could post a second alert (FR-36).
+- **Manual resolution (S8).** `POST /actions/<action_id>/resolve { outcome: delivered | failed, note }` lets a Reviewer settle an `unknown` notification after checking `#all-mango-db-hackathon` for the action ID. It is gated as kind `resolve_notification` under `sam@v1`, records check 4 as `n/a`, and is audited as a Decision with the Reviewer's stamp. The Action then carries `resolution { outcome, note, decision_id, by, at }`. The Run console and the Audit view show the Resolve control only when the signed-in principal's `actions`, from `GET /whoami` (`Principal { id, name, kind, actions }`), include `resolve_notification`. There is no automatic reconciliation and no listing of messages.
+- **Stop.** Check 5, "run still authorised", means: the Action holds an admission for this Run, and the Run is not `stopped`. New admissions are granted only while the Run is `running`. An admitted Action may finish while the Run is `stopping`. Each admission is released once. `runs.sweep` marks admissions past their lease `abandoned`, marks any `dispatching` Action they hold `unknown` (never retried; a Reviewer resolves it), and marks any `queued` Action they hold `failed` with reason `abandoned_before_send`. `GET /runs/<run_id>` never calls Slack: it starts the sweep in the background and shows the Actions it is still settling as `reconciling`. `runs.settle` only moves the Run from `stopping` to `stopped`, when no `admitted` admissions remain; `runs.finish` moves it from `running` to `done`. A Run is `failed` only after an error the pipeline cannot recover from (FR-38).
+- **Audit (S9).** Each notification Action keeps its Decision (the agent, `initiated_by`, the Grant evaluated, the policy set and every check), its inputs and Evidence reference, the destination, four timestamps (queued, claimed, posted, observed) and the result, `result { http_status, response_body, posted_at, link_urls { review_url, diagnostic_url } }`. It never stores the webhook URL. The audit and the Audit view also show the proposal's live DxP review status: pending, applied or rejected, with who decided and when. "Who authorised this?" answers from the Decision's `authorised_by`. `GET /runs/<run_id>/audit` lists Decisions and Actions in order, then "After the run" with the Reviewer decisions caused by the Run, `resolve_notification` included. `GET /decisions/<decision_id>` reconstructs any Decision, blocked ones included (FR-34, FR-39).
+- **Versions.** Each Decision names the Grant actually evaluated (`grant_id@version`) and the `policy_set_version`, whose members are stored in `policy_sets`. Policies and Grants are selected by latest version first, then status; a newer `revoked` or `expired` version blocks (FR-33).
+- **Seed and Reviewer grants.** `seed@v1` lets the seed principal `apply_value` to the `ledger` with scope `{ all: true }`, which is valid for the seed principal only. `sam@v1` lets the principal `sam` (Sam) `decide_proposal`, `review_value` and `resolve_notification` on the `ledger`, over the same Diagnostics as the agent's Grant `lbdx@v1`. Check 4 (evidence) applies only to `file_proposal` and `notify_slack`; it records `n/a` for `apply_value` (seed), `decide_proposal`, `review_value` and `resolve_notification`; an edit or reject must carry a reason, and a resolve carries a note (FR-32, FR-33).
+- **Test without Slack.** Simulate a timeout, a 4xx, a single 429 and a double 429 against a stub, and two workers claiming the same Action, before relying on the live channel.
+
+### Alternative rejected: GitHub issues
+
+The first plan opened a review issue in a sandbox GitHub repository and reconciled ambiguous results by listing the repository's issues. Rejected on 14 Nov in favour of a Slack alert, for three reasons:
+
+- **Slack is where the team already works.** An alert in `#all-mango-db-hackathon` reaches the Reviewer where they already are, and its link takes them straight to the proposal in DxP.
+- **The webhook is tested.** Luis posted a Block Kit alert for a new diagnostic to the channel through the incoming webhook before the event, so the integration path is known to work.
+- **No write access to a repository is needed.** The agent needs no repository, no token with write access to it and no issue permissions, which leaves less authority to scope and guard.
+
+The cost is that a webhook post cannot be looked up afterwards, so an ambiguous outcome is resolved by a Reviewer in DxP instead of by an automatic lookup.
 

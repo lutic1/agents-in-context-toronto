@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Reviewer pause and resume with a MongoDB checkpointer (FR-16, FR-19)
 
 Verified 2026-11-12 against langgraph 1.2.21 and langgraph-checkpoint-mongodb 0.5.1 (`MongoDBSaver` signature read from the package source). Sources are listed in SKILL.md.

@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Citations, and the two FR-18 checks
 
 Source: https://platform.claude.com/docs/en/build-with-claude/citations, checked 2026-11-12. The code reuses `client`, `EXTRACT_MODEL`, `TRIAGE_MODEL`, `system_blocks`, `checked` and `quote_in_source` from SKILL.md.

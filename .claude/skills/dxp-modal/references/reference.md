@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Modal reference for DxP
 
 Checked 12 November 2026 against `modal` 1.6.4. Sources are listed in `../SKILL.md`.

@@ -5,7 +5,9 @@ description: Next.js 16 App Router front end (TypeScript, React 19) for DxP on V
 
 # Next.js on Vercel for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 ## Verified
 
@@ -30,9 +32,9 @@ Checked 12 November 2026 against the official docs and the npm registry.
 ## What DxP uses it for
 
 - FR-26, FR-27: the Graph view, with click to open a Record or Evidence and highlighting of what changed. [references/graph-view.md](references/graph-view.md)
-- FR-27, FR-13, FR-4: changes, Alerts and batch progress appearing in the browser as they land. [references/live-updates.md](references/live-updates.md)
+- FR-27, FR-4: changes and run progress appearing in the browser as they land (Alerts, FR-13, are deferred on Saturday). [references/live-updates.md](references/live-updates.md)
 - FR-22, FR-7, FR-8, FR-2, FR-16: the comparison table with Evidence inline, the explicit no-data state, and the Early research and unreviewed marks. [references/data-and-table.md](references/data-and-table.md)
-- FR-16, FR-19, FR-21, FR-28: review, Learned rule, query and resume screens are ordinary pages that call the Python API with `api()`.
+- FR-16, FR-21: review and query screens are ordinary pages that call the Python API with `api()`. (Learned rule, FR-19, and memory-based resume, FR-28, are deferred on Saturday.)
 - SM-1: a public URL for the submission.
 
 ## Setup
@@ -212,7 +214,7 @@ Hobby plan, free, per month unless stated:
 | Runtime logs | kept 1 hour | read errors straight after they happen |
 | External rewrite | upstream must answer within 120 s | |
 
-Exceeding an included amount on Hobby normally means waiting up to 30 days before the feature works again; there is no pay-as-you-go. A three-minute demo with a few viewers uses a tiny fraction of these. The realistic risks are the single build queue, the 300 s cut on anything proxied, and the login wall on preview URLs.
+Exceeding an included amount on Hobby normally means waiting up to 30 days before the feature works again; there is no pay-as-you-go. A short demo with a few viewers uses a tiny fraction of these. The realistic risks are the single build queue, the 300 s cut on anything proxied, and the login wall on preview URLs.
 
 ## Gotchas
 

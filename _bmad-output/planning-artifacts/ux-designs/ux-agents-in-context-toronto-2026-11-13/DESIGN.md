@@ -1,10 +1,12 @@
 ---
 name: DxProvida (DxP)
 description: Lung cancer diagnostics tracked by agents, every value backed by a quote. shadcn/ui on Next.js 16 with Tailwind; this file specifies the brand layer only.
-status: final  # revised for the pivot, 13 Nov (sprint-change-proposal-2026-11-13.md)
+status: final  # revised for the pivot, 13 Nov, the readiness fixes, 14 Nov (readiness-fixes-2026-11-14.md), and the Slack change, 14 Nov (sprint-change-proposal-2026-11-14-slack.md)
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14
 sources:
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-14-slack.md
+  - _bmad-output/planning-artifacts/readiness-fixes-2026-11-14.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
   - _bmad-output/planning-artifacts/epics.md
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
@@ -41,8 +43,10 @@ colors:
   glass-edge: '#FFFFFFCC'      # 1px top-left highlight edge
   glass-shadow: '#23264F1F'    # ink-tinted shadow at 12%
   ink-deep: '#171A3D'          # top bar active pill, primary button gradient end
-  brand-lavender: '#A78ED5'    # DxP logo: D and P (Luis's logo)
-  brand-violet: '#8B6EC2'      # DxP logo: the twisted x
+  # brand-lavender and brand-violet were the prepared logo's colours. Not used on
+  # Saturday unless an organiser clears the logo in writing (readiness fix D1).
+  brand-lavender: '#A78ED5'    # cleared logo only: D and P
+  brand-violet: '#8B6EC2'      # cleared logo only: the twisted x
 typography:
   display:
     fontFamily: 'Atkinson Hyperlegible Next'
@@ -103,10 +107,11 @@ components:
     border: '1px solid {colors.glass-edge}'
     shadow: '0 1px 0 {colors.glass-edge} inset, 0 12px 32px -12px {colors.glass-shadow}'
     radius: '{rounded.lg}'
-  logo:
-    source: 'imports/dxp-logo-original.png (Luis)'
-    colors: '{colors.brand-lavender} D and P, {colors.brand-violet} x'
-    height: '28px in the top bar'
+  wordmark:
+    text: 'DxP, typed text built during the event (no image)'
+    font: 'Atkinson Hyperlegible Next, 700, 22px in the top bar'
+    color: '{colors.foreground}'
+    logo-images: 'imports/ PNGs only if an organiser clears them in writing'
   icon:
     set: 'lucide-react (ships with shadcn/ui)'
     stroke: '1.75px'
@@ -159,27 +164,65 @@ components:
     time: '{typography.identifier}, tabular figures'
     selected: '{colors.ink-tint}'
   action-state-pending:
-    # allowed (queued), dispatching, in flight (sent)
+    # allowed (queued), dispatching (claimed, in flight)
     foreground: '{colors.muted-foreground}'
-    icon: 'lucide shield-check, send, clock'
+    icon: 'lucide shield-check, send'
   action-state-took-effect:
+    # includes "Proposal filed (pending review)": the filing took effect, the record has not changed
     foreground: '{colors.accepted}'
     icon: 'lucide circle-check'
+  action-state-delivered:
+    # Slack answered HTTP 200 ok. The proposal is still pending until a Reviewer decides it in DxP.
+    foreground: '{colors.accepted}'
+    icon: 'lucide bell'
+    label: '"Slack alert delivered" and the time posted in {typography.identifier}'
   action-state-blocked:
     foreground: 'shadcn destructive (inherited)'
     rule: '3px left rule, shadcn destructive'
     icon: 'lucide shield-x'
   action-state-unknown:
+    # timeout, connection error or 5xx from Slack; never retried; a Reviewer resolves it in DxP
     foreground: '{colors.low-confidence}'
     icon: 'lucide circle-help'
+    label: '"Result unknown", the copyable action ID, and "Check #all-mango-db-hackathon for {action_id}, then resolve"'
+  action-state-reconciling:
+    # read-time only: abandoned admission, dispatching action being settled by the background sweep
+    foreground: '{colors.low-confidence}'
+    icon: 'lucide refresh-cw (static, no spin)'
+  action-state-failed:
+    # Slack refused it (4xx, or a second 429), or a queued action of an abandoned admission (reason abandoned_before_send)
+    foreground: 'shadcn destructive (inherited)'
+    icon: 'lucide circle-x'
+  resolve-control:
+    # unknown Slack alert only, in the Run console and the Audit view; shown only when the signed-in principal's actions (GET /whoami) include resolve_notification
+    button: 'secondary variant, lucide square-check, label "Resolve"'
+    form: 'inline under the row: radio "Delivered: I found it in the channel" / "Failed: it is not in the channel", required note (Textarea), primary "Save resolution"'
+    resolved: 'the chosen state mark, plus "Resolved by {reviewer} at {time}" in {typography.caption}'
+  proposal-focus:
+    # /review?proposal=<p_id>, opened from the Slack alert's "Review in DxP" link; the proposal is loaded with GET /proposals/<p_id>
+    outline: '2px {colors.foreground} ring, {colors.ink-tint} background'
+    not-found: 'inline notice on {colors.card}, lucide search-x, "Proposal not found. Open Review to see what is pending."'
   stop-control:
     running: 'button-primary, lucide square icon, label "Stop run"'
-    stopping: 'disabled, {colors.muted-foreground}, lucide circle-pause'
-    stopped: 'text only, {colors.foreground}, lucide octagon-x'
+    stopping: 'disabled, {colors.muted-foreground}, lucide circle-pause, "Stopping: {n} in flight"'
+    stopped: 'text only, {colors.foreground}, lucide octagon-x, "Stopped"'
   audit-entry:
     timeline-rule: '1px {colors.border}'
     timestamps: '{typography.identifier}'
     quote: '{components.evidence-quote}'
+    checks: 'five rows, check name and result word with icon (shield-check passed, shield-x failed)'
+  after-the-run:
+    heading: '{typography.heading}, "After the run"'
+    entry: 'same timeline as audit-entry, links to originating run and proposal'
+  graph-notification-node:
+    # notification:<action_id>, one per Slack alert the run posted
+    shape: 'rounded rectangle, 14 by 10px, 1.5px {colors.foreground} outline, {colors.card} fill'
+    glyph: 'lucide bell at 8px inside the node'
+    state: 'tooltip and list view name the state in words: delivered, failed or unknown'
+  graph-context-node:
+    opacity: '40%'
+    label: 'word "Context" in {typography.caption}, {colors.muted-foreground}'
+    changed-mark: 'never'
 ---
 
 There are no mockups in this repository. The earlier key-screen mockups were removed on 13 November with the pivot, because the hackathon rules allow only work built during the event to be shown. Every screen is built on Saturday from `EXPERIENCE.md` and this file.
@@ -196,7 +239,7 @@ The single bold element is the **stage track**: the nine Lifecycle stages drawn 
 
 **Graph-led hero: Deferred (pivot, 13 Nov).** Kept here for after the hackathon; do not build it on Saturday. Original note (v3, Luis's pick after v2 read as lacklustre): Home opens on a hero band: a dark haematoxylin field (`{colors.ink-deep}` deepening from `{colors.primary}`) with a defocused micrograph behind it, and on it a live mini network of the Team's own Diagnostics, biomarkers, trials and drugs. Nodes glow softly in their stain colours; whatever changed since the last visit glows eosin and pulses once. The welcome-back panel is a white glass panel docked over the right of the hero. Below the hero the page returns to light, solid panels. The hero is the one bold moment of the whole product; every other page stays calm.
 
-**Glass layer (v2, after Luis asked for a more polished, pharmaceutical look).** The page sits on a defocused field of stained tissue: large, heavily blurred haematoxylin, eosin and counterstain cells, as if the slide were out of focus behind the work. Panels are frosted coverslips on top of it: translucent white, a fine highlight edge, an ink-tinted shadow. The look should sit beside a pharmaceutical company's own medical-affairs tools: confident, clean and premium, with real iconography and a proper logo, never playful. The glass is the setting; the quotes, the stage track and the changed marks stay the content.
+**Glass layer (v2, after Luis asked for a more polished, pharmaceutical look).** The page sits on a defocused field of stained tissue: large, heavily blurred haematoxylin, eosin and counterstain cells, as if the slide were out of focus behind the work. Panels are frosted coverslips on top of it: translucent white, a fine highlight edge, an ink-tinted shadow. The look should sit beside a pharmaceutical company's own medical-affairs tools: confident, clean and premium, with real iconography and a clean text wordmark, never playful. The glass is the setting; the quotes, the stage track and the changed marks stay the content.
 
 DxP inherits shadcn/ui defaults wholesale. This file specifies the brand layer: colours, type, the stage track, the evidence quote, the changed mark, and three small badges. [ASSUMPTION: light mode only on Saturday.]
 
@@ -208,7 +251,7 @@ DxP inherits shadcn/ui defaults wholesale. This file specifies the brand layer: 
 - **Eosin** is reserved for change. `{colors.eosin}` fills dots, rings and graph highlights; `{colors.eosin-text}` is the text-safe shade; `{colors.eosin-tint}` backs a new row or chip. Never used for errors, brand decoration, buttons or hover.
 - **Ochre (`{colors.low-confidence}`)** marks a low-confidence value, always with a text label.
 - **Methyl green (`{colors.accepted}`)** marks an accepted decision and an action that took effect. Rejection, errors and a blocked action use shadcn's `destructive`, always with an icon and a word.
-- **Action states** reuse these tokens and add no colour: pending states (allowed, dispatching, in flight) in faded ink; took effect in methyl green; blocked and failed in `destructive`; unknown in ochre, since ochre already means "not certain". Eosin is not an action state: it stays reserved for new or changed.
+- **Action states** reuse these tokens and add no colour: pending states (allowed, dispatching) in faded ink; took effect and "Slack alert delivered" in methyl green; blocked and failed in `destructive`; unknown and reconciling in ochre, since ochre already means "not certain". Each state also carries its icon and its word, so no state relies on colour. Eosin is not an action state: it stays reserved for new or changed.
 - **Graph node colours** each come from a stain used in pathology: methyl green for biomarkers, DAB brown for trials, toluidine blue for drugs, Giemsa violet for tumour types, unstained grey for providers, and haematoxylin for Diagnostics. Colour is never the only cue: each type also has its own node shape (see Components).
 
 Avoid: gradients, a second accent, eosin used for anything except change, red used for anything except rejection and errors.
@@ -217,15 +260,15 @@ Avoid: gradients, a second accent, eosin used for anything except change, red us
 
 - **Atkinson Hyperlegible Next** carries the interface. It was designed for low-vision readers by the Braille Institute, and it holds up in a screen recording compressed to 1080p, where gene names like EGFR, ALK, ROS1 and RET must stay distinct. Roles: `{typography.display}` for a Record's name and the welcome-back greeting; `{typography.title}` for page titles; `{typography.heading}` for panel headings; `{typography.body}`; `{typography.table}` for table cells; `{typography.caption}` for source lines and tags.
 - **Source Serif 4** (`{typography.quote}`) is used only for Evidence quotes: words taken from a source. Nothing DxP writes appears in the serif.
-- **Atkinson Hyperlegible Mono** (`{typography.identifier}`) is used only for identifiers a user may copy or compare: NCT IDs, PMIDs, PMA numbers.
+- **Atkinson Hyperlegible Mono** (`{typography.identifier}`) is used only for identifiers a user may copy or compare: NCT IDs, PMIDs, PMA numbers, run IDs (`run_…`), action IDs (`act_…`), grants (`{grant_id}@v{version}`) and policy sets (`ps_ab12…`, followed by "(N policies)" in the body font).
 - Sentence case everywhere. No all-caps labels. Gene symbols keep their official case (EGFR, not Egfr). Quote line length stays under 75 characters.
 
 ## Layout & Spacing
 
 - Desktop first. The demo is recorded at 1440 × 900 [ASSUMPTION]; content sits inside `{spacing.content-max}` with `{spacing.page-gutter}` on each side.
-- A single top bar holds navigation (Run console, Audit, Review, Impact) and the read-only "Signed in as" chip. The capture box, Team picker and "your name" picker are deferred (pivot, 13 Nov). No sidebar: tables and the graph need the width.
+- A single top bar holds, left to right, the "DxP" text wordmark, navigation (Run console, Audit, Review, Impact) and the read-only "Signed in as" chip. Impact shows only when the `impact` flag is on. There is no Team picker: a run is started from the Run console by choosing a grant, labelled with its Team. The capture box and "your name" picker are deferred (pivot, 13 Nov). No sidebar: tables and the graph need the width.
 - Pages are one main column with an optional right-hand panel of 360px (Evidence, "Who authorised this?"). The Run impact view is full width under the top bar.
-- Run console: the identity card spans the top of the column, with Stop run at its right; the action feed fills the column below, newest at the top. Audit view: the identity card, then the audit entries in time order, oldest first.
+- Run console: before a run, a "Start run" panel holds a shadcn `Select` of the grants the caller may start, each option reading `{grant_id}@v{version}` and its Team (for example "`lbdx@v1`, Team Liquid Biopsy Dx (Synthetic)"), and the primary "Start run" button. During a run, the identity card spans the top of the column, with Stop run at its right; the action feed fills the column below, newest at the top. Audit view: the identity card, then the audit entries in time order, oldest first.
 - Left-aligned throughout. Numbers in tables right-aligned with tabular figures.
 - The footer carries the data credits line in `{typography.caption}`.
 
@@ -253,8 +296,8 @@ shadcn components used as they ship: `Button` (secondary, outline, ghost, destru
 
 Brand-layer components:
 
-- **Logo.** Luis's own DxP logo (`imports/dxp-logo-original.png`): a heavy rounded "D" and "P" in `{colors.brand-lavender}` with an "x" of two twisting strands, like a DNA double helix, in `{colors.brand-violet}`. Use it as supplied: no recolouring, outlines or effects. In the top bar it sits at 28px tall on glass; on the dark hero it can appear as is, since the lavender reads well on ink. The favicon and app icon are the twisted "x" alone. The two logo purples are used only in the logo, never for UI states, so eosin keeps its meaning.
-- **Icons.** lucide-react, the set shadcn/ui ships with, at 1.75px stroke. One icon per navigation item and per primary action: Run console `square-terminal`, Audit `scroll-text`, Review `clipboard-check`, Impact `waypoints`; Start run `play`, Stop run `square`, Who authorised this `shield-question`, Open in GitHub `square-arrow-out-up-right`, Evidence source `file-text`, Trial `flask-conical`, Drug `pill`, Biomarker `dna`, Issue `circle-dot`. Action states: allowed `shield-check`, dispatching `send`, in flight `clock`, took effect `circle-check`, blocked `shield-x`, failed `circle-x`, unknown `circle-help`; run stopping `circle-pause`, stopped `octagon-x`. Deferred with their surfaces: Home `house`, Diagnostics `microscope`, Find `search`, Categories `layout-grid`, Alerts `bell`, Jobs `cpu`, Dismiss `x`, Flag `flag`, Memory `brain`, Export `download`. Icons sit beside words; never an icon alone without a label or tooltip.
+- **Wordmark.** The interface shows a text wordmark, "DxP", typed in Atkinson Hyperlegible Next at weight 700, 22px, in `{colors.foreground}`, on the left of the top bar on glass. It is built during the event as plain text, not an image. Do not use the prepared logo images in `imports/` (such as `imports/dxp-logo-original.png`): they are used only if an organiser clears them in writing on Saturday. The favicon is the letters "DxP" or the browser default. `{colors.brand-lavender}` and `{colors.brand-violet}` belong to that prepared logo, so they are not used unless it is cleared, and never for UI states, so eosin keeps its meaning.
+- **Icons.** lucide-react, the set shadcn/ui ships with, at 1.75px stroke. One icon per navigation item and per primary action: Run console `square-terminal`, Audit `scroll-text`, Review `clipboard-check`, Impact `waypoints`; Start run `play`, Stop run `square`, Who authorised this `shield-question`, External link `square-arrow-out-up-right`, Evidence source `file-text`, Trial `flask-conical`, Drug `pill`, Biomarker `dna`, Send Slack alert (action kind) `message-square`, Slack alert (notification node) `bell`, Resolve `square-check`, Proposal not found `search-x`. Action states: allowed `shield-check`, dispatching `send`, took effect `circle-check`, Slack alert delivered `bell`, blocked `shield-x`, failed `circle-x`, unknown `circle-help`, reconciling `refresh-cw`; run stopping `circle-pause`, stopped `octagon-x`. Listen (stretch audio briefing link) `headphones`. Deferred with their surfaces: Home `house`, Diagnostics `microscope`, Find `search`, Categories `layout-grid`, Alerts (Team Alerts; `bell` now marks a delivered Slack alert), Jobs `cpu`, Dismiss `x`, Flag `flag`, Memory `brain`, Export `download`. Icons sit beside words; never an icon alone without a label or tooltip.
 - **Glass panel.** See Elevation & Depth. Panel headings carry their icon inline at 18px before the heading text, on the same left edge as the body; no icon circles.
 - **Hero network (deferred, pivot 13 Nov).** The Team's neighbourhood from `GET /graph?focus=` (Story 5.1), drawn with the Graph view's node shapes on the dark hero: nodes in lightened stain colours with a 6px soft glow, links at 30% white, changed nodes and links eosin with the one-time pulse. Labels only on the changed nodes and the Team's biomarkers. Clicking a node opens the Graph page focused on it.
 - **Navigation pill.** The active item is `{colors.ink-tint}` with ink text, not a solid ink pill.
@@ -267,13 +310,15 @@ Brand-layer components:
 - **Changed mark.** A 6px `{colors.eosin}` dot before the item and the word "New" or "Changed" in `{colors.eosin-text}`. No pink fill on list rows; `{colors.eosin-tint}` is used only behind a single chip or a single highlighted value, never across a list.
 - **Early research badge.** Pill with a dashed haematoxylin border, `{colors.ink-tint}` fill, text "Early research".
 - **Low-confidence marker.** The text "Low confidence" in `{colors.low-confidence}` with a small open circle; never colour alone.
-- **Capability tag.** A quiet outlined tag in `{typography.caption}` naming the MongoDB capability that powers a panel, such as "Atlas Vector Search" or "Agent Memory". At most one per panel.
-- **Synthetic badge.** Dotted-outline pill reading "Synthetic", on every synthetic Team, person acted for, rule, correction and recalled memory.
-- **Identity card.** A solid `{colors.card}` panel at `{rounded.lg}` with the standard shadow. A two-column list of label and value: labels in `{typography.caption}` and `{colors.muted-foreground}`, values in `{typography.body}`. Run ID, grant ID and versions, policy-set version and model in `{typography.identifier}`, each with a copy button. The run status sits beside the heading as a word with its icon ("Running", "Stopping", "Stopped"). Stop run is the panel's one primary button.
-- **Action row.** A row inside the feed panel at `{rounded.md}`, `{typography.table}`. Left to right: state icon and state word, kind ("Update record", "Open review issue"), Diagnostic and field or destination, then the time in `{typography.identifier}` with tabular figures, right-aligned. Every state shows its icon and its word; colour only reinforces. Pending states in `{colors.muted-foreground}`. Took effect in `{colors.accepted}` with the issue number as a link. **Blocked** in shadcn `destructive`: `shield-x`, the word "Blocked" and, on a second line in `{typography.caption}`, "Blocked before it ran: {check} failed under policy v{n}"; a 3px `destructive` left rule marks the row, with no red fill. **Unknown** in `{colors.low-confidence}`: `circle-help`, the words "Result unknown" and the copyable action ID. Eosin never marks an action state.
-- **Stop control.** Running: primary button "Stop run" with `square`. Stopping: the button disables and the card shows `circle-pause`, "Stopping" and the in-flight count in `{typography.identifier}`. Stopped: the button is replaced by `octagon-x`, "Stopped" and the totals. Never red: stopping is the safe action, not an error.
-- **Audit entry.** A vertical timeline in a solid panel: a 1px `{colors.border}` rule on the left joins the entries, each marked by its state icon. Each entry: the action sentence in `{typography.heading}`, the four timestamps in `{typography.identifier}`, the Evidence quote, then grant and policy-set versions in `{typography.caption}`. "Who authorised this?" is an outline button with `shield-question`; the answer opens in the right-hand panel as plain sentences, identifiers in mono. Blocked and unknown entries use the same marks as the action row.
-- **Graph nodes.** Diagnostic: circle, 10px, `{colors.node-diagnostic}`, sized up to 16px by number of links, with a dashed outline when Early research. Biomarker: rounded square, `{colors.node-biomarker}`. Trial: diamond, `{colors.node-trial}`. Drug: triangle, `{colors.node-drug}`. Tumour type: hexagon, `{colors.node-tumour}`. Provider: small hollow square, 1.5px `{colors.node-provider}` outline. Links in `{colors.border}`, 1px; links that cross Categories in `{colors.muted-foreground}`, 1.5px. Changed nodes and links get a 3px `{colors.eosin}` ring or stroke. Labels in `{typography.caption}` appear on hover and at zoom levels where they do not overlap.
+- **Capability tag.** A quiet outlined tag in `{typography.caption}` naming the MongoDB capability that powers a panel, such as "Schema validation" or "Change streams". At most one per panel.
+- **Synthetic badge.** Dotted-outline pill reading "Synthetic", on every synthetic Team, person who starts a run, rule, correction and recalled memory.
+- **Identity card.** A solid `{colors.card}` panel at `{rounded.lg}` with the standard shadow. A two-column list of label and value: labels in `{typography.caption}` and `{colors.muted-foreground}`, values in `{typography.body}`. Rows in this order: Agent (the executing agent and model), Run (`run_…`), Started by (`initiated_by`, the principal who started the run), Grant (`{grant_id}@v{version}` and its Team), Policy set (`ps_ab12… (N policies)`). Run ID, grant and version, policy-set hash and model in `{typography.identifier}`, each with a copy button. "Started by" is a label and value, not an avatar, so it never reads as the "Signed in as" chip, which stays unchanged in the top bar. The run status sits beside the heading as a word with its icon ("Running", "Stopping", "Stopped"). Stop run is the panel's one primary button.
+- **Action row.** A row inside the feed panel at `{rounded.md}`, `{typography.table}`. Left to right: state icon and state word, kind ("File proposal", "Send Slack alert"), Diagnostic and field or destination (`#all-mango-db-hackathon` for an alert), then the time in `{typography.identifier}` with tabular figures, right-aligned. Every state shows its icon and its word; colour only reinforces. Pending states in `{colors.muted-foreground}`. Took effect in `{colors.accepted}`. An allowed live change reads **"Proposal filed (pending review)"**; it never reads "Record updated", because the record changes only when Sam decides the proposal in DxP, in Record and Review. **Slack alert delivered** in `{colors.accepted}` with `bell`, the words "Slack alert delivered" and the time posted; it never reads "Approved", because approval happens only in DxP. **Reconciling** (read-time only: an abandoned admission, while the background sweep runs) in `{colors.low-confidence}` with `refresh-cw` and the word "Reconciling", until it becomes Unknown. **Failed** in shadcn `destructive` with `circle-x` and the word "Failed", plus the reason on a second line in `{typography.caption}`: Slack's error (for example `channel_not_found`, or a second 429) with "Not retried", or "Never sent (`abandoned_before_send`)" for a queued action of an abandoned admission. **Blocked** in shadcn `destructive`: `shield-x`, the word "Blocked" and, on a second line in `{typography.caption}`, "Blocked before it ran: {check} failed under policy set `ps_ab12…` (N policies)"; a 3px `destructive` left rule marks the row, with no red fill. **Unknown** in `{colors.low-confidence}`: `circle-help`, the words "Result unknown" and the copyable action ID (`act_…`), with "Check #all-mango-db-hackathon for {action_id}, then resolve" on a second line in `{typography.caption}`. When the signed-in principal's `actions` (from `GET /whoami`) include `resolve_notification`, a secondary "Resolve" button (`square-check`) sits at the row's right and opens the inline resolve form (`resolve-control`). Eosin never marks an action state.
+- **Proposal row, focused.** When Review opens from `/review?proposal=<p_id>`, the page loads that proposal with `GET /proposals/<p_id>`, and the focused proposal carries a 2px `{colors.foreground}` ring on a `{colors.ink-tint}` background and is scrolled into view. Its Slack alert status shows in `{typography.caption}` with the same mark as the action row ("Slack alert delivered at 15:04" with `bell`). An unknown ID shows the "Proposal not found" inline notice (`search-x`) above the queue, never a toast or an error page.
+- **Stop control.** Running: primary button "Stop run" with `square`. Pressing it stops new admissions at once. Stopping: the button disables and the card shows `circle-pause` and "Stopping: {n} in flight", the count in `{typography.identifier}`, while admitted actions finish. Stopped: the button is replaced by `octagon-x`, "Stopped" and the totals. Never red: stopping is the safe action, not an error.
+- **Audit entry.** A vertical timeline in a solid panel: a 1px `{colors.border}` rule on the left joins the entries, each marked by its state icon. One entry per gate decision, allowed or blocked; opening one loads `GET /decisions/<decision_id>`. Each entry: the action sentence in `{typography.heading}`, the timestamps in `{typography.identifier}`, the Evidence quote, the inputs and destination, the five checks as a short list (check name, then `shield-check` and "Passed" or `shield-x` and "Failed", with its detail), then the grant evaluated (`{grant_id}@v{version}`) and the policy set (`ps_ab12… (N policies)`) in `{typography.caption}`. A "Send Slack alert" entry adds the notification result (its state mark, the HTTP status and Slack's response, and the two link URLs sent in `{typography.identifier}`) and the proposal's live review status as a word with its icon: "Pending review" (`clock`, faded ink), "Applied by Sam at {time}" (`circle-check`, methyl green) or "Rejected by Sam at {time}" (`circle-x`, `destructive`). The webhook URL never appears. A blocked entry ends with "No record changed. No external call made." in `{typography.body}`. "Who authorised this?" is an outline button with `shield-question`; the answer, built from the Decision's `authorised_by`, opens in the right-hand panel as plain sentences, identifiers in mono. Blocked, failed, unknown and reconciling entries use the same marks as the action row; an unknown entry carries the same Resolve button, under the same rule. If the stretch audio briefing passed its check, the Audit view header carries a "Listen" link (`headphones`, ghost button style) to a separate briefing page; there is no player in the Audit view.
+- **After the run.** A section below the run's entries in the Audit view, headed "After the run" in `{typography.heading}`, using the same timeline. Each entry is a Reviewer decision (accept, edit, reject, or resolving an unknown Slack alert) with the Reviewer ("Decided by Sam" or "Resolved by Sam", no agent), the time, and links to the originating run and proposal or action. Its evidence check reads "Not applicable"; an edit or reject shows its reason, and a resolve shows its outcome and note.
+- **Graph nodes.** Diagnostic: circle, 10px, `{colors.node-diagnostic}`, sized up to 16px by number of links, with a dashed outline when Early research. Biomarker: rounded square, `{colors.node-biomarker}`. Trial: diamond, `{colors.node-trial}`. Drug: triangle, `{colors.node-drug}`. Tumour type: hexagon, `{colors.node-tumour}`. Provider: small hollow square, 1.5px `{colors.node-provider}` outline. Notification (`notification:<action_id>`, one per Slack alert the run posted): rounded rectangle with a 1.5px `{colors.foreground}` outline and a `bell` glyph, its state (delivered, failed or unknown) named in the tooltip and the list view, never by colour alone. Links in `{colors.border}`, 1px; links that cross Categories in `{colors.muted-foreground}`, 1.5px. Changed nodes and links get a 3px `{colors.eosin}` ring or stroke. Labels in `{typography.caption}` appear on hover and at zoom levels where they do not overlap. **Run impact view:** by default only the changed elements (attributed to the run) are drawn. "Show context" is an outline button that adds a touched Diagnostic's other neighbours as context nodes: 40% opacity, no eosin ring, and the word "Context" in their label and tooltip, so they never read as attributed to the run.
 
 ## Do's and Don'ts
 
@@ -284,6 +329,7 @@ Brand-layer components:
 | Show the stage track wherever a Diagnostic appears | Show the stage as text alone in tables |
 | Pair every colour signal with a word or shape | Rely on colour alone for confidence, change, node type or action state |
 | Mark a blocked action with `destructive`, `shield-x` and "Blocked" | Use eosin for blocked, or fill a blocked row red |
+| Mark a delivered Slack alert with `bell` and "Slack alert delivered", and an unknown one with `circle-help` and "Result unknown" | Show a delivered alert as "Approved", or show the webhook URL anywhere |
 | Float content on frosted glass over the tissue field | Put text straight on the field, or use glass without the field behind it |
 | Use lucide icons beside labels | Use emoji, icon-only buttons without labels, or a second icon set |
 | Keep one capability tag per panel, quiet | Add MongoDB logos or badges to every element |

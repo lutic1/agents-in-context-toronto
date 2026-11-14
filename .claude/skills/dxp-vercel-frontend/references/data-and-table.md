@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Shared types, the comparison table and a forwarding Route Handler
 
 Checked 12 November 2026. Type-checked (tsc 5.9, strict) against `@types/react` 19.3.0; not run in a browser.

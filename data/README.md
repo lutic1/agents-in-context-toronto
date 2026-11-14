@@ -1,5 +1,7 @@
 # DxP datasets
 
+> **Not used on Saturday 14 November without written clearance.** These files were prepared before the event. They are not loaded, and the scripts in `scripts/data/` are not re-run, on Saturday 14 November unless an organiser clears them in writing. The build fetches the selected trials (from the ClinicalTrials.gov API v2) and the FDA list of companion diagnostics during the event. This README is kept as a record of what was downloaded.
+
 Open public data for the DxProvida (DxP) hackathon build, downloaded on 13 November 2026, the day before the event.
 
 ## Disclosure
@@ -15,7 +17,7 @@ The hackathon rules require work prepared beforehand to be disclosed. This folde
 | `fda/` | FDA list of authorized companion diagnostics, and openFDA PMA decisions | 76 lung rows, 425 decisions | 2 decisions | Yes |
 | `vocab/` | HGNC genes, OncoTree lung codes, NCI Thesaurus and MeSH synonyms | 45,387 genes, 30 lung codes, 15 terms | not applicable | Yes |
 
-The baseline is what DxP loads first, with no alerts. The held-back set is real data from the last four weeks, ingested during the demo so that updates and alerts come from real changes (PRD requirement FR-30).
+The baseline was planned as what DxP loads first, with no alerts. The held-back set is real data from the last four weeks, ingested during the demo so that updates and alerts come from real changes (PRD requirement FR-30).
 
 Each folder has a `manifest.json` with the fetch time, the source's own data date, the exact queries, counts, file hashes, the attribution line, and the command that reproduces the download.
 
@@ -38,7 +40,7 @@ NCBI_EMAIL=<your email> uv run --python 3.12 python scripts/data/fetch_pubmed.py
 
 NCBI asks for a contact email on automated requests. It is read from the environment and is not written to any file.
 
-## Re-running
+## How the files were made
 
 All scripts use the Python standard library only, from the repository root:
 
@@ -48,7 +50,7 @@ uv run --python 3.12 python scripts/data/fetch_fda.py
 uv run --python 3.12 python scripts/data/fetch_vocab.py
 ```
 
-Re-run on Saturday morning to pick up the last day. ClinicalTrials.gov refreshes on weekdays only, so Saturday's data is Friday's.
+Do not re-run these on Saturday 14 November unless an organiser clears it in writing. The build fetches the selected trials and the FDA list during the event.
 
 ## Known gaps
 

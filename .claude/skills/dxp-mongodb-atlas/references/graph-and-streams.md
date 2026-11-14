@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Graph view and live updates (FR-13, FR-26, FR-27)
 
 Checked on 12 November 2026 against the `$graphLookup` and change stream pages of the MongoDB manual and the PyMongo 4.19 API reference.

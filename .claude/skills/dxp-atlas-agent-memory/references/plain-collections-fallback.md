@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Fallback: the same three behaviours on plain Atlas collections
 
 Use when `DXP_MEMORY_BACKEND=collections`: the Agent Engine memory runtime is not ready, the preview misbehaves, or there is no M10 cluster. It needs only `pymongo` and `MONGODB_URI`, and works on any Atlas tier including Free.

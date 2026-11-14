@@ -61,6 +61,7 @@ EPIC_RANK = {"backlog": 0, "in-progress": 1, "done": 2}
 RETRO_RANK = {"optional": 0, "done": 1}
 RANKS = {"epic": EPIC_RANK, "story": STORY_RANK, "retro": RETRO_RANK}
 ACTION_STATUSES = ("open", "in-progress", "done")
+OWNER_SCOPES = ("core", "supporting", "stretch", "deferred")
 
 # v6 wrote these; they still exist in the wild (v6-shims/bmad-create-story
 # actively writes 'contexted'). Normalized on every read so no subcommand ever
@@ -561,19 +562,46 @@ def cmd_status(args):
     if unrecognized:
         risks.append(f"{len(unrecognized)} unrecognized key(s) in development_status — run validate")
 
+    # Optional per-story scope from an `owners` mapping (core, supporting, stretch,
+    # deferred). Deferred stories are never recommended; the rest are recommended
+    # core first, then supporting, then stretch, then unscoped.
+    owners = data.get("owners") if isinstance(data.get("owners"), dict) else {}
+    scope_rank = {"core": 0, "supporting": 1, "stretch": 2}
+
+    def _scope(key):
+        entry = owners.get(key)
+        return entry.get("scope") if isinstance(entry, dict) else None
+
+    bad_scopes = sorted(k for k in owners
+                        if _scope(k) is not None and _scope(k) not in OWNER_SCOPES)
+    if bad_scopes:
+        _fail("owners has unknown scope values — fix them or run validate",
+              status_file=str(args.status_file),
+              keys=[{"key": k, "scope": _scope(k)} for k in bad_scopes])
+
+    deferred = sorted(k for stories in by_status.values() for k in stories if _scope(k) == "deferred")
+    active = {
+        status: sorted((k for k in stories if _scope(k) != "deferred"),
+                       key=lambda k: (scope_rank.get(_scope(k), 3), _story_sort_key(k)))
+        for status, stories in by_status.items()
+    }
+
     recommendation = None
-    if by_status.get("in-progress"):
-        recommendation = {"skill": "bmad-build", "story_key": by_status["in-progress"][0],
+    if active.get("in-progress"):
+        recommendation = {"skill": "bmad-build", "story_key": active["in-progress"][0],
                           "reason": "resume the in-progress story"}
-    elif by_status.get("review"):
-        recommendation = {"skill": "bmad-code-review", "story_key": by_status["review"][0],
+    elif active.get("review"):
+        recommendation = {"skill": "bmad-code-review", "story_key": active["review"][0],
                           "reason": "review the completed implementation"}
-    elif by_status.get("ready-for-dev"):
-        recommendation = {"skill": "bmad-build", "story_key": by_status["ready-for-dev"][0],
+    elif active.get("ready-for-dev"):
+        recommendation = {"skill": "bmad-build", "story_key": active["ready-for-dev"][0],
                           "reason": "start the next ready story"}
-    elif by_status.get("backlog"):
-        recommendation = {"skill": "bmad-build", "story_key": by_status["backlog"][0],
-                          "reason": "start the first backlog story"}
+    elif active.get("backlog"):
+        recommendation = {"skill": "bmad-build", "story_key": active["backlog"][0],
+                          "reason": f"start the first {_scope(active['backlog'][0]) or 'backlog'} story"}
+    elif any(_scope(k) == "deferred" for st, stories in by_status.items() if st != "done" for k in stories):
+        recommendation = {"skill": None, "story_key": None,
+                          "reason": "every active story is done; the rest are deferred"}
     else:
         optional_retros = sorted(num for num, status in retro_status.items() if status == "optional")
         if optional_retros:
@@ -588,6 +616,7 @@ def cmd_status(args):
         "stories": counts["story"], "epics": counts["epic"], "retrospectives": counts["retro"],
         "legacy_mapped": legacy_mapped, "illegal": illegal, "unrecognized": unrecognized,
         "open_action_items": open_items, "risks": risks, "warnings": warnings,
+        "deferred_stories": deferred,
         "recommendation": recommendation,
         "all_done": recommendation is None,
     }, default=str))
@@ -640,6 +669,18 @@ def cmd_validate(args):
                     problems.append(f"illegal {kind} status {str(raw)!r} on '{key}'")
         elif isinstance(data.get("development_status"), dict):
             problems.append("development_status is empty")
+        owners = data.get("owners")
+        if owners is not None:
+            if not isinstance(owners, dict):
+                problems.append("owners is not a mapping")
+            else:
+                for key, entry in owners.items():
+                    scope = entry.get("scope") if isinstance(entry, dict) else None
+                    if scope is not None and scope not in OWNER_SCOPES:
+                        problems.append(f"owners['{key}'] has unknown scope {scope!r} "
+                                        f"(expected one of {', '.join(OWNER_SCOPES)})")
+                    if isinstance(dev, dict) and str(key) not in {str(k) for k in dev}:
+                        problems.append(f"owners['{key}'] has no development_status entry")
         items = data.get("action_items")
         if items is not None:
             if not isinstance(items, list):

@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Pronunciation dictionaries
 
 Checked 12 November 2026. Use this only where the text cannot be pre-processed with the `SPOKEN` table in SKILL.md, which in DxP means the voice agent (its LLM writes the words).
