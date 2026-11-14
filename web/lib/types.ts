@@ -319,7 +319,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memories */
+        /**
+         * List Memories
+         * @description The latest version of each of the Team's memories, with author, source and status.
+         */
         get: operations["list_memories_api_v1_memories_get"];
         put?: never;
         post?: never;
@@ -530,10 +533,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Avatar */
+        /**
+         * Get Avatar
+         * @description The latest avatar status for the report; 404 when none was requested. Never returns a token.
+         */
         get: operations["get_avatar_api_v1_reports__report_id__avatar_get"];
         put?: never;
-        /** Render Avatar */
+        /**
+         * Render Avatar
+         * @description Reviewer only, with the `avatar` flag on (else 404). Gated as `generate_avatar_video` under
+         *     `sam@v1`; mints one token after an allowed Decision, only for an accepted report (else 409). A blocked
+         *     request is a 200 with the blocked Decision (D5), never an error.
+         */
         post: operations["render_avatar_api_v1_reports__report_id__avatar_post"];
         delete?: never;
         options?: never;
@@ -550,11 +561,18 @@ export interface paths {
         };
         /**
          * Get Briefing
-         * @description The script as text always, plus the audio status and URL (V41).
+         * @description The script as text always (V41), plus the audio status and URL; or the audio itself.
+         *     404 when the `briefing` flag is off.
          */
         get: operations["get_briefing_api_v1_reports__report_id__briefing_get"];
         put?: never;
-        /** Generate Briefing */
+        /**
+         * Generate Briefing
+         * @description Generate the briefing from `report.script`, gated as `generate_briefing` under the Reviewer's
+         *     grant. A blocked request is not an error: 200 with the Decision, nothing called. A failed or
+         *     unavailable ElevenLabs is the error shape with 503 (the Decision is in the audit); the report,
+         *     the decision and everything else carry on. 404 when the `briefing` flag is off.
+         */
         post: operations["generate_briefing_api_v1_reports__report_id__briefing_post"];
         delete?: never;
         options?: never;
@@ -1203,6 +1221,8 @@ export interface components {
             stamp: components["schemas"]["Stamp"] | null;
             /** Status */
             status: ("queued" | "dispatching" | "delivered" | "failed" | "unknown" | "done" | "reconciling") | null;
+            /** @description the Decision's target; shows a scope target for a diagnostic_id: null update (V43) */
+            target: components["schemas"]["Target"] | null;
             /** Task Id */
             task_id: string | null;
         };
@@ -2750,6 +2770,8 @@ export interface components {
             active: components["schemas"]["RunActive"][];
             /** Agent */
             agent: string;
+            /** @description task runs only: the task and its report */
+            cause: components["schemas"]["RunCause"] | null;
             counts: components["schemas"]["RunCounts"];
             /**
              * Failures
@@ -2830,6 +2852,20 @@ export interface components {
             source_ref: string;
             /** Step */
             step: string;
+        };
+        /**
+         * RunCause
+         * @description What a task run was started for, as runs.start_if_absent stores it (A07+A11): set only on
+         *     task runs, null on every other run.
+         */
+        RunCause: {
+            /**
+             * Report Id
+             * @description the task's report, when it has one
+             */
+            report_id: string | null;
+            /** Task Id */
+            task_id: string;
         };
         /** RunCounts */
         RunCounts: {
