@@ -643,3 +643,38 @@ These rulings were approved by Luis on 14 Nov during the build, win over V1 to V
 ### Process
 
 - **V69. The tracker.** One person on desk L updates `sprint-status.yaml` in small batched PRs (for example after each merge wave). Agents never edit it. Affects every PR.
+
+## 14. Build-day additions: V70 to V72 (Luis, 14 Nov)
+
+- **V70. Interview this evidence, and LiveAvatar (replaces B08's pre-rendered video).**
+  - **Scope.**
+    - Supporting, behind the `interview` and `avatar` flags.
+    - Merged by 15:00 or cut: the avatar first, then the interview page.
+    - Never on the demo's critical path; shown only if its own checks pass.
+  - **The page.** An "Interview this evidence" page on an **accepted** report only.
+    - `POST /reports/{report_id}/interview { question }` returns `{ answer, citations[], refused, refusal_reason, decision_id }` (A01, #36).
+    - Each question is a gated, logged `answer_question` Decision. It is a human kind. `sam` gets it only through a new grant version, `sam@v2`, never by editing a grant in place.
+  - **Grounding.**
+    - Every factual sentence is a verbatim quote stored on that report (the discovery and related quotes, pinned to `version_id`, V40), with a citation.
+    - A number appears only inside its cited quote.
+    - Performance or result wording goes through the gate's claim checks (V33, V37).
+    - A medical-advice question gets one fixed refusal and no model call.
+    - A question the record cannot answer gets "The accepted record doesn't answer that".
+  - **Framing sentences (amendment).**
+    - First-person framing sentences come only from a fixed, hand-written allowlist in code, for example "Here's what the accepted record says." and "I can only answer from this record."
+    - They never contain a number, name, NCT ID, assay or result word. This is checked mechanically, and a sentence that fails is dropped.
+    - The model never writes framing text.
+    - The avatar is "DxP's evidence guide". It never speaks as a product, company or real person.
+  - **LiveAvatar.**
+    - FULL mode, with `repeat(text)` only and never `message()`.
+    - Listening and the microphone stay off, and there is no voice input today. The web app sends `Permissions-Policy: microphone=(), camera=()` (#45).
+    - The avatar speaks only text the backend returned. If it fails, the text answer still shows.
+  - **The session token.**
+    - The browser gets a short-lived session token minted by `POST /reports/{report_id}/avatar`: gated as `generate_avatar_video` under `sam@v1`, behind the `avatar` flag, for accepted reports only.
+    - The token is returned only in `AvatarResponse.session_token` / `session_expires_at` (#44), and is never stored or logged.
+    - `LIVEAVATAR_API_KEY` lives only in `.env` and the Modal secret.
+  - **Out of scope today.** B08's report-page player is dropped. The Slack direct-message layer and voice input are not built.
+- **V71. Media kinds write their own action status (an exception to V65).** `generate_briefing` (B06) and `generate_avatar_video` (B08) may write their own `actions` status updates. Every update stays conditional on the current status and uses the AD-20 statuses: `queued`, `dispatching`, `delivered`, `failed` and `unknown`. Every other kind follows V65.
+- **V72. Briefing retry after an unknown outcome.**
+  - Pressing the briefing button again after an `unknown` outcome may call ElevenLabs again, as a new Reviewer Decision. Luis accepts the possible double charge.
+  - This narrows AD-30's "never retried after unknown" to automatic retries within one request.
