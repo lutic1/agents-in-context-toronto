@@ -98,17 +98,32 @@ function Unavailable({ what, error }: { what: string; error: Error }) {
  *  - blocked at authorisation: "Follow-up task not authorised: <reason>" (V62).
  */
 export function approvalSentence(report: Report, task: Task | null): string {
-  const base = "Approved: 1 update accepted.";
+  const count = report.proposal_ids.length;
+  const base = count > 1 ? `Approved: ${count} updates accepted.` : "Approved: 1 update accepted.";
   const approval = report.approval;
   if (approval?.task_step === "blocked") {
     return `${base} Follow-up task not authorised: ${approval.reason ?? "no reason recorded"}.`;
   }
   if (task) {
-    return task.status === "authorised"
-      ? `${base} Follow-up task authorised; not run.`
-      : `${base} Follow-up task authorised; its findings will be pending review.`;
+    switch (task.status) {
+      case "authorised":
+        return `${base} Follow-up task authorised; not run.`;
+      case "queued":
+      case "running":
+      case "done":
+        return `${base} Follow-up task authorised; its findings will be pending review.`;
+      default:
+        return `${base} ${taskStateLine(task)}`;
+    }
   }
   return `${base} The follow-up task authorisation is still being completed.`;
+}
+
+/** A rejected report: nothing was accepted and no task was authorised (EXPERIENCE "Reject"). */
+function rejectionSentence(report: Report, entry: AuditEntry): string {
+  const by = displayName(report.decided_by ?? entry.report_review?.decided_by ?? entry.stamp?.principal ?? "the Reviewer");
+  const at = report.decided_at ?? entry.report_review?.decided_at ?? entry.decided_at;
+  return `Report rejected by ${by}${at ? ` at ${formatTime(at)}` : ""}. No update was accepted. No follow-up task was authorised.`;
 }
 
 function ApprovalBlock({ entry, reportId }: { entry: AuditEntry; reportId: string | null }) {
@@ -125,7 +140,16 @@ function ApprovalBlock({ entry, reportId }: { entry: AuditEntry; reportId: strin
   return (
     <div className="flex flex-col gap-2">
       {report.data ? (
-        <p className="text-body font-semibold">{approvalSentence(report.data, task.data ?? null)}</p>
+        <>
+          <p className="text-body font-semibold">
+            {report.data.status === "rejected" || (!report.data.approval && entry.report_review?.status === "rejected")
+              ? rejectionSentence(report.data, entry)
+              : approvalSentence(report.data, task.data ?? null)}
+          </p>
+          {report.data.status === "rejected" && report.data.note ? (
+            <p className="text-table">Note: {report.data.note}</p>
+          ) : null}
+        </>
       ) : report.error ? (
         <Unavailable what="The report" error={report.error} />
       ) : (
@@ -133,7 +157,8 @@ function ApprovalBlock({ entry, reportId }: { entry: AuditEntry; reportId: strin
       )}
       {entry.decided_at ? (
         <p className="text-table text-muted-foreground">
-          Accepted by {displayName(entry.stamp?.principal ?? "the Reviewer")} at {formatDateTime(entry.decided_at)}
+          {report.data?.status === "rejected" ? "Decided" : "Accepted"} by {displayName(entry.stamp?.principal ?? "the Reviewer")} at{" "}
+          {formatDateTime(entry.decided_at)}
         </p>
       ) : null}
       {entry.report_review ? (
