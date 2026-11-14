@@ -27,20 +27,15 @@ def _key(request: Request) -> str:
 
 
 async def caller(request: Request) -> m.Principal:
-    """The calling principal. 401 for a missing or unknown key; the seed key is command line only (AD-17)."""
-    key = _key(request)
-    if not key:
-        raise ApiError(401, "unknown_key", "Missing X-DxP-Key.")
-    principal = await auth.resolve_actor(key)
-    if principal.kind == "seed":
-        raise ApiError(403, "seed_key_not_accepted", "The seed key is for the command line only.")
-    return principal
+    """The calling principal (A03's `require_principal`): 401 for a missing or unknown key, 403 for
+    the seed key, which is command line only (AD-17)."""
+    return await auth.require_principal(request)
 
 
 async def caller_grant(request: Request) -> m.Grant:
     """The latest version of the grant that carries the caller's key, whatever its status:
     check 1 of the gate judges the status (D17)."""
-    doc = await auth.grant_for_key(_key(request))  # A03 (PR #17)
+    doc = await auth.grant_for_key(_key(request))  # A03
     if doc is None:
         raise ApiError(401, "unknown_key", "Unknown API key.")
     return m.Grant.model_validate({**doc, "id": doc["_id"]})
@@ -73,9 +68,8 @@ async def reviewer_context(request: Request) -> m.RunContext:
 @router.post("/diagnostics/{dx_id}/values/{value_id}/review", response_model=m.ValueReviewResponse, tags=["diagnostics"])
 async def review_value(dx_id: str, value_id: str, body: m.ValueReviewRequest, request: Request) -> m.ValueReviewResponse:
     try:
-        # Input rules first, so a missing reason is a 400 before anything else (D16).
+        ctx = await reviewer_context(request)  # the caller first: 401 or 403 before any input rule
         ledger_review.validate_request(body.action, body.value, body.reason)
-        ctx = await reviewer_context(request)
         outcome = await ledger_review.review_value(dx_id, value_id, body.action, body.value, body.reason, ctx)
     except ledger_review.ReviewRefused as exc:
         raise ApiError(exc.status_code, exc.code, exc.message) from exc

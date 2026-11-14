@@ -103,3 +103,13 @@ def test_reads_need_a_key(api_client, fake_db, principals):
 def test_per_proposal_decision_stays_superseded(api_client):
     response = api_client.post("/api/v1/proposals/p_a/decision", json={"action": "accept"}, headers=HEADERS)
     assert response.status_code == 501 and response.json()["error"]["code"] == "not_implemented"
+
+
+def test_proposal_data_date_comes_from_the_pinned_version(api_client, fake_db, principals):
+    doc = proposal_doc("p_a")
+    doc["evidence"].pop("source_date")
+    fake_db["proposals"].docs["p_a"] = doc
+    fake_db["source_versions"].docs["sv_anchor_v1"] = {"_id": "sv_anchor_v1", "last_update_post_date": "2026-11-12"}
+    fake_db["source_versions"].docs["sv_anchor_v2"] = {"_id": "sv_anchor_v2", "last_update_post_date": "2026-11-13"}
+    evidence = api_client.get("/api/v1/proposals/p_a", headers=HEADERS).json()["evidence"]
+    assert evidence["data_as_of"] == "2026-11-12" and evidence["version_id"] == "sv_anchor_v1"

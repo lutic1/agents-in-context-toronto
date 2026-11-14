@@ -20,8 +20,9 @@ only seed values are unreviewed). In order:
    - reject: `state: rejected` with the reason.
    Every decided entry keeps its Evidence and gains `decided_by`, `decided_at`, `reason` and the
    `review_decision_id`; nothing is deleted. `lifecycle_stage`, `rev`, `search_text` and `facets`
-   follow the change. The Decision's action is then set `done` (with an event carrying the
-   Reviewer's stamp), or `failed` if another review won the race.
+   follow the change. The Decision's action is then set `done` (or `failed` if another review
+   won the race) through `gate.mark_action`, which emits the event with the Reviewer's stamp;
+   the ledger never writes `actions` itself (V65).
 5. A second review of a value already reviewed here does nothing and returns its stored Decision.
 
 The ledger is the only writer of Records (AD-1): this module is the ledger's review path. It
@@ -202,35 +203,17 @@ def _stage_after(field: str, entries: list[dict[str, Any]], stored: str | None) 
 
 
 async def _settle_action(decision: Decision, status: str, value_ids: list[str], session: Any) -> None:
-    """Set the review's DxP-state action done or failed, once (AD-19), with an event carrying the Reviewer's stamp."""
+    """Set the review's DxP-state action done or failed through the gate (`gate.mark_action`, V65):
+    only Governance writes `actions`; it emits the deduplicated `action_status_changed` event."""
     if not decision.action_id:
         return
-    db = store.get_db()
     result = {"proposal_ids": [], "value_ids": value_ids, "report_id": None, "memory_id": None, "task_id": None}
-    res = await db["actions"].update_one(
-        {"_id": decision.action_id, "status": "queued"},
-        {"$set": {"status": status, "result": result if status == "done" else None, "observed_at": _now()}},
-        session=session,
-    )
-    if res.modified_count:
-        await store.emit_event(
-            "action_status_changed",
-            dedupe_key=f"action_status_changed|{decision.action_id}|{status}",
-            stamp=decision.stamp.model_dump(mode="python"),
-            session=session,
-            run_id=None,
-            decision_id=decision.id,
-            action_id=decision.action_id,
-            diagnostic_id=decision.target.diagnostic_id,
-            status=status,
-        )
+    await gate.mark_action(decision.action_id, status, result if status == "done" else None, session=session)
 
 
 async def _evaluate(ctx: RunContext, proposed: ProposedAction, session: Any) -> Decision:
-    """The gate inside the review's transaction (A06's `gate.evaluate_in`); without a session, `gate.evaluate`."""
-    if session is not None and hasattr(gate, "evaluate_in"):
-        return as_decision(await gate.evaluate_in(ctx, proposed, session))
-    return as_decision(await gate.evaluate(ctx, proposed))
+    """The gate inside the review's transaction (A06's `gate.evaluate_in`); no fallback outside it."""
+    return as_decision(await gate.evaluate_in(ctx, proposed, session))
 
 
 async def in_transaction(body: Callable[[Any], Awaitable[ReviewOutcome]]) -> ReviewOutcome:

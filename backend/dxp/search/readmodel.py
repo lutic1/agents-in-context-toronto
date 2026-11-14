@@ -149,7 +149,8 @@ def build_record(doc: dict[str, Any], pinned_dates: dict[str, str | None] | None
             value = _value(entry, pinned_dates)
             if value is not None:
                 values.append(value)
-        fields[key] = RecordField(values=values, no_data=not values)
+        # History stays in `values`; no_data means no current accepted value.
+        fields[key] = RecordField(values=values, no_data=not any(v.state == "current" for v in values))
     stage = doc.get("lifecycle_stage") or registry.NOT_DETERMINED
     return Record(
         id=doc["_id"],
@@ -266,6 +267,13 @@ async def build_proposals(docs: list[dict[str, Any]]) -> list[Proposal]:
         _collection_ref(d) for d in docs if not d.get("diagnostic_id") and (d.get("target") or {}).get("scope_id")
     }
     source_items = await _by_id("source_items", {r for r in collection_refs if r}, {"collections": 1})
+    pinned = await _pinned_dates(
+        {
+            (d.get("evidence") or {}).get("version_id")
+            for d in docs
+            if (d.get("evidence") or {}).get("version_id") and not (d.get("evidence") or {}).get("source_date")
+        }
+    )
     notifications = await _notifications(
         {d["report_id"] for d in docs if d.get("report_id")},
         {d["_id"] for d in docs if not d.get("report_id")},
@@ -286,7 +294,7 @@ async def build_proposals(docs: list[dict[str, Any]]) -> list[Proposal]:
                 entry = ((source_items.get(_collection_ref(doc)) or {}).get("collections") or {}).get(scope_id)
                 data["current_value"] = (entry or {}).get("status")
         if doc.get("evidence") is not None:
-            data["evidence"] = _evidence(doc["evidence"], {})
+            data["evidence"] = _evidence(doc["evidence"], pinned)
         data["notification"] = notifications.get(doc.get("report_id") or doc["_id"])
         try:
             proposal = Proposal.model_validate(data)

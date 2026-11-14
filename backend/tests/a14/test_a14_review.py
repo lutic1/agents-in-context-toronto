@@ -28,7 +28,34 @@ def gate(fake_gate, fake_db, monkeypatch):
         await fake_db["decisions"].insert_one({**decision.model_dump(), "_id": decision.id})
         return decision
 
+    async def evaluate_in(ctx, action, session):
+        return await evaluate(ctx, action)
+
+    calls = fake_gate.mark_action_calls = []
+
+    async def mark_action(action_id, status, result=None, *, session=None):
+        """A06's gate.mark_action: queued -> done or failed, with the deduplicated event."""
+        calls.append((action_id, status))
+        res = await fake_db["actions"].update_one(
+            {"_id": action_id, "status": "queued"}, {"$set": {"status": status, "result": result}}
+        )
+        if res.modified_count:
+            decision = fake_db["decisions"].docs[fake_db["actions"].docs[action_id]["decision_id"]]
+            await dxp.store.emit_event(
+                "action_status_changed",
+                dedupe_key=f"action_status_changed|{action_id}|{status}",
+                stamp=decision["stamp"],
+                action_id=action_id,
+                status=status,
+            )
+        return bool(res.modified_count)
+
+    import dxp.store
+
     monkeypatch.setattr(dxp.gate, "evaluate", evaluate)
+    # A06's transaction and action functions; on main once PR #15 merges.
+    monkeypatch.setattr(dxp.gate, "evaluate_in", evaluate_in, raising=False)
+    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
     return fake_gate
 
 
@@ -55,6 +82,7 @@ def test_accept(api_client, seeded, gate, recoveries):
     assert value["review"] == "accepted" and value["decided_by"] == "sam" and value["decided_at"]
     assert seeded["diagnostics"].docs[DX_ID]["rev"] == 6
     assert recoveries == ["recover_applying"]  # apply recovery ran on the decision call (D26)
+    assert gate.mark_action_calls == [(body["decision"]["action_id"], "done")]  # through the gate (V65)
     action = seeded["actions"].docs[body["decision"]["action_id"]]
     assert action["status"] == "done" and action["result"]["value_ids"] == ["v_modality"]
     event = next(e for e in seeded["events"].docs.values() if e["type"] == "action_status_changed")
@@ -157,3 +185,14 @@ def test_caller_comes_from_the_key(api_client, seeded, gate):
         URL.format(value_id="v_modality"), json={"action": "accept", "actor": "someone"}, headers=HEADERS
     )
     assert response.json()["record"]["fields"]["modality"]["values"][0]["decided_by"] == "sam"
+
+
+def test_rejecting_the_only_value_leaves_no_data(api_client, seeded, gate):
+    response = _post(api_client, "v_plasma", action="reject", reason="the row names tissue")
+    field = response.json()["record"]["fields"]["sample_types"]
+    assert field["no_data"] is True and field["values"][0]["state"] == "rejected"  # history kept
+
+
+def test_caller_is_checked_before_the_input(api_client, seeded, gate):
+    response = api_client.post(URL.format(value_id="v_modality"), json={"action": "reject"})
+    assert response.status_code == 401
