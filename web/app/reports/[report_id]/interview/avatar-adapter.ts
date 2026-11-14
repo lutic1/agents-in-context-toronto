@@ -65,7 +65,7 @@ type MicGuard = { confirmed: boolean; restore: () => void };
 
 /**
  * Layer 2: refuse every audio capture request until `restore()`. Video-only requests pass through. The one
- * exception is the page's own "Record question" recorder (V73), which holds a one-call lease (mic-lease.ts);
+ * exception is the page's own "Speak" recorder (V73), which holds a one-call lease (mic-lease.ts);
  * the avatar SDK never does, so its request is still refused.
  */
 export function blockMicrophone(): MicGuard {

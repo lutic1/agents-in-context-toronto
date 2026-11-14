@@ -137,7 +137,6 @@ export function VoiceInput({
         <Button
           type="button"
           variant={recording ? "default" : "outline"}
-          aria-pressed={recording}
           disabled={working || (disabled && !recording)}
           onClick={() => void (recording ? finish() : begin())}
         >
@@ -148,13 +147,13 @@ export function VoiceInput({
           ) : (
             <Mic aria-hidden="true" />
           )}
-          Record question
+          {recording ? "Stop" : "Speak"}
         </Button>
         <p className="text-caption text-muted-foreground">
           {recording ? (
             <>
               <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-destructive motion-safe:animate-pulse" />
-              Recording {formatTime(elapsed)}, {left} s left. Press again to stop.
+              Recording {formatTime(elapsed)}, {left} s left. Press Stop when you are done.
             </>
           ) : null}
           {phase === "requesting" ? "Waiting for the microphone…" : null}

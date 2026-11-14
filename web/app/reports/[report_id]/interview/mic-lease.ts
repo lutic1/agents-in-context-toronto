@@ -2,7 +2,7 @@
  * The one way the interview page's own recorder may open the microphone while an avatar session is running (V73).
  *
  * The avatar never listens (V70): while its session lives, `blockMicrophone` (avatar-adapter.ts) makes every audio
- * `getUserMedia` call fail. The page's own "Record question" recorder is the single exception. It takes a lease
+ * `getUserMedia` call fail. The page's own "Speak" recorder is the single exception. It takes a lease
  * here, and the guard honours it for exactly one synchronous call. A lease is set and read in the same
  * synchronous run, so no other caller (the avatar SDK included) can be handed it: JavaScript cannot interleave
  * another call between the two.
