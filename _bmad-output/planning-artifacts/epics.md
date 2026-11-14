@@ -1,6 +1,6 @@
 ---
-status: draft
-stepsCompleted: [1, 2]
+status: final
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/addendum.md
@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Overview
 
-This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Build day is Saturday 14 November 2026: two developers driving AI coding agents, about six hours of coding, submission at 18:00. Every story carries story points so the team can set the cut line afterwards.
+This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Build day is Saturday 14 November 2026: two developers driving AI coding agents, about 8 hours 20 minutes of coding each, from about 9:39; coding stops at 18:00 and the video is made after it. Every story carries story points so the team can set the cut line afterwards.
 
 ## Requirements Inventory
 
@@ -170,7 +170,7 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 **FRs covered:** none numbered (PRD section 4.9, UJ-4)
 
 ### Epic 8: Ship it to the judges
-A judge opens a working production URL at any point in the day, and at 18:00 receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
+A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
 **FRs covered:** none; NFR5, NFR7, NFR8, NFR10, NFR11
 
 ### Build risks
@@ -186,7 +186,26 @@ A judge opens a working production URL at any point in the day, and at 18:00 rec
 
 ## Story points
 
-1 point is about 30 minutes of one developer driving an AI coding agent. Two developers coding until 18:00 (about seven hours each) is about 28 points; plan on about 24 after merges, redeploys and debugging. Points use 1, 2, 3, 5. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document.
+Points are relative size (1, 2, 3, 5) and stay as the tool for comparing stories. Planning time no longer uses "1 point is 30 minutes"; it uses the agent-time estimate below. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document.
+
+## Estimating with AI agents
+
+The **Time** on each story follows the rules measured on the CVH pilot build (1–6 October 2026, 90 stories built by Claude Opus 5.5 agents; actual time came to 46% of the developer estimate, median story 30%):
+
+1. Size each story as a normal developer would without agents: S is up to 4 hours, M is one working day (5 to 8 hours).
+2. Multiply by the factor for the kind of work. These factors come from the CVH build; the S and M sizes for DxP are this team's judgement.
+
+| Kind of work | Factor | Evidence from the CVH build |
+|---|---|---|
+| Back end and rules (API routes, ledger, seeds, jobs, CSV) | 0.3 | Sign-in, audit, texts and sign-up took 20–35% |
+| Single-language desktop screens | 0.5 | Staff Hub screens took 35–48% |
+| Calls to Claude that need prompt tuning (extraction, rule drafting, why lines, resume) | 0.4–0.5 | No direct CVH measure; set between back end and screens |
+| New infrastructure (Modal jobs, Agent Memory preview, CI and deploy) | 0.5 | App skeleton 41%, first production spike 67% |
+| Search and the graph views | 0.8 | Search took 54–110%; resident home and graph-like screens went over |
+| Running the Baseline load and the rehearsal | 1.0 | Waiting for real runs is not shortened by agents |
+
+3. These times are cycle times: elapsed time from start to merge for one story, including tests, review and waiting. They are not hours of effort, and adding them up does not give a schedule. The CVH build ran about three stories at once; that was how that build was run, not a limit. Saturday's schedule, with the team's real agent capacity and the dependency path, is in `build-schedule.md`.
+4. Not shortened by agents and not in these numbers: setting up accounts and keys, product decisions, waiting for review, and recording the video.
 
 ## How every story lands: PR and merge
 
@@ -194,12 +213,12 @@ A story is done only when it is merged into `main` and working in production. Ev
 
 1. Branch from the latest `main` as `story/<n.n>-<short-name>` (for example `story/2.4-review-screen`).
 2. Open a pull request into `main` titled `Story <n.n>: <story title>`, listing the acceptance criteria as a checklist.
-3. The CI checks from Story 8.1 pass: the web app's type check and build, and the backend tests.
+3. The CI checks from Story 8.1 pass: the web app's type check and build, and the backend tests. Story 8.1 is built in the first two hours, right after Stories 1.1 and 1.3; until it is merged, the reviewer runs the same checks locally.
 4. The other developer (or their agent) reads the diff. They check that no secret, `.env` value or PubMed abstract text is in it, and that each acceptance criterion is met.
 5. Squash-merge and delete the branch. If an API model changed, rebase first and regenerate `web/lib/types.ts`, so the two lanes never merge conflicting types.
 6. After the merge, check production. Vercel deploys `main` itself; the person named in the README runs `modal deploy` for API changes.
 
-Each pull request costs about 10 minutes: opening it, waiting for checks, the review and the merge. This time is not inside the story points. It is counted once, in the capacity: about 14 merged stories in a day is about 2.5 hours, which is most of the gap between the 28 points of capacity and the 24 to plan on. Merge small and often; never hold a story back to merge at the end of the day.
+Each pull request costs about 10 minutes: opening it, waiting for checks, the review and the merge. This time is already inside each story's agent-time estimate, because the CVH actuals it comes from ran to the merge. Merge small and often; never hold a story back to merge at the end of the day.
 
 ## Epic 1: Evidence-backed records from real data
 
@@ -207,7 +226,7 @@ The team loads real trials, abstracts and FDA rows into Diagnostic Records where
 
 ### Story 1.1: API contract stub, read model and change feed
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path**
+**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path**
 
 As the web developer,
 I want the API's routes and response shapes running and published as generated TypeScript types in the first hour,
@@ -215,7 +234,7 @@ So that I can build pages against the real contract while the pipeline is still 
 
 **Acceptance Criteria:**
 
-**Given** `backend/dxp/api/models.py` holds Pydantic classes for Record, Value, Proposal, Rule, Alert, Event, Job, Node, Link and Team exactly as AD-14
+**Given** a `backend/` Python package managed with `uv`, with a Modal app that serves the FastAPI app, and `backend/dxp/api/models.py` holding Pydantic classes for Record, Value, Proposal, Rule, Alert, Event, Job, Node, Link and Team exactly as AD-14
 **When** the API runs under `modal serve`
 **Then** `GET /api/v1/schema`, `GET /api/v1/diagnostics` and `GET /api/v1/diagnostics/<dx_id>` respond with those shapes (empty lists are fine)
 **And** `/openapi.json` lists every route in the AD-14 table, unimplemented ones returning `{ error: { code: "not_implemented", message } }` with 501
@@ -227,7 +246,7 @@ So that I can build pages against the real contract while the pipeline is still 
 
 ### Story 1.2: FDA-authorised lung diagnostics and synthetic Teams seeded through the ledger
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path**
+**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path**
 
 As a Director of Diagnostics,
 I want the FDA-authorised lung companion diagnostics already in DxP, each at regulatory approval with the FDA list as Evidence,
@@ -248,7 +267,7 @@ So that DxP starts from a trusted base and the other developer has real Records 
 
 ### Story 1.3: Browse diagnostics and open a Record with its Evidence
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path**
 
 As a Director of Diagnostics,
 I want to list the diagnostics DxP tracks and open one to see every value with its quote, source and data date,
@@ -256,7 +275,7 @@ So that I can trust each value without leaving the page.
 
 **Acceptance Criteria:**
 
-**Given** the Next.js 16 app calls the API only through `web/lib/api.ts` using the generated types
+**Given** `web/` created with `create-next-app` (Next.js 16, TypeScript, App Router, Tailwind) and `shadcn init`, calling the API only through `web/lib/api.ts` using the generated types
 **When** I open the diagnostics page
 **Then** I see each Diagnostic's name, Lifecycle stage and an Early research label where `early_research` is true, or "stage not determined"
 **When** I open a Record
@@ -269,7 +288,7 @@ So that I can trust each value without leaving the page.
 
 ### Story 1.4: Load the downloaded Source items into MongoDB
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path**
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path**
 
 As the team,
 I want the files under `data/` loaded into `source_items` with their window and subset names,
@@ -287,7 +306,7 @@ So that jobs on Modal can read them without the laptop.
 
 ### Story 1.5: Extract a Finding from one Source item with a quote for every field
 
-**Points:** 5 · **Time:** ~2.5 h · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path**
+**Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path**
 
 As a Director of Diagnostics,
 I want the agents to read a trial or abstract and pull out the ten fields, each with a word-for-word quote and a confidence,
@@ -309,7 +328,7 @@ So that nothing reaches a Record without evidence I can check.
 
 ### Story 1.6: The ledger files Findings without duplicates and keeps the stage moving forward
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path**
+**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path**
 
 As a Director of Diagnostics,
 I want each new piece of evidence attached to the right Diagnostic, a new Diagnostic created only when none matches, and the stage only ever advancing,
@@ -329,7 +348,7 @@ So that parallel agents never produce duplicates or move a diagnostic backwards.
 
 ### Story 1.7: Run a batch of Source items in parallel as one job
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path**
 
 As the team,
 I want to start a job over a named set and have the agents process it in parallel, unattended, resuming where it stopped,
@@ -350,7 +369,7 @@ So that 300 to 500 items are processed without anyone watching and without excee
 
 ### Story 1.8: Watch the agents work through a batch
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path**
 
 As a judge watching the demo,
 I want a job page with a live count of processed, failed and Early research items,
@@ -368,7 +387,7 @@ So that I can see the agents working in parallel on real data.
 
 ### Story 1.9: Run the Saturday Baseline load and save a retake snapshot
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path**
+**Points:** 1 · **Time:** ~1.5 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path**
 
 As the team,
 I want the Baseline loaded into production once, with no Alerts, and a snapshot taken right after,
@@ -384,7 +403,7 @@ So that the live demo can be retaken from the same starting point.
 
 ### Story 1.10: Scheduled scan with nobody logged in
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers
 
 As a Director of Diagnostics,
 I want DxP to check the sources on a schedule without anyone logged in,
@@ -400,7 +419,7 @@ So that new evidence arrives without someone remembering to look.
 
 ### Story 1.11: Scan allow-listed provider websites through Tavily
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources
 
 As a Director of Diagnostics,
 I want DxP to pick up announcements from diagnostic providers' own websites,
@@ -416,7 +435,7 @@ So that a new assay or approval is noticed even before a paper or trial lists it
 
 ### Story 1.12: App shell in the DxP design
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path**
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path**
 
 As a judge watching the demo,
 I want every page to share one finished look and one navigation,
@@ -427,7 +446,7 @@ So that DxP reads as a real product, not a set of pages.
 **Given** the Next.js app with shadcn/ui and Tailwind
 **When** any page loads
 **Then** the colour, radius and font tokens from `DESIGN.md` are set as CSS variables, and the three fonts load through `next/font/google`
-**And** the top bar shows the DxP logo from the UX workspace, the icon navigation in the `EXPERIENCE.md` order, the Review count from `GET /proposals?status=pending` and the Alerts count from `GET /alerts?team_id=`, the Team picker and the "your name" picker
+**And** the top bar shows the DxP logo from the UX workspace, the icon navigation in the `EXPERIENCE.md` order, the Review count from `GET /proposals?status=pending` and the Alerts count from `GET /alerts?team_id=` (each count is simply hidden while its route still returns 501, so this story does not wait for Stories 2.2 and 3.1), the Team picker and the "your name" picker
 **And** the top bar is the glass panel, and the page background is the tissue field drawn in CSS, with no image file
 **And** a shared stage-track component draws nine segments: reached stages solid, Early research stages in the ink tint, future stages hollow, with a tooltip naming each stage
 **And** the shared Early research and Synthetic badges match `DESIGN.md`
@@ -440,7 +459,7 @@ When new evidence arrives about a tracked Diagnostic, the agents draft field-lev
 
 ### Story 2.1: Dry run the Held-back set against the Baseline
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path**
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path**
 
 As the team,
 I want to know, before the demo, which held-back items will produce Proposed changes on which Diagnostics,
@@ -456,7 +475,7 @@ So that we find a matching problem while there is still time to fix it and pick 
 
 ### Story 2.2: Reviewer queue of Proposed changes
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path**
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path**
 
 As a Reviewer,
 I want every pending Proposed change listed with the current value, the new value and its Evidence,
@@ -473,7 +492,7 @@ So that I can decide each one without opening the source.
 
 ### Story 2.3: Accept, edit or reject a Proposed change, keeping the history
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path**
+**Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path**
 
 As a Reviewer,
 I want to accept, edit or reject each change with a reason, and to review unreviewed values on new Records,
@@ -492,7 +511,7 @@ So that no agent change reaches a tracked Record without a logged human decision
 
 ### Story 2.4: Review screen
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path**
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path**
 
 As a Reviewer,
 I want one screen where I work through pending changes, see current against new with the quote, and decide each with a reason,
@@ -511,7 +530,7 @@ So that reviewing a batch takes minutes.
 
 ### Story 2.5: Value history on the Record page
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [WEB] · **Covers:** FR17
+**Points:** 1 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR17
 
 As a Director of Diagnostics,
 I want to see every earlier value of a field with its Evidence, who decided and when,
@@ -526,7 +545,7 @@ So that I can see how the picture of a diagnostic changed.
 
 ### Story 2.6: Draft, activate and switch off a Learned rule
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path**
+**Points:** 3 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path**
 
 As a Reviewer,
 I want DxP to turn my rejection reason into a plain-language rule, apply it once I confirm, and let me switch it off,
@@ -549,7 +568,7 @@ So that the agents stop repeating a mistake I have already corrected.
 
 ### Story 2.7: Confirm and manage Learned rules on screen
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path**
 
 As a Reviewer,
 I want to see the drafted rule straight after I reject, edit its wording, confirm it, and later switch it off,
@@ -571,7 +590,7 @@ Each Team gets a first Alert for a matching Diagnostic at any stage, then update
 
 ### Story 3.1: Raise first and update Alerts for matching Teams
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path**
+**Points:** 3 · **Time:** ~2.8 h (M, 7 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path**
 
 As a Director of Diagnostics,
 I want one Alert when a diagnostic relevant to my team first appears, at any stage, and another only when it meaningfully moves,
@@ -594,7 +613,7 @@ So that I hear about what matters and nothing else.
 
 ### Story 3.2: Alerts inbox for a Team
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path**
 
 As a Director of Diagnostics,
 I want to pick my team and see its Alerts with why each matters,
@@ -610,7 +629,7 @@ So that I can act on them in one place.
 
 ### Story 3.3: Digest of Proposed changes and Alerts
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR20
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR20 · **Demo path** (the Home page in Story 6.4 shows it)
 
 As a Director of Diagnostics,
 I want a digest of what changed for my team and what is waiting for review,
@@ -625,7 +644,7 @@ So that I can catch up in one view.
 
 ### Story 3.4: Audio briefing for an Alert
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it
 
 As a Director of Diagnostics,
 I want to hear an Alert read aloud,
@@ -641,7 +660,7 @@ So that I can catch up while away from a screen.
 
 ### Story 3.5: Play button on an Alert
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4
 
 As a Director of Diagnostics,
 I want a play button on each Alert,
@@ -659,7 +678,7 @@ A user describes an Intended use in plain words or filters, corrects the parsed 
 
 ### Story 4.1: Search indexes and synonym expansion
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15
+**Points:** 2 · **Time:** ~4.8 h (M, 6 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15
 
 As a Director of Diagnostics,
 I want "liquid biopsy" to find ctDNA tests and searches to understand meaning, not just words,
@@ -676,7 +695,7 @@ So that I find the right diagnostics whatever I call them.
 
 ### Story 4.2: Plain-language query with a correctable parsed query
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15
 
 As a Director of Diagnostics,
 I want to type what I need in plain words and see how DxP understood it,
@@ -695,7 +714,7 @@ So that I can correct it before trusting the results.
 
 ### Story 4.3: Comparison table with Evidence inline
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention
 
 As a Director of Diagnostics,
 I want one row per diagnostic and one column per criterion, with the quote one click away in each cell,
@@ -714,7 +733,7 @@ So that I can compare options side by side and check any cell.
 
 ### Story 4.4: Save a Shortlist against an Intended use
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14
 
 As a Director of Diagnostics,
 I want to save chosen diagnostics as a Shortlist named after what I need them for,
@@ -729,7 +748,7 @@ So that I can come back to it and share it.
 
 ### Story 4.5: Export the comparison or Shortlist with references
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [WEB] · **Covers:** FR25, NFR11
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [WEB] · **Covers:** FR25, NFR11
 
 As a Director of Diagnostics,
 I want to download the table with every reference intact,
@@ -746,7 +765,7 @@ So that I can put it in a report.
 
 ### Story 4.6: Category landscape with thin Records marked
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes
 
 As a Director of Diagnostics,
 I want to pick a category and see every diagnostic's full field set with the thin, stale or incomplete ones marked,
@@ -762,7 +781,7 @@ So that I know where the evidence is weak.
 
 ### Story 4.7: Add a value by hand
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6
 
 As a Director of Diagnostics,
 I want to add a value I know that the sources do not have,
@@ -778,7 +797,7 @@ So that everyone sees it, clearly marked as manually sourced.
 
 ### Story 4.8: Unmatched terms list for the Reviewer
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md`
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md`
 
 As a Reviewer,
 I want to see the terms DxP could not map to a standard name,
@@ -796,7 +815,7 @@ A user explores Diagnostics, biomarkers, tumour types, trials, drugs and Provide
 
 ### Story 5.1: Graph API built from the ledger's edges
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path**
+**Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path**
 
 As the web developer,
 I want nodes and links served from `edges`,
@@ -815,7 +834,7 @@ So that the Graph view never derives links itself.
 
 ### Story 5.2: Graph view with click-through
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path**
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path**
 
 As a judge,
 I want to see diagnostics, biomarkers, tumour types, trials, drugs and providers as one connected graph,
@@ -834,7 +853,7 @@ So that I see how the evidence links up, not just a list.
 
 ### Story 5.3: Highlight what changed since the last visit
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path**
+**Points:** 2 · **Time:** ~3.2 h (S, 4 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path**
 
 As a Director of Diagnostics,
 I want new and changed nodes and links highlighted since my last visit, and new ones to appear while I watch,
@@ -855,7 +874,7 @@ A returning Team sees what changed since its last visit, a resume summary from m
 
 ### Story 6.1: Memory adapter with two backends
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path**
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path**
 
 As the team,
 I want one memory interface that runs on Atlas Agent Memory or on plain collections,
@@ -873,7 +892,7 @@ So that the demo works whether or not the preview service behaves on the day.
 
 ### Story 6.2: Seed a synthetic past for each Team
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path**
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path**
 
 As the team,
 I want each synthetic Team to have a short history of past searches, opened Records and dismissals,
@@ -888,7 +907,7 @@ So that the resume on camera has something real to recall.
 
 ### Story 6.3: Resume summary on return
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path**
+**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path**
 
 As a returning Director of Diagnostics,
 I want DxP to tell me what changed since I was last here and what I was working on,
@@ -904,7 +923,7 @@ So that I pick up where I left off.
 
 ### Story 6.4: Home page with the Team's network and the welcome-back panel
 
-**Points:** 3 · **Time:** ~1.5 h · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path**
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path**
 
 As a returning Director of Diagnostics,
 I want the home page to open on my team's network with what changed glowing, and a welcome-back panel beside it,
@@ -919,7 +938,8 @@ So that I see what moved and can reopen my last search in one click.
 **And** a glass panel over the hero shows the resume summary, what changed since the last visit with links, and buttons to reopen the last Intended use and Shortlist
 **And** the panel names the memory backend in use, as the video wording requires, read from `NEXT_PUBLIC_MEMORY_BACKEND` set to match `DXP_MEMORY_BACKEND`
 **And** below the hero, the Team's latest Alerts (the Alert item from Story 3.2) and the Digest panel (Story 3.3) sit side by side
-**And** if memory is unavailable, the panel still shows what changed and the last Intended use, and says "Memory unavailable right now".
+**And** if memory is unavailable, the panel still shows what changed and the last Intended use, and says "Memory unavailable right now"
+**And** the "Reopen" buttons open Find (Stories 4.3 and 4.4); if those stories are not built, the panel shows the last Intended use and Shortlist as text without the buttons.
 
 ## Epic 7: Capture on the go (P3)
 
@@ -927,7 +947,7 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 
 ### Story 7.1: Quick capture of a name or note
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3
 
 As a Director of Diagnostics,
 I want to type a diagnostic I heard about at a conference and have DxP start a Record,
@@ -943,11 +963,11 @@ So that I do not lose it.
 
 ## Epic 8: Ship it to the judges
 
-A judge opens a working production URL at any point in the day, and at 18:00 receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
+A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
 
 ### Story 8.1: Deploy a walking skeleton to production
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path**
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path**
 
 As the team,
 I want the API on Modal and the web app on Vercel live in production from the first two hours, and every story merged through a checked pull request,
@@ -966,7 +986,7 @@ So that deploy and merge problems surface early, not at 17:00.
 
 ### Story 8.2: Rehearse the live run
 
-**Points:** 2 · **Time:** ~1 h · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path**
+**Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path**
 
 As the team,
 I want to run the live demo end to end once before recording, then restore,
@@ -982,7 +1002,7 @@ So that what we record works the first time.
 
 ### Story 8.3: Submission package
 
-**Points:** 1 · **Time:** ~0.5 h · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path**
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path**
 
 As a judge,
 I want a README and description that say what was built on the day, what was prepared before, and which MongoDB capability does what,
@@ -1036,26 +1056,30 @@ Every route in the AD-14 table, plus the two Story 4.4 adds, is built by exactly
 
 ## Points and time summary
 
-| Epic | Stories | Points | Time | Demo path | Cut candidates |
-|---|---|---|---|---|---|
-| 1 Evidence-backed records from real data | 12 | 30 | 15 h | 26 pts (13 h) | 4 pts (2 h) |
-| 2 Agents propose, the Reviewer decides, guardrails learn | 7 | 15 | 7.5 h | 14 pts (7 h) | 0 pts (0 h) |
-| 3 Teams get told what matters | 5 | 9 | 4.5 h | 5 pts (2.5 h) | 2 pts (1 h) |
-| 4 Find, compare and fill gaps | 8 | 16 | 8 h | 0 pts (0 h) | 5 pts (2.5 h) |
-| 5 See the connections | 3 | 7 | 3.5 h | 7 pts (3.5 h) | 0 pts (0 h) |
-| 6 Pick up where you left off | 4 | 8 | 4 h | 8 pts (4 h) | 0 pts (0 h) |
-| 7 Capture on the go | 1 | 2 | 1 h | 0 pts (0 h) | 2 pts (1 h) |
-| 8 Ship it to the judges | 4 | 5 | 2.5 h | 5 pts (2.5 h) | 0 pts (0 h) |
-| **Total** | **44** | **92** | **46 h** | **65 pts (32.5 h)** | **13 pts (6.5 h)** |
+Time is the agent-time estimate from "Estimating with AI agents" above: each story's normal developer estimate times the factor for its kind of work.
 
-| Lane | Points | Time |
-|---|---|---|
-| [API] | 52 | 26 h |
-| [WEB] | 40 | 20 h |
+| Epic | Stories | Points | Developer estimate | Agent time | Demo path | Cut candidates |
+|---|---|---|---|---|---|---|
+| 1 Evidence-backed records from real data | 12 | 30 | 62.5 h | 26.2 h | 24.1 h | 2.1 h |
+| 2 Agents propose, the Reviewer decides, guardrails learn | 7 | 15 | 32 h | 13 h | 11.5 h | 0 h |
+| 3 Teams get told what matters | 5 | 9 | 20 h | 8.7 h | 6.8 h | 1.9 h |
+| 4 Find, compare and fill gaps | 8 | 16 | 37 h | 21 h | 0 h | 4.2 h |
+| 5 See the connections | 3 | 7 | 17 h | 11.2 h | 11.2 h | 0 h |
+| 6 Pick up where you left off | 4 | 8 | 19 h | 10.8 h | 10.8 h | 0 h |
+| 7 Capture on the go | 1 | 2 | 4 h | 1.2 h | 0 h | 1.2 h |
+| 8 Ship it to the judges | 4 | 5 | 8 h | 5 h | 5 h | 0 h |
+| **Total** | **44** | **92** | **199.5 h** | **97.1 h** | **69.4 h** | **9.4 h** |
 
-PR and merge, outside the points: about 10 minutes per story. All 43 stories with points would be 43 pull requests, about 7 hours; the 28 Demo path stories with points, about 4.5 hours.
+| Lane | Agent time |
+|---|---|
+| [API] | 47.4 h |
+| [WEB] | 49.7 h |
 
-Capacity: the video moved after 18:00, so coding runs to 18:00: two developers for about seven hours is about 28 points (14 developer-hours), about 14 points per lane, or about 24 once PRs and merges are taken out. The full plan is 3.3 times capacity; the Demo path alone is 2.3 times. Story 8.4, the video, is 0 points: it is made after 18:00 in about 30 minutes, outside coding time.
+PR and merge: about 10 minutes per story, already inside the measured actuals the factors come from, so not added again.
+
+Capacity and timing for Saturday are in `build-schedule.md`: it models the team's agent capacity (44 agents, or 66 with Vlad's), the task-level dependency path, integration and review. The totals above are summed cycle times, useful for comparing parts of the plan, not for deciding what fits.
+
+Story 8.4, the video, is made after 18:00 in about 30 minutes, outside coding time.
 
 Departures from the architecture spine introduced by these stories, to confirm or reverse when cutting:
 
