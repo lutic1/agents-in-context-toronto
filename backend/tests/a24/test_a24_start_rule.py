@@ -261,6 +261,16 @@ def test_the_approval_action_is_settled_on_the_recovery_path(world, client, monk
     assert action["status"] == "done"
 
 
+def test_no_path_starts_a_task_run_with_task_run_off(world, client) -> None:
+    """Approval, retry, recovery and the start hook never call runs.start_if_absent while the
+    flag is off (A07+A11 would refuse it with 403 task_run_off)."""
+    decide(client)
+    decide(client)
+    world.db.data["tasks"][TASK_ID]["status"] = "queued"  # even a stray queued task is not started
+    asyncio.run(restart([]))
+    assert world.run_starts == [] and world.refused_task_starts == 0
+
+
 # --- the import rule ------------------------------------------------------------------------
 
 A24_FILES = ["dxp/reports/decide.py", "dxp/tasks/authorise.py", "dxp/tasks/dispatch.py", "dxp/gate/grants.py",

@@ -104,6 +104,8 @@ def test_approve_promotes_once_and_authorises_the_task_not_run(world, client) ->
     assert auth["_id"] == derive("dec_", dec["_id"], "authorise_task") == task["authorised_by_decision_id"]
     assert auth["outcome"] == "allowed" and auth["initiated_by"] == "sam"
     assert auth["cause"]["approval_decision_id"] == dec["_id"]
+    # the audit's "After the run" reads the gap the task answers from the Decision's inputs
+    assert auth["inputs"]["question"] == GAP == task["question"]
 
     # the task grant: narrow, one hour
     grant = world.db.data["grants"][f"{TASK_GRANT}@v1"]

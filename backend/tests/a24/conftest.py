@@ -101,6 +101,7 @@ class World:
     memories: list[dict[str, Any]] = field(default_factory=list)
     memory_fails: int = 0
     rejected_by_ledger: list[str] = field(default_factory=list)
+    refused_task_starts: int = 0
     gate_fail_kinds: dict[str, str] = field(default_factory=dict)
 
     def one(self, collection: str, **flt: Any) -> list[dict[str, Any]]:
@@ -260,6 +261,13 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
 
     async def start_if_absent(caller: m.Principal, grant_id: str, set: str,
                               run_id: str | None = None) -> tuple[m.Run, bool]:
+        from dxp import feature_enabled
+        from dxp.api.errors import ApiError
+
+        if set.startswith("task:") and not feature_enabled("task_run"):
+            # A07+A11 (head 8894382): refused before any read or write while the flag is off.
+            w.refused_task_starts += 1
+            raise ApiError(403, "task_run_off", "task_run is off")
         w.run_starts.append({"caller": caller.id, "grant_id": grant_id, "set": set, "run_id": run_id})
         doc = {"_id": run_id, "agent": "dxp-curator", "initiated_by": caller.id, "grant_id": grant_id,
                "grant_version": 1, "set": set, "kind": "task", "status": "running", "task_id": set[5:]}
