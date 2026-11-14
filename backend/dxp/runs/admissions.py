@@ -24,7 +24,15 @@ from pymongo.errors import DuplicateKeyError
 
 from dxp import identity, store
 from dxp.api.models import Admission
-from dxp.runs.common import LEASE, admissions_collection, count_admitted, emit_status, now, runs_collection
+from dxp.runs.common import (
+    ACTIVE_STATUSES,
+    LEASE,
+    admissions_collection,
+    count_admitted,
+    emit_status,
+    now,
+    runs_collection,
+)
 
 
 def _admission(doc: dict[str, Any]) -> Admission:
@@ -121,30 +129,52 @@ async def sweep(run_id: str) -> list[dict[str, str]]:
     return held
 
 
+#: Retries of the guarded end update when an admission or a stop lands between the read and it.
+_END_RETRIES = 8
+
+
+async def _end_when_idle(run_id: str, status_from: str, set_fields: dict[str, Any]) -> dict[str, Any] | None:
+    """`status_from` -> the end status once no admitted admission remains, guarded on the run's
+    `admitting` counter: read the counter, count, then update with filter
+    `{_id, status: status_from, admitting: <read value>}`. An admission committed after the read
+    changes the counter (`admit` `$inc`s it in its transaction), so the update matches nothing and
+    the loop re-reads and counts it. Returns the ended run, or None when it did not end."""
+    for _ in range(_END_RETRIES):
+        run = await runs_collection().find_one({"_id": run_id}, {"status": 1, "admitting": 1})
+        if run is None or run.get("status") not in ACTIVE_STATUSES:
+            return None
+        admitting = run.get("admitting")
+        if await count_admitted(run_id):
+            return None
+        doc = await runs_collection().find_one_and_update(
+            {"_id": run_id, "status": status_from, "admitting": admitting},
+            {"$set": set_fields},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is not None:
+            return doc
+        # Not ended: the status is not `status_from`, or an admission landed after the read.
+        # Re-read; a run that is not in `status_from` ends here.
+        current = await runs_collection().find_one({"_id": run_id}, {"status": 1, "admitting": 1})
+        if current is None or current.get("status") != status_from:
+            return None
+    return None
+
+
 async def settle(run_id: str) -> None:
-    """Only stops (D23): stopping -> stopped once no admitted admission remains."""
-    if await count_admitted(run_id):
-        return
-    doc = await runs_collection().find_one_and_update(
-        {"_id": run_id, "status": "stopping"},
-        {"$set": {"status": "stopped", "stopped_at": now()}},
-        return_document=ReturnDocument.AFTER,
-    )
+    """Only stops (D23): stopping -> stopped once no admitted admission remains, guarded on the
+    `admitting` counter so an admission that lands between the count and the update keeps the run
+    `stopping` (AD-21)."""
+    doc = await _end_when_idle(run_id, "stopping", {"status": "stopped", "stopped_at": now()})
     if doc is not None:
         await emit_status(doc, "stopped")
-    return
 
 
 async def finish(run_id: str) -> None:
-    """running -> done once no admitted admission remains; called by the pipeline after the last item."""
-    if await count_admitted(run_id):
-        return
+    """running -> done once no admitted admission remains; called by the pipeline after the last
+    item. Guarded on the `admitting` counter like `settle`."""
     at = now()
-    doc = await runs_collection().find_one_and_update(
-        {"_id": run_id, "status": "running"},
-        {"$set": {"status": "done", "finished_at": at, "progress_at": at}},
-        return_document=ReturnDocument.AFTER,
-    )
+    doc = await _end_when_idle(run_id, "running", {"status": "done", "finished_at": at, "progress_at": at})
     if doc is not None:
         await emit_status(doc, "done")
         return

@@ -16,6 +16,7 @@ runs imports nothing from actions or tasks (D43, V38), nor from memory, retrieva
 
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
 from datetime import datetime
@@ -127,6 +128,20 @@ async def _checked_grant(caller: Principal, grant_id: str, kind: str, task_id: s
     return grant
 
 
+#: The singleton start lock (AD-16): every start writes it inside its insert transaction.
+START_LOCKS = "run_locks"
+START_LOCK_ID = "runs.start"
+
+
+def _start_lock() -> Any:
+    return store.collection(START_LOCKS)
+
+
+async def _ensure_start_lock() -> None:
+    """Create the lock document outside any transaction, once (an upsert that changes nothing after)."""
+    await _start_lock().update_one({"_id": START_LOCK_ID}, {"$setOnInsert": {"seq": 0}}, upsert=True)
+
+
 def _active_filter(at: Any) -> dict[str, Any]:
     """Runs that count against the one-run rule: running or stopping, not stalled (AD-16)."""
     return {"status": {"$in": list(ACTIVE_STATUSES)}, "progress_at": {"$gte": at - STALL_WINDOW}}
@@ -164,9 +179,6 @@ async def start_if_absent(caller: Principal, grant_id: str, set: str, run_id: st
 
     at = now()
     others = {**_active_filter(at), "_id": {"$ne": run_id}} if run_id else _active_filter(at)
-    if await runs_collection().find_one(others, {"_id": 1}) is not None:
-        raise ApiError(409, "run_active", "Another run is running or stopping.")
-
     scope_id = getattr(grant.scope, "scope_id", None)
     doc: dict[str, Any] = {
         "_id": run_id or f"run_{secrets.token_hex(8)}",
@@ -199,23 +211,29 @@ async def start_if_absent(caller: Principal, grant_id: str, set: str, run_id: st
         "stopped_at": None,
         "finished_at": None,
     }
+
+    # Serialised on the server (AD-16): the one-run check and the insert run in one transaction
+    # that also writes the singleton start lock, so two concurrent starts conflict on the lock and
+    # the retried one sees the other's run. No client clock decides who wins.
+    async def checked_insert(session: Any) -> bool:
+        if await runs_collection().find_one(others, {"_id": 1}, session=session) is not None:
+            return False
+        await _start_lock().update_one(
+            {"_id": START_LOCK_ID}, {"$inc": {"seq": 1}, "$set": {"at": at}}, session=session
+        )
+        await runs_collection().insert_one(dict(doc), session=session)
+        return True
+
+    await _ensure_start_lock()
     try:
-        await runs_collection().insert_one(doc)
+        async with store.get_client().start_session() as session:
+            inserted = await session.with_transaction(checked_insert)
     except DuplicateKeyError:
         if kind != "task":
             raise
         stored = await runs_collection().find_one({"_id": doc["_id"]})
         return run_model(stored), False
-
-    # Two starts that both passed the check above: the earlier one (started_at, then _id) keeps
-    # running and the later one is withdrawn before anything starts it (AD-16).
-    earlier = {
-        **_active_filter(at),
-        "_id": {"$ne": doc["_id"]},
-        "$or": [{"started_at": {"$lt": at}}, {"started_at": at, "_id": {"$lt": doc["_id"]}}],
-    }
-    if await runs_collection().find_one(earlier, {"_id": 1}) is not None:
-        await runs_collection().delete_one({"_id": doc["_id"], "status": "running", "admitting": 0})
+    if not inserted:
         raise ApiError(409, "run_active", "Another run is running or stopping.")
 
     await emit_status(doc, "running")
@@ -285,7 +303,8 @@ async def record_progress(
 
     Each call carries the full current values, so a repeat is harmless: `counts` keys from
     RunCounts except `not_admitted`, `active_items` [{ source_ref, step }] and `failure_lines`
-    [{ source_ref, error }] (codes, never source text). Conditional on the run being `running`
+    [{ source_ref, error }] (codes, never source text). Counts are raised with `$max`, never
+    lowered, and the writes for one run are serialised. Conditional on the run being `running`
     or `stopping`; returns False when it is neither (an ended run is never rewritten).
     """
     unknown = set(counts) - PIPELINE_COUNTS
@@ -293,12 +312,28 @@ async def record_progress(
         raise ValueError(f"record_progress: counts not owned by the pipeline: {sorted(unknown)}")
     active = [{"source_ref": str(a["source_ref"]), "step": str(a["step"])} for a in active_items]
     failures = [{"source_ref": str(f["source_ref"]), "error": str(f["error"])} for f in failure_lines]
-    update: dict[str, Any] = {f"counts.{key}": int(value) for key, value in counts.items()}
-    update.update({"active": active, "failures": failures, "progress_at": now()})
-    result = await runs_collection().update_one(
-        {"_id": run_id, "status": {"$in": list(ACTIVE_STATUSES)}}, {"$set": update}
-    )
+    # Counts only grow: `$max`, so an older snapshot landing last never rewinds them. `active` and
+    # `failures` are whole lists, so writes for one run are serialised in this process.
+    raised = {f"counts.{key}": int(value) for key, value in counts.items()}
+    update: dict[str, Any] = {"$set": {"active": active, "failures": failures, "progress_at": now()}}
+    if raised:
+        update["$max"] = raised
+    async with _progress_lock(run_id):
+        result = await runs_collection().update_one(
+            {"_id": run_id, "status": {"$in": list(ACTIVE_STATUSES)}}, update
+        )
     return result.matched_count == 1
+
+
+_PROGRESS_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _progress_lock(run_id: str) -> asyncio.Lock:
+    """One lock per run for `record_progress` (made on first use, in the running loop)."""
+    lock = _PROGRESS_LOCKS.get(run_id)
+    if lock is None:
+        lock = _PROGRESS_LOCKS[run_id] = asyncio.Lock()
+    return lock
 
 
 #: The keys of `Run.scan` (AD-14), plus the scan's own count and outcome flags (A05).
