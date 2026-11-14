@@ -85,12 +85,13 @@ async def sweep_in_background(run_id: str, start: Callable[[str], Any], *, recov
             await _quietly("actions.mark_unknown", lambda a=action_id: actions.mark_unknown(a, "abandoned_in_flight"))
         elif status == "queued":
             await _quietly("actions.mark_failed", lambda a=action_id: actions.mark_failed(a, "abandoned_before_send"))
-    if held:
-        run = await _quietly("load run", lambda: load_run(run_id))
-        task_id = (run or {}).get("task_id")
-        if task_id:
-            # The abandoned-task rule (V38): running -> failed (error: abandoned), never restarted.
-            await _quietly("tasks.mark_abandoned", lambda: tasks.mark_abandoned(task_id))
+    run = await _quietly("load run", lambda: load_run(run_id))
+    task_id = (run or {}).get("task_id")
+    if task_id and (held or await _quietly("runs.has_abandoned", lambda: runs.has_abandoned(run_id))):
+        # The abandoned-task rule (V38, D43): a task run with any abandoned admission, even one
+        # whose worker died before its action existed, sets the task failed (error: abandoned),
+        # conditional on running and never restarted.
+        await _quietly("tasks.mark_abandoned", lambda: tasks.mark_abandoned(task_id))
     await _quietly("runs.settle", lambda: runs.settle(run_id))
     if recover:
         await recover_and_dispatch(start)

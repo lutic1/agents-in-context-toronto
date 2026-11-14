@@ -362,3 +362,19 @@ async def test_record_scan_sets_the_runs_scan_while_active(clean, authority) -> 
     await runs.finish(run.id)
     assert not await runs.record_scan(run.id, {**scan, "cursor_to": "2026-12-01"})
     assert (await runs.get_run(run.id)).scan.cursor_to == "2026-11-14"
+
+
+async def test_an_admission_abandoned_before_its_action_existed_is_seen(clean, authority) -> None:
+    run = await runs.start(SAM, "lbdx", "discover")
+    adm = await runs.admit(run.id, "x|search_source|-|-")
+    assert not await runs.has_abandoned(run.id)
+    await clean["admissions"].update_one({"_id": adm.id}, {"$set": {"expires_at": datetime.now(UTC) - timedelta(minutes=1)}})
+    assert await runs.sweep(run.id) == []  # no action was inserted yet
+    assert await runs.has_abandoned(run.id)
+
+
+async def test_record_scan_stores_a_date_cursor_as_text(clean, authority) -> None:
+    run = await runs.start(SAM, "lbdx", "discover")
+    assert await runs.record_scan(run.id, {"cursor_from": datetime(2026, 9, 1, tzinfo=UTC), "cursor_to": "2026-11-14",
+                                           "query": {}, "source_refs": []})
+    assert (await runs.get_run(run.id)).scan.cursor_from == "2026-09-01"

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import secrets
+from datetime import datetime
 from typing import Any
 
 from pymongo import ReturnDocument
@@ -28,7 +29,7 @@ from dxp.api import auth
 from dxp.api.errors import ApiError
 from dxp.api.models import Grant, Principal, Run, RunContext, RunCounts, Stamp
 from dxp.gate import policy_sets
-from dxp.runs.admissions import admit, finish, release, settle, sweep
+from dxp.runs.admissions import admit, finish, has_abandoned, release, settle, sweep
 from dxp.runs.common import (
     ACTIVE_STATUSES,
     STALL_WINDOW,
@@ -48,6 +49,7 @@ __all__ = [
     "fail",
     "finish",
     "get_run",
+    "has_abandoned",
     "list_runs",
     "parse_set",
     "record_progress",
@@ -300,6 +302,15 @@ async def record_progress(
 SCAN_KEYS = frozenset({"cursor_from", "cursor_to", "query", "source_refs", "count", "cursor_advanced", "complete"})
 
 
+def _cursor_text(value: Any) -> str | None:
+    """A cursor as `YYYY-MM-DD` text (Run.scan holds text; a scope may store a BSON date)."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    raise ValueError(f"record_scan: a cursor must be text or a date, not {type(value).__name__}")
+
+
 async def record_scan(run_id: str, scan: dict[str, Any]) -> bool:
     """`Run.scan` for a discover run (AD-25), written only here (only Governance writes `runs`).
 
@@ -314,8 +325,8 @@ async def record_scan(run_id: str, scan: dict[str, Any]) -> bool:
     if unknown:
         raise ValueError(f"record_scan: unknown keys {sorted(unknown)}")
     value: dict[str, Any] = {
-        "cursor_from": scan.get("cursor_from"),
-        "cursor_to": scan.get("cursor_to"),
+        "cursor_from": _cursor_text(scan.get("cursor_from")),
+        "cursor_to": _cursor_text(scan.get("cursor_to")),
         "query": scan.get("query"),
         "source_refs": [str(ref) for ref in scan.get("source_refs") or []],
     }

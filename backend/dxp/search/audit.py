@@ -270,20 +270,35 @@ def _entry(
     return AuditEntry.model_validate(entry)
 
 
+async def _actions_for(decisions: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """{ decision_id: action }. By the decision's `action_id`, and for an allowed decision whose
+    `action_id` was never set (a crash between the two writes), by the action's `decision_id`."""
+    by_id = await _by_id("actions", [d.get("action_id") for d in decisions])
+    found = {a["decision_id"]: a for a in by_id.values() if a.get("decision_id")}
+    for d in decisions:
+        if d.get("action_id") in by_id:
+            found[d["_id"]] = by_id[d["action_id"]]
+    orphans = [d["_id"] for d in decisions if d.get("outcome") == "allowed" and d["_id"] not in found]
+    if orphans:
+        async for action in store.collection("actions").find({"decision_id": {"$in": orphans}}):
+            found.setdefault(action["decision_id"], action)
+    return found
+
+
 async def _entries(decisions: list[dict[str, Any]], run: dict[str, Any]) -> list[AuditEntry]:
     decisions = sorted(decisions, key=_order)
-    actions = await _by_id("actions", [d.get("action_id") for d in decisions])
+    actions = await _actions_for(decisions)
     settling = await _reconciling(list(actions.values()))
     proposal_ids, report_ids = [], []
     for d in decisions:
         target, evidence = d.get("target") or {}, d.get("evidence_ref") or {}
         proposal_ids += [target.get("proposal_id"), evidence.get("proposal_id")]
-        report_ids.append(_report_id(d, actions.get(d.get("action_id"))))
+        report_ids.append(_report_id(d, actions.get(d["_id"])))
     proposals = await _by_id("proposals", proposal_ids)
     reports = await _by_id("reports", report_ids)
     entries = []
     for d in decisions:
-        action = actions.get(d.get("action_id"))
+        action = actions.get(d["_id"])
         entries.append(
             _entry(d, await authorised_by(d), action, bool(action and action["_id"] in settling), proposals, reports, run)
         )
@@ -315,7 +330,7 @@ async def _sources(run: dict[str, Any], decisions: list[dict[str, Any]], actions
     refs += list((run.get("scan") or {}).get("source_refs") or [])
     for d in sorted(decisions, key=_order):
         if d.get("kind") == "search_source":
-            refs += list((((actions.get(d.get("action_id")) or {}).get("result")) or {}).get("source_refs") or [])
+            refs += list((((actions.get(d["_id"]) or {}).get("result")) or {}).get("source_refs") or [])
     set_value = run.get("set") or ""
     if set_value.startswith("nct:"):
         refs.append(f"clinicaltrials.gov:{set_value.removeprefix('nct:')}")
@@ -362,7 +377,7 @@ async def run_audit(run_id: str) -> Audit:
     after = await store.collection("decisions").find(
         {"cause.origin_run_id": run_id, "run_id": {"$ne": run_id}}
     ).to_list(length=None)
-    actions = await _by_id("actions", [d.get("action_id") for d in decisions])
+    actions = await _actions_for(decisions)
     run_model: Run = await run_view(run)
     return Audit(
         run=run_model,

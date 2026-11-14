@@ -108,3 +108,15 @@ async def test_record_progress_refuses_counts_the_pipeline_does_not_own() -> Non
 async def test_record_scan_refuses_unknown_keys() -> None:
     with pytest.raises(ValueError):
         await runs.record_scan("run_x", {"cursor_from": "2026-09-01", "raw_text": "never"})
+
+
+async def test_record_scan_refuses_a_cursor_that_is_not_text_or_a_date() -> None:
+    with pytest.raises(ValueError):
+        await runs.record_scan("run_x", {"cursor_from": 20260901})
+
+
+def test_record_scan_writes_date_cursors_as_text() -> None:
+    from datetime import UTC, datetime
+
+    assert runs._cursor_text(datetime(2026, 9, 1, tzinfo=UTC)) == "2026-09-01"
+    assert runs._cursor_text("2026-09-01") == "2026-09-01" and runs._cursor_text(None) is None

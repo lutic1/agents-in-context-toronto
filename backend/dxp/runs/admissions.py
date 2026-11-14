@@ -151,3 +151,9 @@ async def finish(run_id: str) -> None:
     # Stopped while the last item finished: settle applies instead (AD-21).
     await settle(run_id)
     return
+
+
+async def has_abandoned(run_id: str) -> bool:
+    """True once any admission of the run was abandoned, whether or not it held an action yet
+    (a worker that died between `admit` and the gate holds none). The abandoned-task rule reads it."""
+    return await admissions_collection().count_documents({"run_id": run_id, "status": "abandoned"}, limit=1) > 0

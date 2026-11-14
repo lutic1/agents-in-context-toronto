@@ -256,3 +256,14 @@ async def test_decision_detail_and_action_routes(story, fake_run_function) -> No
         one = await client.get(f"/api/v1/actions/{story['alert2']['action_id']}", headers=h)
         assert one.json()["authorised_by"]["principal"] == "dxp-curator"
         assert (await client.get("/api/v1/runs/run_missing/audit", headers=h)).status_code == 404
+
+
+async def test_an_action_whose_decision_lost_its_action_id_is_still_joined(story) -> None:
+    from dxp import store
+
+    db_decisions = store.collection("decisions")
+    alert_id = story["alert2"]["_id"]
+    await db_decisions.update_one({"_id": alert_id}, {"$set": {"action_id": None}})
+    result = await audit.run_audit(story["run"]["_id"])
+    entry = next(e for e in result.entries if e.decision_id == alert_id)
+    assert entry.status == "unknown" and entry.action_id == story["alert2"]["action_id"]
