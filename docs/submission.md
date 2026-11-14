@@ -67,13 +67,13 @@ The scope's scan cursor and the team's memories are kept over time, so the next 
 Each of these is optional, on demand and planned. None gates the loop. Keep a sentence only if its check passed, and say nothing about the rest. [[PENDING: which supporting features passed their checks: briefing (B06), LiveAvatar (B08, OD7, V49), revert (S4), live stream (S5), follow-up task run (I3b)]]
 
 - A ten-second ElevenLabs briefing is planned to be made on demand from the report's own text script. [[VERIFY: B06]]
-- LiveAvatar (HeyGen), pending V49, is a live, interactive avatar planned to speak only the report's verified script. It is pending Luis's approval as decision V49, it is the first supporting cut, and the sentence stays only if V49 was approved and its check passed. [[VERIFY: B08 | OD7 | V49]]
+- LiveAvatar (HeyGen), pending approval (proposed V70), is a live, interactive avatar planned to speak only the report's verified script. It is pending Luis's approval as a proposed decision V70, it is the first supporting cut, and the sentence stays only if V49 was approved and its check passed. [[VERIFY: B08 | OD7 | V49]]
 - The script is always shown as text. [[VERIFY: I1]]
 - Running the authorised follow-up task is a stretch goal. If it did not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ### Built on the day, and what was prepared
 
-The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), pending V49, accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
+The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), pending approval (proposed V70), accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
 
 ### Limits
 
