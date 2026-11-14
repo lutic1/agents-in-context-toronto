@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowLeft, CircleDashed, FileSearch, ScrollText, SearchX } from "lucide-react";
 import { useSWRConfig } from "swr";
 
+import { isActiveRun } from "@/components/audit/labels";
 import { LiveSourceLabel, runKeys, sweepInterval, useLiveSource } from "@/components/live-source";
 import { ActionFeed } from "@/components/run-console/action-feed";
 import { IdentityCard } from "@/components/run-console/identity-card";
@@ -31,10 +33,18 @@ export function RunView({ runId }: { runId: string }) {
   const { mutate } = useSWRConfig();
   const source = useLiveSource(runId);
 
-  const run = useApi("/runs/{run_id}", { path: { run_id: runId }, interval: source.refreshInterval });
+  // A run that has ended (stopped, done or failed) is read once and then left alone, as the Audit view does.
+  const [ended, setEnded] = useState(false);
+  const interval = ended ? 0 : source.refreshInterval;
+  const run = useApi("/runs/{run_id}", { path: { run_id: runId }, interval });
   // Same read as above on a slow timer, only while the stream is open: it keeps the sweep and `in_flight` moving.
   useApi("/runs/{run_id}", { path: { run_id: runId }, interval: sweepInterval(source.mode, run.data?.status) });
-  const audit = useApi("/runs/{run_id}/audit", { path: { run_id: runId }, interval: source.refreshInterval });
+  const audit = useApi("/runs/{run_id}/audit", { path: { run_id: runId }, interval });
+  const runEnded = run.data ? !isActiveRun(run.data.status) : false;
+  // Polling stops only after the audit has been read since the run ended, so its last entries are not missed.
+  // Adjusted during render (React's "storing information from previous renders" pattern), not in an effect.
+  const settled = runEnded && Boolean(audit.data) && !isActiveRun(audit.data!.run.status);
+  if (settled !== ended) setEnded(settled);
   const whoami = useApi("/whoami");
   const teams = useApi("/teams");
 
@@ -115,7 +125,13 @@ export function RunView({ runId }: { runId: string }) {
           <h2 id="feed-heading" className="text-heading">
             Actions
           </h2>
-          <LiveSourceLabel mode={source.mode} />
+          {ended ? (
+            <p role="status" aria-live="polite" className="text-table text-muted-foreground">
+              Run ended. Not refreshing.
+            </p>
+          ) : (
+            <LiveSourceLabel mode={source.mode} />
+          )}
         </div>
         <ActionFeed
           run={data}
