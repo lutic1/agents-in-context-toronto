@@ -222,6 +222,45 @@ def test_crash_before_the_report_is_accepted_is_finished_by_recover_accepting(wo
     assert len(world.applied) == 1 and len(world.db.all("tasks")) == 1
 
 
+async def test_recover_accepting_logs_one_broken_report_and_finishes_the_rest(world, monkeypatch) -> None:
+    import dxp.ledger
+
+    other = derive("rep_", "other")
+    world.add_report(_id=other, status="accepting", proposal_ids=["p_missing"],
+                     approval={"decision_id": derive("dec_", "x"), "task_step": "pending", "reviewer": "sam"})
+    world.db.data["reports"][REPORT_ID].update(
+        status="accepting", approval={"decision_id": derive("dec_", "y"), "task_step": "pending", "reviewer": "sam"})
+    original = dxp.ledger.apply_with
+
+    async def apply_with(proposal_id, **kwargs):
+        if proposal_id == "p_missing":
+            raise LookupError("proposal p_missing not found")
+        return await original(proposal_id, **kwargs)
+
+    monkeypatch.setattr(dxp.ledger, "apply_with", apply_with)
+    await rd().recover_accepting()  # does not raise
+    assert world.db.data["reports"][other]["status"] == "accepting"
+    assert world.report()["status"] == "accepted"
+
+
+def test_the_approval_action_is_settled_on_the_recovery_path(world, client, monkeypatch) -> None:
+    decide_mod = rd()
+    original = decide_mod.finish_accepting
+
+    async def crash(report_id: str):
+        raise SimulatedCrash(report_id)
+
+    monkeypatch.setattr(decide_mod, "finish_accepting", crash)
+    with pytest.raises(SimulatedCrash):
+        decide(client)
+    (action,) = [a for a in world.db.all("actions") if a["kind"] == "decide_report"]
+    assert action["status"] == "queued"
+    monkeypatch.setattr(decide_mod, "finish_accepting", original)
+    asyncio.run(restart([]))
+    (action,) = [a for a in world.db.all("actions") if a["kind"] == "decide_report"]
+    assert action["status"] == "done"
+
+
 # --- the import rule ------------------------------------------------------------------------
 
 A24_FILES = ["dxp/reports/decide.py", "dxp/tasks/authorise.py", "dxp/tasks/dispatch.py", "dxp/gate/grants.py",

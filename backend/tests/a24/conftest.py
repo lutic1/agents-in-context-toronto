@@ -162,6 +162,10 @@ class PersistingGate:
         }
         if ctx.get("origin"):
             doc["origin"] = ctx["origin"]
+        if not failed:
+            doc["action_id"] = derive("act_", decision_id)
+            await db["actions"].insert_one({"_id": doc["action_id"], "decision_id": decision_id,
+                                            "kind": action["kind"], "status": "queued"})
         await db["decisions"].insert_one(doc)
         seq = await emit_event({"type": "action_blocked" if failed else "action_allowed",
                                 "dedupe_key": f"decision|{decision_id}", "decision_id": decision_id,
@@ -206,6 +210,12 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     gate = PersistingGate(w)
     monkeypatch.setattr(dxp.gate, "evaluate", gate.evaluate)
     monkeypatch.setattr(dxp.gate, "evaluate_in", gate.evaluate_in, raising=False)
+
+    async def mark_action(action_id: str, status: str, result: Any = None, *, session: Any = None) -> bool:
+        res = await db["actions"].update_one({"_id": action_id, "status": "queued"}, {"$set": {"status": status}})
+        return bool(res.modified_count)
+
+    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
 
     async def apply_with(proposal_id: str, *, review: str | None = None, decided_by: str | None = None,
                          session: Any = None) -> m.Proposal:
@@ -256,7 +266,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         created = True
         try:
             await db["runs"].insert_one(doc)
-        except Exception:  # noqa: BLE001 - insert-if-absent
+        except Exception:
             doc, created = await db["runs"].find_one({"_id": run_id}), False
         return m.Run.model_validate({**doc, "id": doc["_id"]}), created
 

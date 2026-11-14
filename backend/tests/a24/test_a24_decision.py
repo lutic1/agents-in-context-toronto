@@ -263,20 +263,31 @@ def test_reports_decide_writes_no_proposal() -> None:
 
 
 def test_claim_kind_in_the_request_tags_the_memory(world, client) -> None:
-    from dxp.api.models import ReportDecisionRequest
-
-    if "claim_kind" not in ReportDecisionRequest.model_fields:
-        pytest.skip("ReportDecisionRequest.claim_kind is not on this branch yet (A01, PR #32)")
     decide(client, "reject", note="Terminated trial", claim_kind="claim_performed_or_results")
     assert world.memories[0]["tags"]["claim_kind"] == "claim_performed_or_results"
 
 
 def test_blocked_reason_is_returned_with_the_report(world, client) -> None:
-    from dxp.api.models import ReportApproval
-
     world.gate_fail_kinds["authorise_task"] = "destination_action"
     body = decide(client).json()
     stored = world.report()["approval"]["reason"]
     assert stored.startswith("Follow-up task not authorised: destination_action")
-    if "reason" in ReportApproval.model_fields:
-        assert body["report"]["approval"]["reason"] == stored
+    assert body["report"]["approval"]["reason"] == stored
+
+
+def test_the_approval_action_is_settled(world, client) -> None:
+    decide(client)
+    actions = {a["kind"]: a["status"] for a in world.db.all("actions")}
+    assert actions == {"decide_report": "done", "authorise_task": "done"}
+
+
+def test_a_report_with_no_gap_records_a_blocked_task_step(world, client) -> None:
+    world.add_report(gap="")  # the model requires a string; the validator allows an empty one
+    res = decide(client)
+    assert res.status_code == 200, res.text
+    report = world.report()
+    assert report["status"] == "accepted" and report["approval"]["task_step"] == "blocked"
+    assert report["approval"]["reason"] == "Follow-up task not authorised: the report names no gap for the task to answer"
+    assert world.db.all("tasks") == [] and res.json()["message"].startswith(
+        "Approved: 1 update accepted. Follow-up task not authorised: the report names no gap")
+    assert decide(client).status_code == 200  # terminal; later decisions do not fail

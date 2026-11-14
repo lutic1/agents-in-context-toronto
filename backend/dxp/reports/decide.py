@@ -507,5 +507,5 @@ async def recover_accepting() -> None:
             await finish_accepting(report_id)
         except AcceptanceIncomplete:
             log.warning("report %s stays accepting: a proposal did not apply", report_id)
-        except Exception:  # noqa: BLE001 - one stuck report never blocks the others or a decision
+        except Exception:
             log.exception("report %s stays accepting: its acceptance could not be finished", report_id)
