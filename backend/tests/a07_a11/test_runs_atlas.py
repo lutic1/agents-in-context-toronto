@@ -345,3 +345,20 @@ async def test_fail_is_conditional_and_emits_once(clean, authority) -> None:
     done = await runs.start(SAM, "lbdx", "discover")
     await runs.finish(done.id)
     assert (await runs.fail(done.id, "late")).status == "done"
+
+
+async def test_record_scan_sets_the_runs_scan_while_active(clean, authority) -> None:
+    run = await runs.start(SAM, "lbdx", "discover")
+    scan = {"cursor_from": "2026-09-01", "cursor_to": "2026-11-14",
+            "query": {"query.term": "\"Guardant360 CDx\"", "query.cond": "non-small cell lung cancer"},
+            "source_refs": ["clinicaltrials.gov:NCT04712877", "clinicaltrials.gov:NCT03000000"],
+            "count": 2, "cursor_advanced": True}
+    assert await runs.record_scan(run.id, scan)
+    assert await runs.record_scan(run.id, scan)  # a repeat is harmless
+    view = await runs.get_run(run.id)
+    assert view.scan.cursor_from == "2026-09-01" and view.scan.cursor_to == "2026-11-14"
+    assert view.scan.source_refs == scan["source_refs"]  # the order of items used
+    assert (await clean["runs"].find_one({"_id": run.id}))["scan"]["count"] == 2
+    await runs.finish(run.id)
+    assert not await runs.record_scan(run.id, {**scan, "cursor_to": "2026-12-01"})
+    assert (await runs.get_run(run.id)).scan.cursor_to == "2026-11-14"

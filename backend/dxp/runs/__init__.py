@@ -51,6 +51,7 @@ __all__ = [
     "list_runs",
     "parse_set",
     "record_progress",
+    "record_scan",
     "release",
     "settle",
     "stamp",
@@ -291,6 +292,37 @@ async def record_progress(
     update.update({"active": active, "failures": failures, "progress_at": now()})
     result = await runs_collection().update_one(
         {"_id": run_id, "status": {"$in": list(ACTIVE_STATUSES)}}, {"$set": update}
+    )
+    return result.matched_count == 1
+
+
+#: The keys of `Run.scan` (AD-14), plus the scan's own count and outcome flags (A05).
+SCAN_KEYS = frozenset({"cursor_from", "cursor_to", "query", "source_refs", "count", "cursor_advanced", "complete"})
+
+
+async def record_scan(run_id: str, scan: dict[str, Any]) -> bool:
+    """`Run.scan` for a discover run (AD-25), written only here (only Governance writes `runs`).
+
+    `scan` holds `cursor_from` (the cursor used), `cursor_to` (the cursor after; equal to
+    `cursor_from` when it did not advance), `query` (the request parameters), `source_refs` (the
+    items in the order the run uses them, anchor first) and optionally `count`,
+    `cursor_advanced` and `complete`. Any other key raises ValueError. The whole `scan` is set
+    at once, so a repeat is harmless. Conditional on the run being `running` or `stopping` (an
+    admitted scan may finish after a stop, AD-21); returns False for an ended run.
+    """
+    unknown = set(scan) - SCAN_KEYS
+    if unknown:
+        raise ValueError(f"record_scan: unknown keys {sorted(unknown)}")
+    value: dict[str, Any] = {
+        "cursor_from": scan.get("cursor_from"),
+        "cursor_to": scan.get("cursor_to"),
+        "query": scan.get("query"),
+        "source_refs": [str(ref) for ref in scan.get("source_refs") or []],
+    }
+    value.update({key: scan[key] for key in ("count", "cursor_advanced", "complete") if key in scan})
+    result = await runs_collection().update_one(
+        {"_id": run_id, "status": {"$in": list(ACTIVE_STATUSES)}},
+        {"$set": {"scan": value, "progress_at": now()}},
     )
     return result.matched_count == 1
 

@@ -103,3 +103,8 @@ def test_package_runs_imports_nothing_it_must_not() -> None:
 async def test_record_progress_refuses_counts_the_pipeline_does_not_own() -> None:
     with pytest.raises(ValueError):
         await runs.record_progress("run_x", counts={"not_admitted": 3}, active_items=[], failure_lines=[])
+
+
+async def test_record_scan_refuses_unknown_keys() -> None:
+    with pytest.raises(ValueError):
+        await runs.record_scan("run_x", {"cursor_from": "2026-09-01", "raw_text": "never"})
