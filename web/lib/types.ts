@@ -579,6 +579,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/{report_id}/interview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Interview Report */
+        post: operations["interview_report_api_v1_reports__report_id__interview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/{report_id}/revert": {
         parameters: {
             query?: never;
@@ -972,7 +989,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /** Observed At */
             observed_at: string | null;
             /** Proposed At */
@@ -1149,7 +1166,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /**
              * Memories Used
              * @default []
@@ -1206,8 +1223,11 @@ export interface components {
             expires_at: string | null;
             /** Grant Id */
             grant_id: string;
-            /** Grant Version */
-            grant_version: number;
+            /**
+             * Grant Version
+             * @description null when no grant version exists (check 1 blocked)
+             */
+            grant_version: number | null;
             /** Granted By */
             granted_by: string | null;
             /** Initiated By */
@@ -1217,10 +1237,23 @@ export interface components {
             /** Principal */
             principal: string;
         };
-        /** AvatarResponse */
+        /**
+         * AvatarResponse
+         * @description POST /reports/{report_id}/avatar (V70: a LiveAvatar session for the interview page).
+         *
+         *     `session_token` is a short-lived LiveAvatar token for the browser. It lives only in this
+         *     response: never on `Media` (which is stored), never in a document, an event or a log.
+         */
         AvatarResponse: {
             decision: components["schemas"]["Decision"];
             media: components["schemas"]["Media"];
+            /** Session Expires At */
+            session_expires_at: string | null;
+            /**
+             * Session Token
+             * @description short-lived LiveAvatar session token; never stored or logged
+             */
+            session_token: string | null;
         };
         /**
          * AvatarResult
@@ -1349,9 +1382,9 @@ export interface components {
             grant_id: string;
             /**
              * Grant Version
-             * @description evaluated
+             * @description evaluated; null when the grant does not exist (check 1 blocked)
              */
-            grant_version: number;
+            grant_version: number | null;
             /**
              * Id
              * @description decision_id, dec_
@@ -1370,7 +1403,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /**
              * Memories Used
              * @default []
@@ -1516,7 +1549,7 @@ export interface components {
              * Actions
              * @default []
              */
-            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal")[];
+            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Created At */
             created_at: string | null;
             /**
@@ -1611,6 +1644,56 @@ export interface components {
             links: components["schemas"]["Link"][];
             /** Nodes */
             nodes: components["schemas"]["Node"][];
+        };
+        /**
+         * InterviewCitation
+         * @description A verbatim quote stored on the accepted report, pinned to the version it came from (V40).
+         */
+        InterviewCitation: {
+            /**
+             * Field
+             * @description where on the report the quote sits, e.g. discovery or related
+             */
+            field: string | null;
+            /** Quote */
+            quote: string;
+            /** Source Ref */
+            source_ref: string;
+            /** Version Id */
+            version_id: string | null;
+        };
+        /**
+         * InterviewRequest
+         * @description V70: one question about an accepted report (interview flag).
+         */
+        InterviewRequest: {
+            /** Question */
+            question: string;
+        };
+        /**
+         * InterviewResponse
+         * @description V70: an answer built only from the report's own verbatim quotes, every sentence cited.
+         *
+         *     `refused` is true for a medical-advice question (one fixed refusal, no model call) or when
+         *     the gate blocked the `answer_question` action; `answer` then carries the refusal text.
+         */
+        InterviewResponse: {
+            /** Answer */
+            answer: string;
+            /** Citations */
+            citations: components["schemas"]["InterviewCitation"][];
+            /** Decision Id */
+            decision_id: string;
+            /**
+             * Refusal Reason
+             * @description medical_advice | not_in_record | blocked
+             */
+            refusal_reason: string | null;
+            /**
+             * Refused
+             * @default false
+             */
+            refused: boolean;
         };
         /** LedgerResult */
         LedgerResult: {
@@ -1897,7 +1980,7 @@ export interface components {
              * Applies To
              * @default []
              */
-            applies_to: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal")[];
+            applies_to: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Approved By */
             approved_by: string | null;
             /** Author */
@@ -1978,7 +2061,7 @@ export interface components {
              * Actions
              * @default []
              */
-            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "decide_proposal")[];
+            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Id */
             id: string;
             /**
@@ -6437,6 +6520,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReportDecisionResponse"];
+                };
+            };
+            /** @description bad_request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description unauthorised */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    interview_report_api_v1_reports__report_id__interview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewResponse"];
                 };
             };
             /** @description bad_request */

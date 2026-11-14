@@ -31,6 +31,7 @@ from dxp.api import (
     routes_briefing,
     routes_diagnostics,
     routes_grants,
+    routes_interview,
     routes_memories,
     routes_proposals,
     routes_report_decision,
@@ -66,6 +67,7 @@ OWNED_ROUTERS = (
     routes_reports.router,  # A19+A20
     routes_report_decision.router,  # A24
     routes_report_revert.router,  # A26 (V48)
+    routes_interview.router,  # interview lane (V70)
     routes_briefing.router,  # B06
     routes_avatar.router,  # B08
     routes_memories.router,  # A21+A22

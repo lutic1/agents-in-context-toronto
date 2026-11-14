@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // V70: the avatar listens to nothing. The LiveAvatar SDK (0.0.20) always asks for the
+  // microphone, even muted, so the browser is told no DxP page may use the mic or camera.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [{ key: "Permissions-Policy", value: "microphone=(), camera=()" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

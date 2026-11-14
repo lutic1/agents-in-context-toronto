@@ -26,6 +26,7 @@ BUILT_ROUTES = [
     ("GET", "/scopes"), ("GET", "/scopes/{scope_id}"),
     ("GET", "/reports"), ("GET", "/reports/{report_id}"), ("POST", "/reports/{report_id}/decision"),
     ("POST", "/reports/{report_id}/revert"),
+    ("POST", "/reports/{report_id}/interview"),
     ("POST", "/reports/{report_id}/briefing"), ("GET", "/reports/{report_id}/briefing"),
     ("POST", "/reports/{report_id}/avatar"), ("GET", "/reports/{report_id}/avatar"),
     ("GET", "/memories"), ("GET", "/memories/{memory_id}"),
@@ -54,6 +55,7 @@ BODIES = {
     "/actions/{action_id}/resolve": {"outcome": "delivered", "note": "seen in channel"},
     "/reports/{report_id}/decision": {"action": "approve"},
     "/reports/{report_id}/revert": {"note": "undo"},
+    "/reports/{report_id}/interview": {"question": "Has this trial posted results?"},
     "/memories/{memory_id}/correct": {"text": "t", "note": "n"},
     "/memories/{memory_id}/revoke": {"note": "n"},
     "/diagnostics/{dx_id}/values/{value_id}/review": {"action": "accept"},
@@ -252,7 +254,7 @@ async def test_start_hook_order_and_no_task_start_while_task_run_is_off(monkeypa
 def test_flags_are_off_by_default(features) -> None:
     from dxp import feature_enabled
 
-    for flag in ("task_run", "revert", "live_stream"):
+    for flag in ("task_run", "revert", "live_stream", "interview"):
         assert not feature_enabled(flag)
     features("revert")
     assert feature_enabled("revert") and not feature_enabled("task_run")
