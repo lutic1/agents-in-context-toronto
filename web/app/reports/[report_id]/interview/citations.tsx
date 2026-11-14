@@ -1,0 +1,82 @@
+import { Quote } from "lucide-react";
+
+import { nctIdOf, trialUrl } from "@/components/report/labels";
+
+import type { InterviewCitation } from "./interview-api";
+
+/** The record's own name for a source: the NCT ID, or the reference without the `clinicaltrials.gov:` prefix. */
+export function sourceLabel(sourceRef: string): string {
+  return nctIdOf(sourceRef) ?? sourceRef.replace(/^clinicaltrials\.gov:/i, "");
+}
+
+/**
+ * The citations panel of one answer. Each citation keeps its quote, source, version and field together
+ * (Evidence Display Rules). The quote is the record's words, so it is set as a quote; everything else is DxP's.
+ */
+export function CitationsPanel({ turnId, citations }: { turnId: string; citations: InterviewCitation[] }) {
+  if (citations.length === 0) return null;
+  return (
+    <div className="rounded-md border border-border bg-background p-4">
+      <h3 className="flex items-center gap-2 text-table font-semibold">
+        <Quote className="size-4" strokeWidth={1.75} aria-hidden="true" />
+        Citations ({citations.length})
+      </h3>
+      <ol className="mt-3 flex flex-col gap-4">
+        {citations.map((citation, index) => (
+          <li key={`${citation.source_ref}-${citation.version_id}-${index}`} id={citationId(turnId, index + 1)} className="scroll-mt-24">
+            <blockquote className="evidence-quote break-words">{citation.quote}</blockquote>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
+              <dt>Citation</dt>
+              <dd className="text-identifier text-foreground">[{index + 1}]</dd>
+              <dt>Source</dt>
+              <dd className="text-identifier break-all text-foreground">
+                <SourceLink sourceRef={citation.source_ref} />
+              </dd>
+              <dt>Version</dt>
+              <dd className="text-identifier break-all text-foreground">{citation.version_id ?? "not recorded"}</dd>
+              <dt>Field</dt>
+              <dd className="text-foreground">{fieldLabel(citation.field)}</dd>
+            </dl>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function SourceLink({ sourceRef }: { sourceRef: string }) {
+  const nct = nctIdOf(sourceRef);
+  if (!nct) return <>{sourceLabel(sourceRef)}</>;
+  return (
+    <a href={trialUrl(nct)} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+      {nct}
+      <span className="sr-only"> on ClinicalTrials.gov (opens in a new tab)</span>
+    </a>
+  );
+}
+
+export function citationId(turnId: string, number: number): string {
+  return `${turnId}-cite-${number}`;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  status: "Status",
+  dates: "Dates",
+  conditions: "Conditions",
+  phase: "Phase",
+  design: "Design or sample",
+  interventions: "Names the record gives (interventions)",
+  sponsor: "Sponsor",
+  location: "Location",
+  enrollment: "Enrollment",
+  results: "Results posted",
+  summary: "Brief summary",
+  description: "Detailed description",
+  discovery: "Discovery quote",
+  related: "Related evidence quote",
+};
+
+function fieldLabel(field: string | null | undefined): string {
+  if (!field) return "not recorded";
+  return FIELD_LABELS[field] ?? field;
+}
