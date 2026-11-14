@@ -71,7 +71,7 @@ export function DecisionBar({ reportId }: { reportId: string }) {
   if (report.status === "pending") return <PendingBar reportId={reportId} />;
   if (report.status === "accepting") {
     return (
-      <section aria-label="Decision" className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <section aria-label="Decision" className="rounded-lg bg-card p-4 shadow-sm">
         <p role="status" aria-live="polite" className="text-body">
           Approving: the update is being accepted. This page refreshes by itself.
         </p>
@@ -191,7 +191,7 @@ function PendingBar({ reportId }: { reportId: string }) {
 
   if (!canDecide) {
     return (
-      <section aria-label="Decision" className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <section aria-label="Decision" className="rounded-lg bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill status="pending" />
         </div>
@@ -208,7 +208,7 @@ function PendingBar({ reportId }: { reportId: string }) {
     <section
       aria-label="Decision"
       className={cn(
-        "rounded-lg border border-border bg-glass-strong p-3 shadow-glass backdrop-blur",
+        "rounded-lg bg-card p-3 shadow-glass",
         // Sticky only while the bar is short: an open form is tall and would cover the page at narrow widths.
         mode === null && "sticky bottom-0 z-10",
       )}

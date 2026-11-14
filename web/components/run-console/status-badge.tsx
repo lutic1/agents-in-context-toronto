@@ -17,7 +17,7 @@ export function RunStatusBadge({ status, className }: { status: Run["status"]; c
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-caption font-semibold",
+        "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-caption font-semibold",
         tone,
         className,
       )}

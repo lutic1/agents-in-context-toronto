@@ -9,6 +9,7 @@ import { isActiveRun } from "@/components/audit/labels";
 import { LiveSourceLabel, runKeys, sweepInterval, useLiveSource } from "@/components/live-source";
 import { ActionFeed } from "@/components/run-console/action-feed";
 import { IdentityCard } from "@/components/run-console/identity-card";
+import { OutcomeSummary } from "@/components/run-console/outcome-summary";
 import { runTitle } from "@/components/run-console/run-list";
 import { ScanOrder } from "@/components/run-console/scan-order";
 import { RunStatusBadge } from "@/components/run-console/status-badge";
@@ -109,16 +110,8 @@ export function RunView({ runId }: { runId: string }) {
         </div>
       </div>
 
-      <IdentityCard
-        run={data}
-        grant={grant.data}
-        teamSynthetic={teamSynthetic}
-        policyCount={audit.data ? audit.data.policies.length : null}
-        task={task.data}
-        entries={entries}
-      />
-
-      {!followUp ? <ScanOrder run={data} scope={scope.data} /> : null}
+      {/* What happened leads; how the run was set up follows the actions and reports. */}
+      <OutcomeSummary run={data} entries={entries} />
 
       <section aria-labelledby="feed-heading" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -145,7 +138,7 @@ export function RunView({ runId }: { runId: string }) {
       </section>
 
       {reports.length > 0 ? (
-        <section aria-labelledby="reports-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+        <section aria-labelledby="reports-heading" className="rounded-lg bg-card p-5 shadow-sm">
           <h2 id="reports-heading" className="text-heading">
             Reports this run filed
           </h2>
@@ -166,8 +159,18 @@ export function RunView({ runId }: { runId: string }) {
         </section>
       ) : null}
 
+      {!followUp ? <ScanOrder run={data} scope={scope.data} /> : null}
+
+      <IdentityCard
+        run={data}
+        grant={grant.data}
+        teamSynthetic={teamSynthetic}
+        policyCount={audit.data ? audit.data.policies.length : null}
+        task={task.data}
+      />
+
       {linkedRuns.length > 0 ? (
-        <section aria-labelledby="linked-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+        <section aria-labelledby="linked-heading" className="rounded-lg bg-card p-5 shadow-sm">
           <h2 id="linked-heading" className="text-heading">
             Follow-up task
           </h2>

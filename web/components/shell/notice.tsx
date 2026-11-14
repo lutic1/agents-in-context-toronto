@@ -25,7 +25,7 @@ export function Notice({
     <section
       role={role}
       className={cn(
-        "flex items-start gap-3 rounded-lg border border-border bg-card p-5 shadow-sm",
+        "flex items-start gap-3 rounded-lg bg-card p-5 shadow-sm",
         className,
       )}
     >

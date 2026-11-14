@@ -109,6 +109,20 @@ export function StartRun() {
 
   return (
     <form onSubmit={start} className="flex flex-col gap-4" aria-describedby={problem ? "start-problem" : undefined}>
+      {options.length === 1 ? (
+        // One grant: nothing to choose, so state it instead of showing a radio group of one.
+        <div className="flex flex-col gap-0.5">
+          <p className="text-caption text-muted-foreground">Scans under grant</p>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-table">
+            <span className="text-identifier font-semibold">{formatGrant(options[0].grant_id, options[0].version)}</span>
+            <span>{options[0].team_name ?? "No Team named"}</span>
+            {options[0].team_id && syntheticTeams.has(options[0].team_id) ? <SyntheticBadge /> : null}
+          </p>
+          <p className="text-caption text-muted-foreground">
+            {options[0].scope_name ? `Scope: ${options[0].scope_name}` : "Scope not named"}
+          </p>
+        </div>
+      ) : (
       <fieldset className="flex flex-col gap-2" aria-labelledby={legendId}>
         <legend id={legendId} className="text-table font-semibold">
           Grant to scan under
@@ -142,6 +156,7 @@ export function StartRun() {
           );
         })}
       </fieldset>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={!selected || busy} aria-busy={busy}>

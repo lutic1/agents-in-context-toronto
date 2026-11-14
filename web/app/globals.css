@@ -49,7 +49,6 @@
   --color-eosin-tint: var(--eosin-tint);
   --color-low-confidence: var(--low-confidence);
   --color-accepted: var(--accepted);
-  --color-field-base: var(--field-base);
   --color-glass: var(--glass);
   --color-glass-strong: var(--glass-strong);
   --color-glass-edge: var(--glass-edge);
@@ -66,17 +65,20 @@
   --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
   --font-heading: var(--font-sans);
 
-  /* Radius scale from DESIGN.md: sm 4, md 10, lg 18, xl 24 */
+  /* Radius scale: sm 4, md 8, lg 12, xl 16. Cards (lg, 16-20px padding) hold
+     md children, so the corners stay concentric enough to read as one object. */
   --radius-sm: 4px;
-  --radius-md: 10px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
-  --radius-2xl: 24px;
-  --radius-3xl: 24px;
-  --radius-4xl: 24px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
 
-  --shadow-glass: 0 1px 0 var(--glass-edge) inset,
-    0 12px 32px -12px var(--glass-shadow);
+  /* Elevation (emil-surfaces): a 1px ring, a tight shadow and a soft one,
+     all translucent ink, so a raised surface reads as raised on any background. */
+  --shadow-sm: var(--elevation-raised);
+  --shadow-glass: var(--elevation-overlay);
 
   --container-content: 1360px;
 }
@@ -98,7 +100,7 @@
   --accent: #e3e5f3;
   --accent-foreground: #23264f;
   --destructive: #b3261e; /* errors, blocked, rejected, always with icon and word */
-  --border: #cdd3e0; /* slide rule */
+  --border: rgb(35 38 79 / 0.12); /* slide rule: translucent ink, so it recedes on any surface */
   --input: #cdd3e0;
   --ring: #23264f;
   --chart-1: #23264f;
@@ -131,15 +133,26 @@
   --node-tumour: #6e4c9e;
   --node-provider: #7a8194;
 
-  /* Glass layer over the tissue field */
-  --field-base: #eef0f8;
-  --field-haematoxylin: #6f6bc2;
-  --field-eosin: #e78aae;
-  --field-green: #7fc2b5;
-  --glass: #ffffffb8;
-  --glass-strong: #ffffffe0;
-  --glass-edge: #ffffffcc;
-  --glass-shadow: #23264f1f;
+  /* Surfaces: a flat slide, white coverslips on it. The old tissue-field
+     gradient and frosted glass are gone; "glass" tokens now resolve to solid
+     white so any component still naming them stays readable. */
+  --glass: #ffffff;
+  --glass-strong: #ffffff;
+  --glass-edge: rgb(35 38 79 / 0.1);
+  --elevation-raised:
+    0 0 0 1px rgb(35 38 79 / 0.06),
+    0 1px 2px rgb(35 38 79 / 0.05),
+    0 4px 12px -4px rgb(35 38 79 / 0.06);
+  --elevation-overlay:
+    0 0 0 1px rgb(35 38 79 / 0.08),
+    0 2px 4px rgb(35 38 79 / 0.06),
+    0 12px 24px -8px rgb(35 38 79 / 0.14);
+  --border-hairline: 1px;
+}
+@media (min-resolution: 2dppx) {
+  :root {
+    --border-hairline: 0.5px;
+  }
 }
 
 @layer base {
@@ -148,12 +161,11 @@
   }
   html {
     @apply font-sans;
-    background: var(--field-base);
-    /* The top bar is sticky only at md and up, where it is one 64px row; keep
-       focused controls clear of it there (WCAG 2.2 SC 2.4.11). Below md it
-       scrolls away with the page. The bottom value is for B04's sticky
-       decisions bar. */
-    scroll-padding-top: 0;
+    background: var(--background);
+    /* The top bar is sticky at every size: two rows (about 108px) below md,
+       one 64px row from md. Keep focused controls clear of it (WCAG 2.2 SC
+       2.4.11). The bottom value is for B04's sticky decisions bar. */
+    scroll-padding-top: 7.5rem;
     scroll-padding-bottom: 5rem;
   }
   body {
@@ -229,21 +241,16 @@ main:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-/* Glass panel: the top bar and docked panels. Every other panel is solid white. */
+/* Docked panel: a solid white surface lifted with the overlay elevation. */
 @utility glass-panel {
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid var(--glass-edge);
-  box-shadow: var(--shadow-glass);
+  background: var(--card);
+  box-shadow: var(--elevation-overlay);
   border-radius: var(--radius-lg);
 }
+/* Bar: the top bar. Solid white with a hairline rule underneath, no blur. */
 @utility glass-panel-strong {
-  background: var(--glass-strong);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid var(--glass-edge);
-  box-shadow: var(--shadow-glass);
+  background: var(--card);
+  border-bottom: var(--border-hairline) solid var(--border);
 }
 
 /* Evidence quote: serif, 3px left rule in the haematoxylin wash. */
@@ -254,49 +261,6 @@ main:focus-visible {
   border-left: 3px solid var(--ink-tint);
   padding-left: 12px;
   max-width: 75ch;
-}
-
-/* Tissue field: a defocused stained-tissue field, drawn in CSS with no image file.
-   Six very large blurred circles in haematoxylin, eosin and counterstain,
-   fixed behind the page. It drifts once on load; reduced motion skips that. */
-.tissue-field {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  background: var(--field-base);
-  pointer-events: none;
-}
-.tissue-blob {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(100px);
-  will-change: transform;
-}
-.tissue-blob[data-tone="h"] {
-  background: var(--field-haematoxylin);
-  opacity: 0.26;
-}
-.tissue-blob[data-tone="e"] {
-  background: var(--field-eosin);
-  opacity: 0.24;
-}
-.tissue-blob[data-tone="g"] {
-  background: var(--field-green);
-  opacity: 0.16;
-}
-@keyframes tissue-drift {
-  from {
-    transform: translate3d(-24px, 16px, 0);
-  }
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .tissue-blob {
-    animation: tissue-drift 14s ease-out 1 both;
-  }
 }
 
 /* The one motion moment: a new action row fades and slides 8px into place once. */

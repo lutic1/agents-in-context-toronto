@@ -61,7 +61,7 @@ export function WhoAuthorisedDock({
     return (
       <aside
         aria-label="Who authorised this?"
-        className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-sm lg:block"
+        className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-lg bg-card p-5 shadow-sm lg:block"
       >
         <h2 className="mb-3 flex items-center gap-2 text-heading">
           <ShieldQuestion className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />

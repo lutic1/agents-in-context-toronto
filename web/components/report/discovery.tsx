@@ -24,7 +24,7 @@ export function Discovery({ report }: { report: Report }) {
   return (
     <section
       aria-labelledby="discovery-heading"
-      className="flex min-w-0 flex-col gap-5 rounded-lg border border-border bg-card p-5 shadow-sm"
+      className="flex min-w-0 flex-col gap-5 rounded-lg bg-card p-5 shadow-sm"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="inline-flex items-center gap-1.5">

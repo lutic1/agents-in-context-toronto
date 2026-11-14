@@ -36,7 +36,7 @@ export function DecidedLine({ report }: { report: Report }) {
   const scopeCollection = report.diagnostic_ids.length === 0;
 
   return (
-    <section aria-label="Decision" className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <section aria-label="Decision" className="rounded-lg bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         {report.status === "accepted" ? <StatusPill status="accepted" /> : null}
         {report.status === "rejected" ? <StatusPill status="rejected" /> : null}

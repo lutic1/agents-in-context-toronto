@@ -7,8 +7,7 @@ import { CapabilityTag } from "@/components/live-source";
 import { CopyId } from "@/components/run-console/copy-id";
 import { kindName } from "@/components/run-console/names";
 import { PersonName } from "@/components/run-console/person-name";
-import { StopControl } from "@/components/run-console/stop-control";
-import type { AuditEntry, Grant, Run, Task } from "@/components/run-console/types";
+import type { Grant, Run, Task } from "@/components/run-console/types";
 import { SyntheticBadge } from "@/components/shell/badges";
 import { formatDate, formatDateTime, formatGrant, formatPolicySetParts, formatTime } from "@/lib/format";
 
@@ -19,7 +18,6 @@ type Props = {
   teamSynthetic: boolean;
   policyCount: number | null;
   task: Task | undefined;
-  entries: AuditEntry[] | undefined;
 };
 
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -36,16 +34,16 @@ function Field({ label, children, className }: { label: string; children: React.
  * agent is the executing agent named by the grant; "Started by" is the principal the
  * API resolved from the caller's key. Nothing here is editable; identifiers are copyable.
  */
-export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, entries }: Props) {
+export function IdentityCard({ run, grant, teamSynthetic, policyCount, task }: Props) {
   const followUp = run.kind === "task";
   const policy = run.policy_set_version ? formatPolicySetParts(run.policy_set_version, policyCount ?? undefined) : null;
   const teamName = grant?.team_name ?? run.team_id;
 
   return (
-    <section aria-labelledby="identity-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+    <section aria-labelledby="identity-heading" className="rounded-lg bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="identity-heading" className="text-heading">
-          {followUp ? "Follow-up task" : "Who is running this"}
+          {followUp ? "Follow-up task" : "Run details"}
         </h2>
         <CapabilityTag
           label="Schema validation"
@@ -80,9 +78,11 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
       <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Agent">
           <span className="text-identifier">{run.agent}</span>
-          <span className="block text-caption text-muted-foreground">
-            {run.model ? <>Model <span className="text-identifier">{run.model}</span></> : "Model not recorded"}
-          </span>
+          {run.model ? (
+            <span className="block text-caption text-muted-foreground">
+              Model <span className="text-identifier">{run.model}</span>
+            </span>
+          ) : null}
         </Field>
 
         <Field label="Started by">
@@ -123,23 +123,20 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
           ) : null}
         </Field>
 
-        <Field label="Policy set">
-          {policy ? (
+        {/* Values that were never recorded are left out rather than shown as "Not recorded". */}
+        {policy ? (
+          <Field label="Policy set">
             <span title={run.policy_set_version ?? undefined}>
               <span className="text-identifier">{policy.hash}</span> {policy.count}
             </span>
-          ) : (
-            <span className="text-muted-foreground">Not recorded</span>
-          )}
-        </Field>
+          </Field>
+        ) : null}
 
-        <Field label="Prompt version">
-          {run.prompt_version ? (
+        {run.prompt_version ? (
+          <Field label="Prompt version">
             <span className="text-identifier">{run.prompt_version}</span>
-          ) : (
-            <span className="text-muted-foreground">Not recorded</span>
-          )}
-        </Field>
+          </Field>
+        ) : null}
 
         {!followUp ? (
           <Field label="Scan cursor" className="sm:col-span-2 lg:col-span-3">
@@ -185,9 +182,6 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
         </ul>
       ) : null}
 
-      <div className="mt-5 border-t border-border pt-4">
-        <StopControl run={run} entries={entries} />
-      </div>
     </section>
   );
 }

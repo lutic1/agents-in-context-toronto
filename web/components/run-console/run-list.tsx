@@ -72,16 +72,19 @@ export function RunList() {
         <li key={run.id}>
           <Link
             href={`/runs/${encodeURIComponent(run.id)}`}
-            className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-card p-3 hover:bg-ink-tint/50"
+            className="flex flex-col gap-1 rounded-md bg-card p-4 shadow-sm transition-shadow duration-150 hover:shadow-glass"
           >
-            <span className="text-table font-semibold">{runTitle(run)}</span>
-            <RunStatusBadge status={run.status} />
-            <span className="text-identifier text-muted-foreground">{run.id}</span>
-            <span className="text-caption text-muted-foreground sm:ml-auto">
-              {run.started_at ? `Started ${formatDateTime(run.started_at)}` : "Not started"}
-              {" · "}
-              {run.counts.reports === 1 ? "1 report filed" : `${run.counts.reports} reports filed`}
-              {run.counts.blocked > 0 ? `, ${run.counts.blocked} blocked` : ""}
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-table font-semibold">{runTitle(run)}</span>
+              <RunStatusBadge status={run.status} />
+              <span className="text-table font-semibold tabular-nums sm:ml-auto">
+                {run.counts.reports === 1 ? "1 report filed" : `${run.counts.reports} reports filed`}
+                {run.counts.blocked > 0 ? `, ${run.counts.blocked} blocked` : ""}
+              </span>
+            </span>
+            <span className="flex flex-wrap gap-x-3 text-caption text-muted-foreground">
+              <span>{run.started_at ? `Started ${formatDateTime(run.started_at)}` : "Not started"}</span>
+              <span className="text-identifier text-caption">{run.id}</span>
             </span>
           </Link>
         </li>
