@@ -15,7 +15,7 @@ inputDocuments:
 
 ## Overview
 
-This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Build day is Saturday 14 November 2026: two developers driving AI coding agents, about 8 hours 20 minutes of coding each, from about 9:39; coding stops at 18:00 and the video is made after it. Every story carries story points so the team can set the cut line afterwards.
+This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Build day is Saturday 14 November 2026: two developers driving AI coding agents, about 7 hours 36 minutes of coding each, from about 9:39 to 17:15; the video is recorded 17:15 to 17:45 and submitted by 17:55, unless the organisers confirm a later deadline. Every story carries story points so the team can set the cut line afterwards.
 
 ## Requirements Inventory
 
@@ -221,6 +221,8 @@ A story is done only when it is merged into `main` and working in production. Ev
 6. After the merge, check production. Vercel deploys `main` itself; the person named in the README runs `modal deploy` for API changes.
 
 Each pull request costs about 10 minutes: opening it, waiting for checks, the review and the merge. This time is already inside each story's agent-time estimate, because the CVH actuals it comes from ran to the merge. Merge small and often; never hold a story back to merge at the end of the day.
+
+A story is **done** only when all of its PRs have merged and its acceptance criteria pass on the integrated build: on the dev database after the seed or the 50-item run (P41, P42) for most stories, and in production at final acceptance (P38) for Demo path stories. The last merge alone does not make a story done; until the criteria are checked it stays `review` in `sprint-status.yaml`.
 
 ## Epic 1: Evidence-backed records from real data
 
@@ -1061,7 +1063,7 @@ So that I can judge the work fairly.
 
 ### Story 8.4: Three-minute demo video
 
-**Points:** 0 (after 18:00, about 30 minutes, both people) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad (after 18:00)
+**Points:** 0 (about 30 minutes, both people; 17:15 to 17:45 unless a later deadline is confirmed) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad
 
 As a judge,
 I want a three-minute video showing the agents, the review and learning loop, memory and the graph on real data,
@@ -1073,7 +1075,7 @@ So that I see real behaviour, not a mock-up.
 **When** the video is recorded
 **Then** it shows a live job, a Proposed change decided, a Learned rule created and flagging, a memory write and read, and the graph highlighting what changed
 **And** it names the MongoDB capability behind each behaviour, using the agreed memory wording for whichever backend ran
-**And** it is under three minutes and recorded after 18:00 in about 30 minutes.
+**And** it is under three minutes, recorded from 17:15 to 17:45 and submitted by 17:55, unless the organisers confirm a later deadline.
 
 ## Route ownership
 
@@ -1124,7 +1126,7 @@ PR and merge: about 10 minutes per story, already inside the measured actuals th
 
 Capacity and timing for Saturday are in `build-schedule.md`: it models the team's agent capacity (44 agents, or 66 with Vlad's), the task-level dependency path, integration and review. The totals above are summed cycle times, useful for comparing parts of the plan, not for deciding what fits.
 
-Story 8.4, the video, is made after 18:00 in about 30 minutes, outside coding time.
+Story 8.4, the video, is recorded 17:15 to 17:45 and submitted by 17:55, matching NFR8's 18:00 submission of description, repository and video, unless the organisers confirm a later deadline.
 
 Departures from the architecture spine introduced by these stories, to confirm or reverse when cutting:
 
