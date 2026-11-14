@@ -159,7 +159,7 @@ Recorded here as each check is run. Results are not filled in until someone has 
 |---|---|---|---|
 | OD1 | Vector Search indexes and Automated Embedding on the sandbox; else a cleared Voyage key; else `DXP_EMBEDDING=none` with text search, labelled | Gregorio (checked at 10:45, decided with Luis by 11:45) | To be recorded |
 | OD5 | Change streams on the sandbox tier (`events.watch()` receives an insert); a long-lived `StreamingResponse` from `@modal.asgi_app`, and through a Vercel streaming proxy, with the point where each is cut | Gregorio (checked at 10:45, decided with Luis by 11:45) | To be recorded |
-| OD6 | `mongodump` and `mongorestore` of a test database against the sandbox | Luis (by 12:20; proven at the I1 snapshot) | To be recorded |
+| OD6 | `mongodump` and `mongorestore` of a test database against the sandbox | Luis (by 12:20; proven at the I1 snapshot) | **Pass (14 Nov):** after granting `dxp_app` temporary `readWriteAnyDatabase` + `dbAdminAnyDatabase`, `test_reset_round_trip_keeps_validators_and_indexes` passed (mongodump→mongorestore keeps validators/indexes on throwaway `dxp_test_a13_*` DBs). Laptop also dumps/restores demo `dxp`. |
 | OD3 | `ELEVENLABS_API_KEY` set in the Modal secret | Luis | To be recorded |
 | OD7 | `LIVEAVATAR_API_KEY` set in the Modal secret (account check by Vlad) | Luis | To be recorded |
 | Deploy | Production URL loads the shell; `/api/v1/schema` answers; a stub route returns the 501 error shape | Luis | To be recorded |

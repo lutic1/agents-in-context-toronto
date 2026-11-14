@@ -110,8 +110,13 @@ def array_of(items: Schema, *, min_items: int | None = None, unique: bool = Fals
 
 
 def document(required: list[str], properties: dict[str, Schema], *, closed: bool = False) -> Schema:
-    """An object schema. `closed=True` rejects keys not listed (AD-18 `requires`)."""
-    schema: Schema = {"bsonType": "object", "required": list(required), "properties": dict(properties)}
+    """An object schema. `closed=True` rejects keys not listed (AD-18 `requires`).
+
+    Omit `required` when empty — MongoDB `$jsonSchema` rejects `required: []`.
+    """
+    schema: Schema = {"bsonType": "object", "properties": dict(properties)}
+    if required:
+        schema["required"] = list(required)
     if closed:
         schema["additionalProperties"] = False
     return schema
