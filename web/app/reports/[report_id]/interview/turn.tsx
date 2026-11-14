@@ -45,7 +45,7 @@ function textOrFallback(text: string | null | undefined): string {
 function Loading() {
   return (
     <div role="status" className="flex flex-col gap-2">
-      <p className="text-caption text-muted-foreground">Reading the accepted record for quotes that answer this.</p>
+      <p className="text-caption text-muted-foreground">Reading the report&apos;s record for quotes that answer this.</p>
       <Skeleton className="h-5 w-full max-w-prose" />
       <Skeleton className="h-5 w-4/5 max-w-prose" />
     </div>
@@ -71,7 +71,7 @@ function Outcome({ id, outcome, speak }: { id: string; outcome: TurnOutcome; spe
     case "not_in_record":
       return (
         <>
-          <Statement icon={SearchX} title="Not in the accepted record" text={textOrFallback(outcome.response.answer)} />
+          <Statement icon={SearchX} title="Not in the report's record" text={textOrFallback(outcome.response.answer)} />
           <Footer response={outcome.response} speak={speak} />
         </>
       );
@@ -101,7 +101,7 @@ function errorTitle(reason: Extract<TurnOutcome, { kind: "error" }>["reason"]): 
     case "flag_off":
       return "Interview is switched off";
     case "not_accepted":
-      return "Report not accepted";
+      return "Report not pending or accepted";
     case "report_not_found":
       return "Report not found";
     case "unauthorised":

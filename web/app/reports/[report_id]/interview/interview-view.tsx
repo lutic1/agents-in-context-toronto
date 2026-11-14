@@ -24,7 +24,7 @@ function announcement(outcome: TurnOutcome): string {
     case "answered":
       return `Answer ready with ${outcome.response.citations.length} citations.`;
     case "not_in_record":
-      return "The accepted record doesn't answer that.";
+      return "The report's record doesn't answer that.";
     case "refused_medical":
       return "Refused: this page gives no medical advice.";
     case "blocked":
@@ -36,14 +36,54 @@ function announcement(outcome: TurnOutcome): string {
 }
 
 /**
- * Interview this evidence (V70): ask a question about an accepted report and get back only its own quotes,
+ * Interview this evidence (V70, V74): ask a question about a pending or accepted report and get back only its own quotes,
  * each cited. The page is a supporting lane behind the `interview` flag and never blocks the core loop.
  */
 export function InterviewView({ reportId }: { reportId: string }) {
   const interviewOn = isEnabled("interview");
-  const avatarOn = isEnabled("avatar");
-  const voiceOn = isEnabled("voice_input");
   const report = useApi("/reports/{report_id}", { path: { report_id: reportId }, enabled: interviewOn });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <Link href={`/reports/${encodeURIComponent(reportId)}`} className="text-caption text-muted-foreground underline underline-offset-2">
+          Back to the report
+        </Link>
+        <h1 className="text-title">Interview this evidence</h1>
+        {report.data ? <p className="text-body text-muted-foreground">{report.data.headline}</p> : null}
+        <p className="max-w-prose rounded-md border border-dashed border-border bg-card px-3 py-2 text-caption">{VOICE_LABEL}</p>
+      </header>
+
+      <Body
+        reportId={reportId}
+        interviewOn={interviewOn}
+        loading={report.isLoading && !report.data}
+        error={report.error}
+        status={report.data?.status ?? null}
+      >
+        <InterviewWorkspace reportId={reportId} allowVoice />
+      </Body>
+    </div>
+  );
+}
+
+/**
+ * The ask box, the cited answers and the optional avatar panel (V70), reusable outside the interview page.
+ * `stacked` puts the avatar panel under the answers instead of beside them. `allowVoice` shows the recorder
+ * (V73); it stays false everywhere but the interview route, whose Permissions-Policy allows the microphone.
+ * The avatar starts only when the user presses "Engage" in its panel.
+ */
+export function InterviewWorkspace({
+  reportId,
+  stacked = false,
+  allowVoice = false,
+}: {
+  reportId: string;
+  stacked?: boolean;
+  allowVoice?: boolean;
+}) {
+  const avatarOn = isEnabled("avatar");
+  const voiceOn = allowVoice && isEnabled("voice_input");
 
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -84,7 +124,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
     // The Ask button is disabled once the box is empty, so a keyboard user who pressed it would lose focus to the
     // page. Focus goes back to the ask box; the answer is announced by the status region, not by moving focus.
     fieldRef.current?.focus();
-    setAnnounce("Looking through the accepted record.");
+    setAnnounce("Looking through the report's record.");
     setTurns((current) => [{ id, question: text, outcome: null }, ...current]);
     const outcome = await askQuestion(reportId, text);
     setTurns((current) => current.map((t) => (t.id === id ? { ...t, outcome } : t)));
@@ -93,98 +133,81 @@ export function InterviewView({ reportId }: { reportId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <Link href={`/reports/${encodeURIComponent(reportId)}`} className="text-caption text-muted-foreground underline underline-offset-2">
-          Back to the report
-        </Link>
-        <h1 className="text-title">Interview this evidence</h1>
-        {report.data ? <p className="text-body text-muted-foreground">{report.data.headline}</p> : null}
-        <p className="max-w-prose rounded-md border border-dashed border-border bg-card px-3 py-2 text-caption">{VOICE_LABEL}</p>
-      </header>
-
-      <Body
-        reportId={reportId}
-        interviewOn={interviewOn}
-        loading={report.isLoading && !report.data}
-        error={report.error}
-        status={report.data?.status ?? null}
-      >
-        <div className={avatarOn ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
-          <div className="flex min-w-0 flex-col gap-6">
-            <form
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5 shadow-sm"
-              onSubmit={(event) => {
+    <div className={avatarOn && !stacked ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
+      {/* Stacked: the avatar and its Engage button come first, the ask box and answers follow. */}
+      {avatarOn && stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
+      <div className="flex min-w-0 flex-col gap-6">
+        <form
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <Label htmlFor={fieldId} className="text-table font-semibold">
+            Ask a question about this report
+          </Label>
+          <Textarea
+            ref={fieldRef}
+            id={fieldId}
+            value={question}
+            maxLength={QUESTION_LIMIT}
+            rows={3}
+            aria-describedby={`${fieldId}-help ${fieldId}-count`}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 void submit();
-              }}
-            >
-              <Label htmlFor={fieldId} className="text-table font-semibold">
-                Ask a question about this accepted report
-              </Label>
-              <Textarea
-                ref={fieldRef}
-                id={fieldId}
-                value={question}
-                maxLength={QUESTION_LIMIT}
-                rows={3}
-                aria-describedby={`${fieldId}-help ${fieldId}-count`}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    void submit();
-                  }
-                }}
-              />
-              <p id={`${fieldId}-help`} className="text-caption text-muted-foreground">
-                {voiceOn ? "Type or record your question, then read and edit it before you ask. " : "Typed questions only. "}Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
-              </p>
-              {voiceOn ? (
-                <VoiceInput
-                  reportId={reportId}
-                  disabled={avatarBusy || pending}
-                  onTranscript={onTranscript}
-                  onStatus={setAnnounce}
-                />
-              ) : null}
-              <div className="flex items-center justify-between gap-3">
-                <p id={`${fieldId}-count`} className="text-caption text-muted-foreground">
-                  {question.length} of {QUESTION_LIMIT} characters
-                </p>
-                <Button type="submit" disabled={pending || question.trim().length === 0}>
-                  Ask
-                </Button>
-              </div>
-            </form>
-
-            <p role="status" aria-live="polite" className="sr-only">
-              {announce}
+              }
+            }}
+          />
+          <p id={`${fieldId}-help`} className="text-caption text-muted-foreground">
+            {voiceOn ? "Type or record your question, then read and edit it before you ask. " : "Typed questions only. "}Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
+          </p>
+          {voiceOn ? (
+            <VoiceInput
+              reportId={reportId}
+              disabled={avatarBusy || pending}
+              onTranscript={onTranscript}
+              onStatus={setAnnounce}
+            />
+          ) : null}
+          <div className="flex items-center justify-between gap-3">
+            <p id={`${fieldId}-count`} className="text-caption text-muted-foreground">
+              {question.length} of {QUESTION_LIMIT} characters
             </p>
-
-            {turns.length === 0 ? (
-              <Notice icon={SearchX} title="No questions yet">
-                Ask about the record&apos;s status, dates, conditions, phase, design, names, sponsor, location, enrollment or posted results. Each answer is built only from quotes stored on this
-                report and cites them.
-              </Notice>
-            ) : (
-              <ol className="flex flex-col gap-4" aria-label="Questions and answers, newest first">
-                {turns.map((turn) => (
-                  <li key={turn.id}>
-                    <TurnView turn={turn} speak={speak} />
-                  </li>
-                ))}
-              </ol>
-            )}
+            <Button type="submit" disabled={pending || question.trim().length === 0}>
+              Ask
+            </Button>
           </div>
-          {avatarOn ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
-        </div>
-      </Body>
+        </form>
+
+        <p role="status" aria-live="polite" className="sr-only">
+          {announce}
+        </p>
+
+        {turns.length === 0 ? (
+          <Notice icon={SearchX} title="No questions yet">
+            Ask about the record&apos;s status, dates, conditions, phase, design, names, sponsor, location, enrollment or posted results. Each answer is built only from quotes stored on this
+            report and cites them.
+          </Notice>
+        ) : (
+          <ol className="flex flex-col gap-4" aria-label="Questions and answers, newest first">
+            {turns.map((turn) => (
+              <li key={turn.id}>
+                <TurnView turn={turn} speak={speak} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+      {avatarOn && !stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
     </div>
   );
 }
 
-/** The page states that come before the ask box: flag off, loading, unreachable, not found, not accepted. */
+/** The page states that come before the ask box: flag off, loading, unreachable, not found, neither pending nor accepted. */
 function Body({
   interviewOn,
   loading,
@@ -222,10 +245,10 @@ function Body({
       </Notice>
     );
   }
-  if (status !== "accepted") {
+  if (status !== "pending" && status !== "accepted") {
     return (
-      <Notice icon={FileClock} title="This report is not accepted">
-        Only an accepted report can be interviewed. This one is {status ?? "not available"}. Accept it on the report page first.
+      <Notice icon={FileClock} title="This report can't be interviewed">
+        Only a pending or accepted report can be interviewed. This one is {status ?? "not available"}.
       </Notice>
     );
   }
