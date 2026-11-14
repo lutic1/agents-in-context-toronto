@@ -60,6 +60,24 @@ class FakeChangeStream:
     def __aiter__(self) -> FakeChangeStream:
         return self
 
+    @property
+    def resume_token(self) -> dict[str, Any] | None:
+        """The post-batch token: the newest oplog entry seen, matched or not (like the server's)."""
+        if self.coll.idle_tokens:
+            return {"_data": self.coll.idle_tokens[-1]}
+        return {"_data": self.coll.oplog[self.pos - 1][0]} if self.pos else None
+
+    async def try_next(self) -> dict[str, Any] | None:
+        if self.pos < len(self.coll.oplog):
+            return await self.__anext__() if any(
+                _matches(d, self.pipeline) for _, d in self.coll.oplog[self.pos:]) else self._skip()
+        await asyncio.sleep(0.01)
+        return None
+
+    def _skip(self) -> None:
+        self.pos = len(self.coll.oplog)
+        return None
+
     async def __anext__(self) -> dict[str, Any]:
         while True:
             if self.pos < len(self.coll.oplog):
@@ -78,6 +96,7 @@ class FakeEvents:
         self.watches: list[dict[str, Any]] = []
         self.streams: list[FakeChangeStream] = []
         self.writes = 0
+        self.idle_tokens: list[str] = []  # post-batch tokens the server reports while nothing matches
 
     def insert(self, doc: dict[str, Any]) -> str:
         token = f"82{len(self.oplog) + 1:08X}"
@@ -121,6 +140,8 @@ def events(monkeypatch: pytest.MonkeyPatch) -> FakeEvents:
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, events: FakeEvents) -> TestClient:
     async def resolve_actor(api_key: str) -> m.Principal:
+        if api_key == "test-dxp-seed-key":  # the seed key resolves; the route must refuse it
+            return m.Principal(id="seed", name="Seed", kind="seed", actions=[])
         if api_key != KEY:
             from dxp.api.errors import ApiError
 
@@ -290,3 +311,50 @@ def test_max_seconds_default_and_env(monkeypatch, raw: str, expected: float) -> 
 def test_unknown_event_type_still_wakes_the_screen() -> None:
     out = search_stream.to_event({"_id": 9, "type": "something_new", "run_id": RUN})
     assert out == {"seq": 9, "type": "something_new", "run_id": RUN}
+
+
+# ---------------------------------------------------------------------------
+# Review follow-ups (Luis, 58a5cc7)
+# ---------------------------------------------------------------------------
+
+
+def test_the_seed_key_is_refused_and_nothing_is_opened(client: TestClient, live: None, events: FakeEvents) -> None:
+    response = get(client, key="test-dxp-seed-key")
+    assert response.status_code == 403 and response.json()["error"]["code"] == "seed_key_not_accepted"
+    assert events.watches == []
+
+
+def id_only(body: str) -> list[str]:
+    """Blocks that carry an id and no data: they move lastEventId and fire no message."""
+    return [f["id"] for f in parse(body) if "id" in f and "data" not in f]
+
+
+def test_a_quiet_stream_hands_over_its_moved_token_before_closing(
+        client: TestClient, live: None, events: FakeEvents) -> None:
+    events.arrive_on_open = [event(1, run_id="run_other")]  # moves the stream's token, matches nothing
+    body = get(client).text
+    assert messages(body) == []
+    assert id_only(body) == [events.oplog[0][0]]  # the client resumes from now, not from where it opened
+    events.insert(event(2))
+    again = get(client, last_event_id=id_only(body)[0]).text
+    assert [m["data"] for m in messages(again)] and [json.loads(m["data"])["seq"] for m in messages(again)] == [2]
+
+
+def test_the_moved_token_rides_on_a_heartbeat(client: TestClient, live: None, events: FakeEvents, monkeypatch) -> None:
+    monkeypatch.setattr(routes_run_stream, "HEARTBEAT_SECONDS", 0.1)
+    events.arrive_on_open = [event(1, run_id="run_other")]
+    frames = parse(get(client).text)
+    with_id = [f for f in frames if "heartbeat" in f["comments"] and "id" in f]
+    assert with_id and with_id[0]["id"] == events.oplog[0][0]
+    assert not [f for f in frames if "data" in f]
+
+
+def test_a_failed_watch_asks_the_browser_to_back_off(client: TestClient, live: None, monkeypatch) -> None:
+    class Broken:
+        async def watch(self, *args: Any, **kwargs: Any) -> Any:
+            raise OperationFailure("The $changeStream stage is only supported on replica sets", code=40573)
+
+    monkeypatch.setattr(search_stream, "_events", lambda: Broken())
+    frames = parse(get(client).text)
+    assert any(f.get("retry") == str(routes_run_stream.FAILED_RETRY_MS) for f in frames)
+    assert routes_run_stream.FAILED_RETRY_MS >= 30000
