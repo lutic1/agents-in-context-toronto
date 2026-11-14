@@ -81,6 +81,11 @@ class Progress:
         self.failures.append({"source_ref": source_ref, "error": error})
         await self.step(source_ref, None)
 
+    async def note_failure(self, source_ref: str, error: str) -> None:
+        """A failure line for a non-fatal step (the item is still done)."""
+        self.failures.append({"source_ref": source_ref, "error": error})
+        await self._record()
+
     async def recount(self) -> None:
         """Outcome counts from the stored documents of this run (reads only; idempotent)."""
         db = store.db()
@@ -144,6 +149,16 @@ async def load_source(source_ref: str) -> tuple[dict[str, Any] | None, dict[str,
 
 async def load_version(version_id: str) -> dict[str, Any] | None:
     return await store.db()["source_versions"].find_one({"_id": version_id})
+
+
+async def load_report(report_id: str) -> dict[str, Any] | None:
+    """The stored report (A19+A20 writes it; `diagnostic_ids` exist only after ledger.file)."""
+    return await store.db()["reports"].find_one({"_id": report_id})
+
+
+async def notify_action(report_id: str) -> dict[str, Any] | None:
+    """The report's notify_slack action, if one exists already (reads only)."""
+    return await store.db()["actions"].find_one({"target.report_id": report_id, "kind": "notify_slack"})
 
 
 async def load_finding(finding_id: str) -> dict[str, Any] | None:

@@ -9,10 +9,12 @@ Rules kept here:
   `item_key = "<source_ref>|<kind>|<diagnostic_id or '-'>|<target>"`; every admission is
   released once, in a `finally`, whatever the action's outcome. A refused admission means
   that action is not attempted (`runs.admit` counts it).
-- Two gated drafts (V21): draft 1 without memories, draft 2 with them, each a report-level
-  `file_proposal` through `reports.file()` (targets `"<report_id>|draft1"` and `|draft2`),
-  each its own Decision. Draft 2 is the one filed; a blocked draft 2 ends the item with
-  nothing filed. A blocked draft 1 is the "blocked claim"; draft 2 is its one redraft.
+- Two gated drafts (V21): `reports.draft()` returns one report dict whose `drafts` are draft 1
+  (no memories) and draft 2 (with them); one `reports.file()` call gates each as a
+  report-level `file_proposal` (targets `"<report_id>|draft1"`, `|draft2`), each its own
+  Decision, and writes the report only when the last is allowed. If the last is blocked, the
+  item redrafts once (`attempt: 1`, targets `|draft<n>.r1`, new Decisions); a second block
+  ends the item with nothing filed (V7).
 - One `notify_slack` per filed report, through `actions.dispatch()` (V11). A blocked report
   gets no alert. A blocked alert (A09 raises `ActionBlocked`) is a blocked step, not an item
   failure. The run never calls ElevenLabs or HeyGen (V29).
@@ -131,41 +133,65 @@ def with_admission(ctx: RunContext, adm: str) -> RunContext:
     return ctx.model_copy(update={"admission_id": adm})
 
 
-def is_action_blocked(exc: BaseException) -> bool:
-    """A09's `actions.dispatch` raises `ActionBlocked` when the gate blocks the action. Matched
-    by name so this module does not depend on A09 being merged."""
-    blocked = getattr(actions, "ActionBlocked", None)
-    if isinstance(blocked, type) and isinstance(exc, blocked):
+def is_a09(exc: BaseException, name: str) -> bool:
+    """A09's `actions.dispatch` raises named exceptions. Matched by name so this module does
+    not depend on A09 being merged."""
+    cls = getattr(actions, name, None)
+    if isinstance(cls, type) and isinstance(exc, cls):
         return True
-    return type(exc).__name__ == "ActionBlocked"
+    return type(exc).__name__ == name
+
+
+def is_action_blocked(exc: BaseException) -> bool:
+    """The gate blocked the action: A09 recorded the Decision; nothing was sent."""
+    return is_a09(exc, "ActionBlocked")
+
+
+# A09 errors that end the notify step without failing the item (nothing was sent):
+# the webhook or base URL is missing or malformed (the action stays queued), or the report
+# could not be read.
+NOTIFY_NOT_SENT = ("SenderNotConfigured", "ReportNotFound")
 
 
 def report_id_for(run_id: str, source_ref: str) -> str:
     return identity.derive("rep_", run_id, source_ref)
 
 
-def split_drafts(drafted: Any) -> list[dict[str, Any]]:
-    """`reports.draft()` writes draft 1 (no memories) and draft 2 (with memories), V21.
-    Accepts `{ drafts: [d1, d2] }`, `{ draft1, draft2 }` or a single draft."""
+def check_report(drafted: Any, version_id: str) -> dict[str, Any]:
+    """`reports.draft()` (A19+A20) returns one report dict: the report's fields at the top level
+    (`updates` as `[{ finding_id, change }]`, `memories_used`, `source_ref`, `version_id`,
+    `scope_id`, `discovery`, `related`, `retrieval`, `source_fields`, ...) and `drafts`, the
+    composed drafts to gate in order (draft 1 without memories, draft 2 with them, V21)."""
     drafted = plain(drafted)
     if not isinstance(drafted, dict):
         raise ItemFailed("draft_shape")
-    if isinstance(drafted.get("drafts"), list) and drafted["drafts"]:
-        out = [dict(plain(d)) for d in drafted["drafts"]]
-    elif isinstance(drafted.get("draft1"), dict) or isinstance(drafted.get("draft2"), dict):
-        out = [dict(plain(drafted[k])) for k in ("draft1", "draft2") if isinstance(drafted.get(k), dict)]
-    else:
-        out = [dict(drafted)]
-    for n, d in enumerate(out, start=1):
-        d.setdefault("draft", n)
+    drafted = dict(drafted)
+    if drafted.get("version_id") not in (None, version_id):
+        raise ItemFailed("draft_version_mismatch")
+    drafted["version_id"] = version_id  # V40: the report uses the version this item pinned
+    drafted["drafts"] = [dict(plain(d)) for d in drafted.get("drafts") or []] or None
+    return drafted
+
+
+def draft_targets(drafted: dict[str, Any], report_id: str) -> list[tuple[dict[str, Any] | None, str]]:
+    """The AD-3 gate target of each draft `reports.file()` will evaluate, in order, matching
+    A19+A20's `gate_target`: `<report_id>|draft<n>`, or `|draft<n>.r<k>` on redraft k."""
+    attempt = int(drafted.get("attempt") or 0)
+    suffix = f".r{attempt}" if attempt else ""
+    drafts = drafted.get("drafts") or [None]
+    out = []
+    for index, one in enumerate(drafts):
+        number = int(((one or drafted).get("draft")) or (index + 1))
+        out.append((one, f"{report_id}|draft{number}{suffix}"))
     return out
 
 
-def change_target(change: dict[str, Any]) -> str:
-    """AD-3 target of a per-change file_proposal: the proposal ID, else "<field>|<value>"."""
+def change_target(finding_id: Any, change: dict[str, Any]) -> str:
+    """AD-3 target of a per-change file_proposal: the proposal ID A06 will derive,
+    `derive("p_", finding_id, field, value)`, else "<field>|<value>"."""
     if change.get("proposal_id"):
         return str(change["proposal_id"])
-    finding_id, fld, value = change.get("finding_id"), change.get("field"), change.get("value")
+    fld, value = change.get("field"), change.get("value")
     if finding_id and fld is not None and value is not None:
         return identity.derive("p_", str(finding_id), str(fld), str(value))
     return f"{fld}|{value}"
@@ -293,63 +319,62 @@ async def relate_all(new_item: dict[str, Any], related: list[dict[str, Any]]) ->
     return out
 
 
-async def file_drafts(
-    drafts: list[dict[str, Any]], item: dict[str, Any], report_id: str, info: RunInfo, result: ItemResult
-) -> dict[str, Any] | None:
-    """Gate each draft as the report-level file_proposal; return the filed draft or None."""
+async def file_report(drafted: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo,
+                      result: ItemResult) -> Any:
+    """One `reports.file(drafted, ctx)` call (A19+A20), which gates every draft in order and
+    writes only when the last one is allowed. Before it, one admission per action (D22): one
+    per draft target and one per update. Returns the final Decision, or None when an admission
+    was refused (nothing attempted). Every admission is released once, after the call."""
     source_ref = item["source_ref"]
-    blocked_decision_id: str | None = None
-    for index, d in enumerate(drafts):
-        final = index == len(drafts) - 1
-        n = d.get("draft", index + 1)
-        if d.get("version_id") not in (None, item["version_id"]):
-            raise ItemFailed("draft_version_mismatch")
-        d["version_id"] = item["version_id"]
-        d.setdefault("report_id", report_id)
-        d.setdefault("source_ref", source_ref)
-        d.setdefault("run_id", info.run_id)
-        if final and blocked_decision_id:
-            d.setdefault("blocked_draft_decision_id", blocked_decision_id)
-
-        held: list[str] = []
-        try:
-            adm = await admit(info.run_id, item_key(source_ref, "file_proposal", None, f"{report_id}|draft{n}"))
+    held: list[str] = []
+    try:
+        draft_admission = None
+        for one, target in draft_targets(drafted, report_id):
+            adm = await admit(info.run_id, item_key(source_ref, "file_proposal", None, target))
             if adm is None:
                 return None  # not admitted: the run is stopping; nothing attempted
             held.append(adm)
-            if final:
-                # One admission per change (D22); a change not admitted is not attempted.
-                admitted_updates = []
-                for change in d.get("updates") or []:
-                    change = dict(plain(change))
-                    key = item_key(source_ref, "file_proposal", change.get("diagnostic_id"), change_target(change))
-                    change_adm = await admit(info.run_id, key)
-                    if change_adm is None:
-                        continue
-                    held.append(change_adm)
-                    change["admission_id"] = change_adm
-                    admitted_updates.append(change)
-                if "updates" in d:
-                    d["updates"] = admitted_updates
-            decision = await reports.file(d, with_admission(info.ctx, adm))
-        finally:
-            await release(held)
-        result.draft_decisions.append(decision)
-        if outcome(decision) == "allowed":
-            if final:
-                return d
-        else:
-            blocked_decision_id = blocked_decision_id or get(decision, "id")
-            if final:
-                return None
-    return None
+            draft_admission = adm
+            if one is not None:
+                one["admission_id"] = adm  # per-draft admission, if reports.file reads it
+        updates = []
+        for update in drafted.get("updates") or []:
+            update = dict(plain(update))
+            change = dict(plain(update.get("change") or {}))
+            key = item_key(source_ref, "file_proposal", change.get("diagnostic_id"),
+                           change_target(update.get("finding_id"), change))
+            adm = await admit(info.run_id, key)
+            if adm is None:
+                continue  # that change is not attempted
+            held.append(adm)
+            change["admission_id"] = adm  # A06's ledger.file gates the change under it
+            update["change"] = change
+            updates.append(update)
+        drafted["updates"] = updates
+        decision = await reports.file(drafted, with_admission(info.ctx, draft_admission))
+    finally:
+        await release(held)
+    result.draft_decisions.append(decision)
+    return decision
 
 
-async def notify(filed: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo) -> Any:
-    """The report's one notify_slack (V11), with its own admission. Returns the Action."""
-    diagnostic_ids = [d for d in filed.get("diagnostic_ids") or [] if d]
-    # Same rule as A09's action ID: the report's first diagnostic_ids entry, else "-" (V43), so
-    # the admission key and the action ID line up. The demo report has none.
+async def filed_report(report_id: str) -> dict[str, Any] | None:
+    return await progress.load_report(report_id)
+
+
+async def notify(report: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo) -> Any:
+    """The report's one notify_slack (V11), called only after `reports.file` has committed the
+    report (A09 reads it outside any transaction). If `reports.file` already dispatched it
+    (A19+A20's `_notify`), that action is the alert and nothing is sent again. Otherwise it is
+    dispatched here with its own admission. A blocked alert, an unconfigured sender and a
+    report A09 cannot read are non-fatal: the item is still done. Returns the Action or a
+    marker."""
+    existing = await progress.notify_action(report_id)
+    if existing is not None:
+        return existing
+    # Same rule as A09's action ID: the stored report's first diagnostic_ids entry (written by
+    # reports.file after ledger.file), else "-" (V43), so admission key and action ID line up.
+    diagnostic_ids = [d for d in report.get("diagnostic_ids") or [] if d]
     dx = diagnostic_ids[0] if diagnostic_ids else None
     adm = await admit(info.run_id, item_key(item["source_ref"], "notify_slack", dx, report_id))
     if adm is None:
@@ -365,18 +390,27 @@ async def notify(filed: dict[str, Any], item: dict[str, Any], report_id: str, in
                 "source_ref": item["source_ref"],
                 "version_id": item["version_id"],
                 "diagnostic_ids": diagnostic_ids,
+                "script_hash": report.get("script_hash"),
+                "headline": report.get("headline"),
             },
             evidence_ref=EvidenceRef(source_ref=item["source_ref"], version_id=item["version_id"], report_id=report_id),
         )
         try:
             return await actions.dispatch(action, with_admission(info.ctx, adm))
         except Exception as exc:
+            not_sent = next((name for name in NOTIFY_NOT_SENT if is_a09(exc, name)), None)
+            if not_sent:
+                log.warning("alert not sent run=%s report=%s error=%s", info.run_id, report_id, not_sent)
+                await info.tracker.note_failure(item["source_ref"], f"notify: {not_sent}")
+                return {"status": "not_sent", "error": not_sent}
             if not is_action_blocked(exc):
                 raise
-            # The gate blocked the alert: its Decision and action_blocked event are recorded
-            # by A09; nothing was sent. A blocked step, not an item failure.
+            # The gate blocked the alert: A09 recorded its Decision and action_blocked event;
+            # nothing was sent. A blocked step, not an item failure.
             log.info("alert blocked run=%s report=%s", info.run_id, report_id)
-            return {"status": "blocked", "decision_id": get(exc, "decision_id") or get(get(exc, "decision"), "id")}
+            blocked = get(exc, "decision")
+            return {"status": "blocked",
+                    "decision_id": get(exc, "decision_id") or get(blocked, "id") or get(blocked, "_id")}
     finally:
         await release([adm])
 
@@ -432,19 +466,24 @@ async def process(source_ref: str, info: RunInfo) -> ItemResult:
         new_item = {**item, "findings": findings}
         relationships = await relate_all(new_item, await related_items(retrieved))
 
-        step = "draft"
-        await tracker.step(source_ref, step)
-        drafts = split_drafts(await reports.draft(item, findings, relationships, list(memories)))
-
-        step = "file"
-        await tracker.step(source_ref, step)
-        filed = await file_drafts(drafts, item, report_id, info, result)
-        if filed is not None:
+        decision = None
+        for attempt in range(2):  # one redraft after a blocked report (V7, Story 10.7)
+            step = "draft" if attempt == 0 else "redraft"
+            await tracker.step(source_ref, step)
+            drafted = check_report(
+                await reports.draft({**item, "attempt": attempt}, findings, relationships, list(memories)), version_id)
+            step = "file"
+            await tracker.step(source_ref, step)
+            decision = await file_report(drafted, item, report_id, info, result)
+            if decision is None or outcome(decision) == "allowed":
+                break
+        if decision is not None and outcome(decision) == "allowed":
             result.filed = True
             await progress.mark_processed(source_ref, info.scope_id, version_id, info.run_id)
+            report = await filed_report(report_id) or {}
             step = "notify"
             await tracker.step(source_ref, step)
-            result.alert = await notify(filed, item, report_id, info)
+            result.alert = await notify(report, item, report_id, info)
 
         result.status = "done"
         await tracker.item_done(source_ref, early_research=early)

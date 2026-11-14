@@ -31,9 +31,10 @@ async def test_demo_scenario_blocked_claim_redraft_report_and_one_alert(world: W
     assert reports[0]["blocked_draft_decision_id"] == file_decisions[0]["id"]
     # its proposals: the scope update filed, the FoundationOne CDx mention link blocked by check 2
     assert len(w.db["proposals"].docs) == 1
-    change_decisions = [d for d in w.decisions if d["target"] in ("evidence_collection", "scope_link")]
+    change_decisions = [d for d in w.decisions if d["target"] in ("evidence_collection", "trials")]
     assert [(d["target"], d["outcome"], d["failed_check"]) for d in change_decisions] == [
-        ("evidence_collection", "allowed", None), ("scope_link", "blocked", "team_scope")]
+        ("evidence_collection", "allowed", None), ("trials", "blocked", "team_scope")]
+    assert reports[0]["memories_used"][0]["memory_id"] == "mem_m1"  # the drafter's memories reach the report
     # one alert through the fake sender; no ElevenLabs or HeyGen call
     assert len(w.slack) == 1 and w.slack[0]["report_id"] == reports[0]["_id"]
     assert w.media == []
@@ -55,16 +56,32 @@ async def test_one_admission_per_action_with_the_d22_item_keys(world: World) -> 
     assert keys[1] == f"{ANCHOR}|file_proposal|-|{report_id}|draft2"
     assert keys[2].startswith(f"{ANCHOR}|file_proposal|-|p_")  # scope update: "-" for the Diagnostic (V43)
     assert keys[3].startswith(f"{ANCHOR}|file_proposal|{OUT_OF_SCOPE_DX}|p_")
-    assert keys[4] == f"{ANCHOR}|notify_slack|-|{report_id}"
-    assert len(keys) == len(set(keys)) == 5
+    assert keys[2] != keys[3] and len(keys) == len(set(keys)) == 4
+    # each draft and each change was gated under its own admission
+    by_target = {d["target"]: d["admission_id"] for d in world.decisions}
+    assert world.admitted[by_target[f"{report_id}|draft1"]] == keys[0]
+    assert world.admitted[by_target[f"{report_id}|draft2"]] == keys[1]
+    assert world.admitted[by_target["evidence_collection"]] == keys[2]
+    assert world.admitted[by_target["trials"]] == keys[3]
+
+
+async def test_reports_file_alert_is_the_one_alert(world: World) -> None:
+    """A19+A20's reports.file dispatches the alert itself: A10 sends nothing again."""
+    await pipeline.run(RUN_ID)
+    assert len(world.slack) == 1 and len(world.args("actions.dispatch")) == 1
+    assert not any("|notify_slack|" in k for k in world.admitted.values())
 
 
 async def test_the_alert_carries_the_report_and_no_diagnostic(world: World) -> None:
+    world.file_notifies = False  # A10 dispatches it
     await pipeline.run(RUN_ID)
+    report_id = next(iter(world.db["reports"].docs))
     action = world.slack[0]["action"]
     assert action.kind == "notify_slack" and action.destination == "slack:#all-mango-db-hackathon"
     assert action.target.diagnostic_id is None and action.inputs["diagnostic_ids"] == []
     assert action.evidence_ref.version_id == version_id_for(ANCHOR)
+    assert world.admitted[world.slack[0]["admission_id"]] == f"{ANCHOR}|notify_slack|-|{report_id}"
+    assert released_once(world)
 
 
 async def test_version_id_is_carried_through_every_step(world: World) -> None:
@@ -77,6 +94,7 @@ async def test_version_id_is_carried_through_every_step(world: World) -> None:
     drafted = world.args("reports.draft")[0]
     assert drafted["item"]["version_id"] == vid and all(f["version_id"] == vid for f in drafted["findings"])
     assert all(d["version_id"] == vid for d in world.args("reports.file"))
+    assert world.args("reports.draft")[0]["item"]["attempt"] == 0
     assert next(iter(world.db["reports"].docs.values()))["version_id"] == vid
     processed = world.db["source_items"].docs[ANCHOR]["processed"][SCOPE_ID]
     assert list(processed) == [vid] and isinstance(processed[vid], datetime)  # processed_at
@@ -108,14 +126,27 @@ async def test_memories_are_asked_for_by_team_and_claim_kind(world: World) -> No
     assert world.args("reports.draft")[0]["memories"][0]["id"] == "mem_m1"
 
 
-async def test_a_blocked_report_gets_no_alert_and_files_nothing(world: World) -> None:
+async def test_a_blocked_report_redrafts_once_then_files_nothing(world: World) -> None:
     world.draft2_text = "It showed detection of EGFR."
     await pipeline.run(RUN_ID)
+    report_id_targets = [d["target"].split("|", 1)[1] for d in world.decisions if "|draft" in d["target"]]
+    assert report_id_targets == ["draft1", "draft2", "draft1.r1", "draft2.r1"]
+    assert [a["item"]["attempt"] for a in world.args("reports.draft")] == [0, 1]
     assert world.db["reports"].docs == {} and world.db["proposals"].docs == {}
     assert world.slack == [] and "actions.dispatch" not in world.names()
     assert released_once(world)
-    assert world.run["status"] == "done" and world.run["counts"]["blocked"] == 2
+    assert world.run["status"] == "done" and world.run["counts"]["blocked"] == 4
     assert "processed" not in world.db["source_items"].docs[ANCHOR]
+
+
+async def test_a_redraft_after_a_block_can_be_filed(world: World) -> None:
+    world.draft2_text = "It showed detection of EGFR."
+    world.redraft_text = "This study is recruiting; no results posted."
+    await pipeline.run(RUN_ID)
+    report = next(iter(world.db["reports"].docs.values()))
+    filed = [d for d in world.decisions if d["target"].endswith("|draft2.r1")]
+    assert filed and filed[0]["outcome"] == "allowed" and report["status"] == "pending"
+    assert len(world.slack) == 1 and released_once(world)
 
 
 async def test_draft_one_allowed_still_files_draft_two(world: World) -> None:
@@ -303,37 +334,63 @@ async def test_a_blocked_alert_is_a_blocked_step_not_a_failure(world: World, mon
     import dxp.actions
 
     class ActionBlocked(Exception):
-        def __init__(self, decision_id: str) -> None:
+        def __init__(self, decision: dict[str, Any]) -> None:
             super().__init__("blocked")
-            self.decision_id = decision_id
+            self.decision = decision
 
     async def dispatch(action: Any, ctx: Any) -> Any:
         world.calls.append(("actions.dispatch", action))
-        raise ActionBlocked("dec_slack_blocked")
+        raise ActionBlocked({"_id": "dec_slack_blocked"})
 
     monkeypatch.setattr(dxp.actions, "dispatch", dispatch)
     monkeypatch.setattr(dxp.actions, "ActionBlocked", ActionBlocked, raising=False)
+    from dxp.pipeline import item as item_module
+
+    results: list[Any] = []
+    real_process = item_module.process
+
+    async def process(ref: str, info: Any) -> Any:
+        out = await real_process(ref, info)
+        results.append(out)
+        return out
+
+    monkeypatch.setattr(item_module, "process", process)
     await pipeline.run(RUN_ID)
     run = world.run
     assert run["status"] == "done" and run["counts"]["done"] == 1 and run["counts"].get("failed", 0) == 0
     assert run["failures"] == [] and world.slack == []
+    assert results[0].alert == {"status": "blocked", "decision_id": "dec_slack_blocked"}
     assert len(world.db["reports"].docs) == 1  # the report stays filed and pending
     assert released_once(world)
 
 
-async def test_an_alert_for_a_report_with_a_diagnostic_uses_it_in_the_admission_key(world: World) -> None:
-    import dxp.reports
+@pytest.mark.parametrize("error", ["SenderNotConfigured", "ReportNotFound"])
+async def test_an_unsent_alert_is_non_fatal_with_a_failure_line(world: World, monkeypatch: pytest.MonkeyPatch, error: str) -> None:
+    import dxp.actions
 
-    real_draft = dxp.reports.draft
+    exc_class = type(error, (Exception,), {})
 
-    async def draft(*args: Any) -> Any:
-        out = await real_draft(*args)
-        for d in out["drafts"]:
-            d["diagnostic_ids"] = ["dx_g360", "dx_other"]
-        return out
+    async def dispatch(action: Any, ctx: Any) -> Any:
+        world.calls.append(("actions.dispatch", action))
+        raise exc_class("not sent")
 
-    dxp.reports.draft = draft
+    monkeypatch.setattr(dxp.actions, "dispatch", dispatch)
+    monkeypatch.setattr(dxp.actions, error, exc_class, raising=False)
     await pipeline.run(RUN_ID)
-    report_id = next(iter(world.db["reports"].docs))
-    assert list(world.admitted.values())[-1] == f"{ANCHOR}|notify_slack|dx_g360|{report_id}"
+    run = world.run
+    assert run["status"] == "done" and run["counts"]["done"] == 1 and run["counts"].get("failed", 0) == 0
+    assert run["failures"] == [{"source_ref": ANCHOR, "error": f"notify: {error}"}]
+    assert len(world.db["reports"].docs) == 1 and released_once(world)
+    # A10's dispatch came after reports.file returned (the report was committed first)
+    names = world.names()
+    assert names.index("reports.file") < max(i for i, n in enumerate(names) if n == "actions.dispatch")
+
+
+async def test_an_alert_for_a_report_with_a_diagnostic_uses_it_in_the_admission_key(world: World) -> None:
+    world.link_dx = "dx_g360"  # an in-scope link: filed, so the stored report names it
+    world.file_notifies = False
+    await pipeline.run(RUN_ID)
+    report = next(iter(world.db["reports"].docs.values()))
+    assert report["diagnostic_ids"] == ["dx_g360"]
+    assert list(world.admitted.values())[-1] == f"{ANCHOR}|notify_slack|dx_g360|{report['_id']}"
     assert world.slack[0]["action"].target.diagnostic_id == "dx_g360"

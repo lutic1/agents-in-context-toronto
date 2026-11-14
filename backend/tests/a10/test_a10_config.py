@@ -29,16 +29,24 @@ def test_agent_key_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "DXP_AGENT_KEY" in str(exc.value)
 
 
-def test_split_drafts_accepts_the_three_shapes() -> None:
-    assert [d["draft"] for d in item.split_drafts({"drafts": [{"a": 1}, {"a": 2}]})] == [1, 2]
-    assert [d["draft"] for d in item.split_drafts({"draft1": {}, "draft2": {}})] == [1, 2]
-    assert [d["draft"] for d in item.split_drafts({"headline": "x"})] == [1]
+def test_check_report_pins_the_version_and_keeps_the_report_fields() -> None:
+    drafted = item.check_report({"updates": [{"finding_id": "f", "change": {}}], "drafts": [{"draft": 1}, {"draft": 2}]}, "sv_1")
+    assert drafted["version_id"] == "sv_1" and len(drafted["updates"]) == 1 and len(drafted["drafts"]) == 2
     with pytest.raises(item.ItemFailed):
-        item.split_drafts("not a draft")
+        item.check_report({"version_id": "sv_other"}, "sv_1")
+    with pytest.raises(item.ItemFailed):
+        item.check_report("not a report", "sv_1")
+
+
+def test_draft_targets_match_a19_gate_target() -> None:
+    drafted = {"drafts": [{"draft": 1}, {"draft": 2}]}
+    assert [t for _, t in item.draft_targets(drafted, "rep_x")] == ["rep_x|draft1", "rep_x|draft2"]
+    assert [t for _, t in item.draft_targets({**drafted, "attempt": 1}, "rep_x")] == ["rep_x|draft1.r1", "rep_x|draft2.r1"]
+    assert [t for _, t in item.draft_targets({"draft": 1, "drafts": None}, "rep_x")] == ["rep_x|draft1"]
 
 
 def test_change_target_follows_ad3() -> None:
-    assert item.change_target({"proposal_id": "p_1"}) == "p_1"
-    derived = item.change_target({"finding_id": "f_1", "field": "evidence_collection", "value": "x"})
+    assert item.change_target("f_1", {"proposal_id": "p_1"}) == "p_1"
+    derived = item.change_target("f_1", {"field": "evidence_collection", "value": "x"})
     assert derived.startswith("p_") and len(derived) == 18
-    assert item.change_target({"field": "f", "value": "v"}) == "f|v"
+    assert item.change_target(None, {"field": "f", "value": "v"}) == "f|v"
