@@ -190,11 +190,6 @@ class FakeDictionaries:
         return SimpleNamespace(id="dict_fake", version_id="ver_fake")
 
 
-class FakeVoices:
-    async def search(self, **kwargs: Any) -> Any:
-        return SimpleNamespace(voices=[SimpleNamespace(voice_id="voice_from_account")])
-
-
 class FakeElevenLabs:
     """Records every call. Queue replies with `queue.append(b"...")` or an exception."""
 
@@ -204,7 +199,6 @@ class FakeElevenLabs:
         self.queue: list[Any] = []
         self.text_to_speech = FakeTextToSpeech(self)
         self.pronunciation_dictionaries = FakeDictionaries(self)
-        self.voices = FakeVoices()
 
 
 @pytest.fixture

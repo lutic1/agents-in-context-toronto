@@ -4,6 +4,7 @@ Paths, methods, parameters and response models are A01's frozen ones (AD-14); on
 new. `POST` is the only way a briefing is made: a Reviewer presses "Generate briefing". `GET`
 returns the report's script as text always, plus the audio status and URL, and serves the cached
 audio itself when asked for it (`?audio=1`, or `Accept: audio/mpeg`), 404 while none exists.
+Both return 404 in the error shape when the `briefing` flag is off, before anything else is read.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import secrets
 
 from fastapi import APIRouter, Request, Response
 
+from dxp import feature_enabled
 from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
@@ -23,6 +25,12 @@ router = APIRouter()
 
 def _not_found(report_id: str) -> ApiError:
     return ApiError(404, "report_not_found", f"No report has the ID {report_id}.")
+
+
+def _require_enabled() -> None:
+    """The `briefing` flag (DXP_FEATURES) is off unless named: then there is no briefing route."""
+    if not feature_enabled("briefing"):
+        raise ApiError(404, "not_found", "Not found.")
 
 
 async def reviewer_context(request: Request, report_id: str, origin_run_id: str | None) -> m.RunContext:
@@ -66,7 +74,8 @@ async def generate_briefing(request: Request, report_id: str) -> m.BriefingRespo
     """Generate the briefing from `report.script`, gated as `generate_briefing` under the Reviewer's
     grant. A blocked request is not an error: 200 with the Decision, nothing called. A failed or
     unavailable ElevenLabs is the error shape with 503 (the Decision is in the audit); the report,
-    the decision and everything else carry on."""
+    the decision and everything else carry on. 404 when the `briefing` flag is off."""
+    _require_enabled()
     try:
         report = await audio.report_for(report_id)
         ctx = await reviewer_context(request, report_id, report.get("run_id"))
@@ -82,7 +91,9 @@ async def generate_briefing(request: Request, report_id: str) -> m.BriefingRespo
 
 @router.get("/reports/{report_id}/briefing", response_model=m.Briefing, tags=["media"])
 async def get_briefing(request: Request, report_id: str):
-    """The script as text always (V41), plus the audio status and URL; or the audio itself."""
+    """The script as text always (V41), plus the audio status and URL; or the audio itself.
+    404 when the `briefing` flag is off."""
+    _require_enabled()
     await auth.require_principal(request)
     wants_audio = request.query_params.get("audio") == "1" or "audio/mpeg" in request.headers.get("accept", "")
     try:

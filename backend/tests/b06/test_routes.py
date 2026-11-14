@@ -23,7 +23,8 @@ KEYS = {"sam-key": SAM, "agent-key": AGENT}
 
 
 @pytest.fixture
-def client(fake_db, gate, monkeypatch):
+def client(fake_db, gate, monkeypatch, features):
+    features("briefing")  # the flag is off unless named
     async def require_principal(request):
         principal = KEYS.get(request.headers.get(auth.KEY_HEADER) or "")
         if principal is None:
@@ -102,6 +103,22 @@ def test_without_a_key_post_is_503_and_get_says_unavailable_with_the_script(clie
     assert res.status_code == 503 and res.json()["error"]["code"] == "briefing_unavailable"
     after = client.get(URL, headers=sam()).json()
     assert (after["status"], after["script"]) == ("unavailable", SCRIPT)
+
+
+def test_every_route_is_404_when_the_briefing_flag_is_off(client, fake_db, gate, eleven, monkeypatch):
+    monkeypatch.setenv("DXP_FEATURES", "")
+    not_found = {"error": {"code": "not_found", "message": "Not found."}}
+
+    for res in (client.post(URL, headers=sam()), client.get(URL, headers=sam()),
+                client.get(URL + "?audio=1", headers=sam()), client.post(URL)):  # even without a key
+        assert res.status_code == 404 and res.json() == not_found
+    assert gate.calls == [] and eleven.convert_calls == []
+    assert "audio" not in fake_db.collections and "actions" not in fake_db.collections
+
+
+def test_another_flag_does_not_turn_the_briefing_on(client, monkeypatch):
+    monkeypatch.setenv("DXP_FEATURES", "interview,revert")
+    assert client.get(URL, headers=sam()).status_code == 404
 
 
 def test_an_agent_key_cannot_generate(client, gate, eleven):

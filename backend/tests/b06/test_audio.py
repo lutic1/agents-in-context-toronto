@@ -241,10 +241,102 @@ async def test_an_unknown_report_and_a_report_without_a_script(fake_db, gate, el
     assert gate.calls == [] and eleven.convert_calls == []  # nothing was gated or sent
 
 
-async def test_the_voice_comes_from_the_account_when_none_is_configured(fake_db, gate, eleven, ctx, monkeypatch):
-    monkeypatch.delenv("ELEVENLABS_VOICE_ID")
+async def test_the_voice_is_the_configured_one_else_dxps_chosen_voice(fake_db, gate, eleven, ctx, monkeypatch):
     await audio.generate(REPORT_ID, ctx)
-    assert eleven.convert_calls[0]["voice_id"] == "voice_from_account"
+    assert eleven.convert_calls[0]["voice_id"] == "voice_test"  # ELEVENLABS_VOICE_ID overrides
+
+    monkeypatch.delenv("ELEVENLABS_VOICE_ID")
+    fake_db.collection("audio").docs.clear()
+    await audio.generate(REPORT_ID, ctx)
+    assert eleven.convert_calls[1]["voice_id"] == "4d175bd2-b678-46f6-bb01-38b2270147fa"
+    assert entry_of(fake_db)["voice_id"] == audio.DEFAULT_VOICE_ID
+
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "  ")  # blank is not a choice
+    fake_db.collection("audio").docs.clear()
+    await audio.generate(REPORT_ID, ctx)
+    assert eleven.convert_calls[2]["voice_id"] == audio.DEFAULT_VOICE_ID
+
+
+async def test_a_failure_before_the_call_is_failed_not_unknown_and_nothing_is_sent(
+        fake_db, gate, eleven, ctx, monkeypatch):
+    async def boom(client):
+        raise RuntimeError("before the call")
+
+    monkeypatch.setattr(audio, "_pronunciation_locators", boom)
+    briefing, _ = await audio.generate(REPORT_ID, ctx)
+
+    assert eleven.convert_calls == []
+    assert briefing.status == "failed"
+    assert action_doc(fake_db)["status"] == "failed"
+    assert entry_of(fake_db)["outcome"] == "failed"
+
+
+async def test_a_dictionary_that_hangs_is_given_up_on_and_the_briefing_is_made_without_it(
+        fake_db, gate, eleven, ctx, monkeypatch):
+    async def hang(**_):
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(eleven.pronunciation_dictionaries, "create_from_rules", hang)
+    monkeypatch.setattr(audio, "DICTIONARY_BUDGET_S", 0.05)
+    briefing, _ = await audio.generate(REPORT_ID, ctx)
+
+    assert briefing.status == "ready" and entry_of(fake_db)["pronunciation"] == "none"
+    assert len(eleven.convert_calls) == 1
+
+
+async def test_the_whole_generation_shares_one_deadline(fake_db, gate, eleven, ctx, monkeypatch):
+    async def slow(**_):
+        await asyncio.sleep(60)
+        yield b"never"
+
+    monkeypatch.setattr(eleven.text_to_speech, "convert", slow)
+    monkeypatch.setattr(audio, "OVERALL_DEADLINE_S", 0.3)
+    started = asyncio.get_running_loop().time()
+    briefing, _ = await audio.generate(REPORT_ID, ctx)
+
+    assert asyncio.get_running_loop().time() - started < 2  # one deadline, not one per step
+    assert briefing.status == "failed" and action_doc(fake_db)["status"] == "unknown"  # a call was out
+    assert entry_of(fake_db)["error"]["code"] == "timeout"
+
+
+def test_the_real_deadline_is_about_25_seconds_inside_ad_9s_30():
+    assert 20 <= audio.OVERALL_DEADLINE_S <= 25
+    assert audio.REQUEST_TIMEOUT_S <= audio.OVERALL_DEADLINE_S
+
+
+async def test_a_429_is_not_retried_when_the_deadline_cannot_cover_the_wait(
+        fake_db, gate, eleven, ctx, instant_retry, monkeypatch):
+    monkeypatch.setattr(audio, "OVERALL_DEADLINE_S", 8.0)
+    eleven.queue.append(api_error(429, headers={"retry-after": "10"}))
+    briefing, _ = await audio.generate(REPORT_ID, ctx)
+
+    assert len(eleven.convert_calls) == 1 and instant_retry == []
+    assert briefing.status == "failed" and action_doc(fake_db)["status"] == "failed"
+
+
+async def test_the_audio_is_made_from_the_script_the_real_filing_path_builds(fake_db, gate, eleven, ctx):
+    """`report.script` as A19+A20's `reports.file` makes it, not a string written for the test."""
+    from dxp.reports.file import report_document
+    from dxp.reports.script import script_for, script_hash
+
+    draft = {
+        "source_ref": "src_nct04712877", "version_id": "sv_0123456789abcdef", "nct_id": "NCT04712877",
+        "scope_id": "scope_lung", "team_id": "team_x", "run_id": "run_abc",
+        "headline": "This study investigates molecular profiling using blood (ctDNA) and tumour tissue.",
+        "status_line": "Recruiting; no results posted",
+        "gap": "Have early-stage NSCLC studies that combine plasma ctDNA with tissue profiling posted results?",
+        "discovery": {"summary": "A lung cancer study.", "trial_status": "RECRUITING", "has_results": False,
+                      "intervention_text": "ctDNA, tumor NGS", "mentions": []},
+    }
+    doc = report_document("rep_real0123456789a", draft, ctx, None, None)
+    assert doc["script"] == script_for(doc) and doc["script_hash"] == script_hash(doc["script"])
+    fake_db.collection("reports").docs["rep_real0123456789a"] = doc
+
+    briefing, _ = await audio.generate("rep_real0123456789a", ctx)
+
+    assert eleven.convert_calls[0]["text"] == doc["script"]  # byte for byte
+    assert gate.calls[0][1].inputs["script_hash"] == doc["script_hash"]
+    assert briefing.status == "ready" and briefing.script == doc["script"]
 
 
 async def test_the_key_is_never_stored_logged_or_returned(fake_db, gate, eleven, ctx, caplog):

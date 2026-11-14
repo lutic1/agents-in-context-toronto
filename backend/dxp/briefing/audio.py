@@ -14,11 +14,24 @@ What it does, in order:
    `actions` document, `queued`.
 3. Claims the action (`queued` to `dispatching`, conditional) and the cache entry in `audio`
    (one per report and script hash), so two presses never make two ElevenLabs calls.
-4. Calls ElevenLabs once, or finds the cached audio and calls nothing. It records exactly what
-   it observed (AD-20): a 4xx other than 429 is `failed`; a 429 is retried once after
-   `Retry-After` while the claim is held, and a second 429 is `failed`; a timeout, a connection
-   error or a 5xx is `unknown` and is never retried automatically; no key is `failed` with
-   nothing sent. Every update is conditional on `dispatching`.
+4. Calls ElevenLabs once, or finds the cached audio and calls nothing. The whole generation
+   (the dictionary step, the call and a 429 retry) shares one deadline of `OVERALL_DEADLINE_S`
+   (about 25 s, inside AD-9's 30 s). It records exactly what it observed (AD-20): a failure
+   before the call is made (the dictionary step, anything else that goes wrong first) is `failed`,
+   because nothing was sent; a 4xx other than 429 is `failed`; a 429 is retried once after
+   `Retry-After` while the claim is held and the deadline allows it, and a second 429 is
+   `failed`; a timeout, a connection error or a 5xx is `unknown` and is not retried within the
+   press; no key is `failed` with nothing sent. Every update is conditional on `dispatching`.
+
+   Pressing the button again after an `unknown` outcome may retry automatically (V72, a
+   double charge is accepted): the failed cache entry is claimed again by the next press, and the
+   earlier action keeps its `unknown` status.
+
+   Writing its own `actions` status (queued to dispatching to delivered, failed or unknown) is
+   the V71 exception to V65, for the media kinds only. Every update is conditional on the status
+   it expects.
+
+   The voice is `ELEVENLABS_VOICE_ID` when set, else DxP's chosen voice `DEFAULT_VOICE_ID`.
 
 A failure is recorded and returned as a briefing with status `failed` or `unavailable`; it never
 raises into the caller, and nothing else (the report, Slack, the decision, the task) reads it.
@@ -53,8 +66,12 @@ DESTINATION = "tts:elevenlabs"
 OUTPUT_FORMAT = "mp3_44100_128"
 MIME = "audio/mpeg"
 DEFAULT_MODEL_ID = "eleven_multilingual_v2"
+DEFAULT_VOICE_ID = "4d175bd2-b678-46f6-bb01-38b2270147fa"  # DxP's chosen ElevenLabs voice
 
-REQUEST_TIMEOUT_S = 25.0  # a request never waits longer than AD-9's 30 seconds
+OVERALL_DEADLINE_S = 25.0  # one deadline for the whole generation, inside AD-9's 30 seconds
+REQUEST_TIMEOUT_S = OVERALL_DEADLINE_S  # the client never waits longer than the deadline
+DICTIONARY_BUDGET_S = 5.0  # the pronunciation dictionary is optional: past this, go without it
+MIN_RETRY_BUDGET_S = 5.0  # a 429 is retried only if this much is left after the wait
 RETRY_AFTER_CAP_S = 10.0
 IN_FLIGHT_WAIT_S = 20.0  # how long a second press waits for the first one's call
 STALE_AFTER = timedelta(seconds=90)  # a `generating` entry older than this is a dead worker's
@@ -194,14 +211,9 @@ async def _pronunciation_locators(client: Any) -> list[Any]:
         return []
 
 
-async def _voice_id(client: Any) -> str | None:
-    configured_id = os.environ.get("ELEVENLABS_VOICE_ID", "").strip()
-    if configured_id:
-        return configured_id
-    # No voice chosen: use the first voice the account has. Not a well-known ID, which may not exist.
-    found = await client.voices.search(page_size=1)
-    voices = getattr(found, "voices", None) or []
-    return voices[0].voice_id if voices else None
+def _voice_id() -> str:
+    """`ELEVENLABS_VOICE_ID` when set, else DxP's chosen voice. No lookup, so nothing can fail here."""
+    return os.environ.get("ELEVENLABS_VOICE_ID", "").strip() or DEFAULT_VOICE_ID
 
 
 async def _attempt(client: Any, text: str, voice_id: str, model_id: str, locators: list[Any]) -> bytes:
@@ -216,35 +228,47 @@ async def _attempt(client: Any, text: str, voice_id: str, model_id: str, locator
 
 
 async def _send(text: str) -> Sent:
-    """One synthesis of `text`, exactly as given. Classifies what happened (AD-20)."""
+    """One synthesis of `text`, exactly as given, inside one overall deadline. Classifies what
+    happened (AD-20). Anything that goes wrong before the call is made is `failed`: nothing was sent."""
     client = _client()
     if client is None:
         return Sent("unavailable", error={"code": "no_key"})
     model_id = os.environ.get("ELEVENLABS_MODEL_ID", "").strip() or DEFAULT_MODEL_ID
-    sent = Sent("unknown", model_id=model_id)
+    voice_id = _voice_id()
+    sent = Sent("failed", model_id=model_id, voice_id=voice_id)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + OVERALL_DEADLINE_S
+    attempted = False  # true once a synthesis request may have reached ElevenLabs
     try:
-        voice_id = await asyncio.wait_for(_voice_id(client), REQUEST_TIMEOUT_S)
-        if not voice_id:
-            return Sent("unavailable", model_id=model_id, error={"code": "no_voice"})
-        sent.voice_id = voice_id
-        locators = await asyncio.wait_for(_pronunciation_locators(client), REQUEST_TIMEOUT_S)
+        try:
+            locators = await asyncio.wait_for(
+                _pronunciation_locators(client), max(0.1, min(DICTIONARY_BUDGET_S, deadline - loop.time())))
+        except TimeoutError:  # optional step: go without the dictionary
+            log.warning("briefing pronunciation dictionary timed out")
+            locators = []
         sent.pronunciation = "dictionary" if locators else "none"
         for attempt in (1, 2):
+            budget = deadline - loop.time()
+            if budget <= 0:  # no time left to start a call: nothing was sent
+                sent.outcome, sent.error = "failed", {"code": "deadline"}
+                return sent
+            attempted = True
             try:
-                audio = await asyncio.wait_for(
-                    _attempt(client, text, voice_id, model_id, locators), REQUEST_TIMEOUT_S)
+                audio = await asyncio.wait_for(_attempt(client, text, voice_id, model_id, locators), budget)
             except Exception as exc:  # noqa: BLE001 - classified below
                 status = getattr(exc, "status_code", None) if _is_api_error(exc) else None
                 if status == 429:
-                    if attempt == 1:  # nothing was produced: retry once, holding the claim
-                        await _sleep(_retry_after(exc))
+                    wait = _retry_after(exc)
+                    if attempt == 1 and deadline - loop.time() >= wait + MIN_RETRY_BUDGET_S:
+                        attempted = False  # nothing was produced: retry once, holding the claim
+                        await _sleep(wait)
                         continue
                     sent.outcome, sent.error = "failed", _error_detail(exc)
                     return sent
                 if isinstance(status, int) and 400 <= status < 500:
                     sent.outcome, sent.error = "failed", _error_detail(exc)
                     return sent
-                # 5xx, a timeout, a connection error or anything unexpected: ambiguous, never retried
+                # 5xx, a timeout, a connection error or anything unexpected: ambiguous
                 sent.outcome = "unknown"
                 sent.error = _error_detail(exc) if _is_api_error(exc) else {
                     "type": type(exc).__name__,
@@ -256,9 +280,8 @@ async def _send(text: str) -> Sent:
                 return sent
             sent.outcome, sent.audio = "ok", audio
             return sent
-    except Exception as exc:  # noqa: BLE001 - voice lookup failed before anything was synthesised
-        status = getattr(exc, "status_code", None) if _is_api_error(exc) else None
-        sent.outcome = "failed" if isinstance(status, int) and 400 <= status < 500 and status != 429 else "unknown"
+    except Exception as exc:  # noqa: BLE001 - unexpected; ambiguous only if a request may be out
+        sent.outcome = "unknown" if attempted else "failed"
         sent.error = _error_detail(exc)
     return sent
 
