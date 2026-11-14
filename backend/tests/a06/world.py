@@ -269,6 +269,9 @@ class Raw(dict):
         return self.get("failed_check")
 
 
+_ATLAS_ERROR: BaseException | None = None
+
+
 async def open_world(backend: str) -> tuple[World, Callable[[], Awaitable[None]]]:
     """Seed a world on ``fake`` (in memory) or ``atlas`` (A01's store and test database).
 
@@ -294,7 +297,16 @@ async def open_world(backend: str) -> tuple[World, Callable[[], Awaitable[None]]
         # store.emit_event reads with a projection and a sort the fake does not model: AD-10 stand-in.
         deps.override(emit_event=Emitter(db))
     else:
-        await store.ensure_indexes()
+        global _ATLAS_ERROR
+        if _ATLAS_ERROR is not None:
+            # The first Atlas connection already failed (for example authentication): repeat it at
+            # once instead of waiting about 10 s per test for the same failure.
+            raise _ATLAS_ERROR
+        try:
+            await store.ensure_indexes()
+        except Exception as exc:
+            _ATLAS_ERROR = exc
+            raise
         db = store.db()
         for name in ATLAS_COLLECTIONS:
             await db[name].delete_many({})

@@ -25,11 +25,13 @@ def lbdx(**kw):
 
 
 def sam(**kw):
-    return grant_doc("sam", principal="sam", kind="person", startable_by=[],
-                     scope={"scope_id": SCOPE_ID, "diagnostic_ids": PLASMA_DX},
-                     actions=["decide_report", "authorise_task", "create_memory", "review_value",
-                              "resolve_notification", "revert_report"],
-                     destinations=["ledger"], **kw)
+    base = dict(principal="sam", kind="person", startable_by=[],
+                scope={"scope_id": SCOPE_ID, "diagnostic_ids": PLASMA_DX},
+                actions=["decide_report", "authorise_task", "create_memory", "review_value",
+                         "resolve_notification", "revert_report"],
+                destinations=["ledger"])
+    base.update(kw)
+    return grant_doc("sam", **base)
 
 
 POLICIES = [policy_doc("evidence_quote", ["file_proposal", "file_related_evidence"],
@@ -281,3 +283,13 @@ def test_unknown_claim_kind_is_refused():
                         claims=[{"claim_kind": "", "text": "It showed X."}])
     with pytest.raises(ValueError):
         action.validate()
+
+
+def test_check3_knows_answer_question_as_a_human_kind():
+    """V70: answer_question is a Reviewer kind with destination ledger; check 4 n/a."""
+    rctx = GateCtx(kind="reviewer", principal="sam", grant_id="sam", initiated_by="sam", request_id="r")
+    grant = sam(actions=["answer_question"])
+    action = GateAction(kind="answer_question", destination="ledger", target={"report_id": "rep_1"})
+    action.validate()
+    checks, failed, _ = outcome(rctx, action, Loaded(grant=grant, policies=POLICIES, now=NOW))
+    assert failed is None and checks[3]["passed"] == "n/a"

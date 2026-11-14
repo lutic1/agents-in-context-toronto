@@ -42,6 +42,7 @@ HUMAN_KINDS = frozenset(
         "review_value",
         "resolve_notification",
         "revert_report",  # V48, AD-31
+        "answer_question",  # V70: the interview page, Reviewer only
     }
 )
 SUPERSEDED_KINDS = frozenset({"decide_proposal"})
