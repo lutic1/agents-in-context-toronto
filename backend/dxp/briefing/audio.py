@@ -31,7 +31,7 @@ What it does, in order:
    the V71 exception to V65, for the media kinds only. Every update is conditional on the status
    it expects.
 
-   The voice is `ELEVENLABS_VOICE_ID` when set, else DxP's chosen voice `DEFAULT_VOICE_ID`.
+   The voice is `ELEVENLABS_VOICE_ID` when set, else `DEFAULT_VOICE_ID`, ElevenLabs' default voice "Jessica".
 
 A failure is recorded and returned as a briefing with status `failed` or `unavailable`; it never
 raises into the caller, and nothing else (the report, Slack, the decision, the task) reads it.
@@ -66,7 +66,7 @@ DESTINATION = "tts:elevenlabs"
 OUTPUT_FORMAT = "mp3_44100_128"
 MIME = "audio/mpeg"
 DEFAULT_MODEL_ID = "eleven_multilingual_v2"
-DEFAULT_VOICE_ID = "4d175bd2-b678-46f6-bb01-38b2270147fa"  # DxP's chosen ElevenLabs voice
+DEFAULT_VOICE_ID = "cgSgspJ2msm6clMCkdW9"  # ElevenLabs default voice "Jessica", the same voice DxP's LiveAvatar uses
 
 OVERALL_DEADLINE_S = 25.0  # one deadline for the whole generation, inside AD-9's 30 seconds
 REQUEST_TIMEOUT_S = OVERALL_DEADLINE_S  # the client never waits longer than the deadline
@@ -496,6 +496,7 @@ async def generate(report_id: str, ctx: RunContext) -> tuple[Briefing, Decision]
         # Not ours to send (another worker or the sweep holds this action): change nothing.
         return await status(report_id), decision
 
+    may_have_sent = False  # True once an ElevenLabs request could be on the wire
     try:
         phase = await _claim_entry(audio_id, entry_doc)
         if phase == "busy":
@@ -506,11 +507,14 @@ async def generate(report_id: str, ctx: RunContext) -> tuple[Briefing, Decision]
         elif phase == "busy":  # the other press did not finish: nothing of ours was sent
             await _settle_action(ctx, action_id, report_id, decision.id, "failed")
         else:
+            may_have_sent = True
             await _generate_and_record(ctx, report_id, script, audio_id, action_id, decision.id)
     except BaseException:
-        # Whatever went wrong after the claim, leave the action settled, not dispatching.
-        await _settle_action(ctx, action_id, report_id, decision.id, "unknown")
-        await _fail_entry(audio_id, action_id, "unknown", {"code": "internal"})
+        # Whatever went wrong after the claim, leave the action settled, not dispatching:
+        # `failed` if nothing can have been sent (AD-20), `unknown` once a request may be out.
+        outcome: Literal["failed", "unknown"] = "unknown" if may_have_sent else "failed"
+        await _settle_action(ctx, action_id, report_id, decision.id, outcome)
+        await _fail_entry(audio_id, action_id, outcome, {"code": "internal"})
         raise
     return await status(report_id), decision
 
