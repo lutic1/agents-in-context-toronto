@@ -149,6 +149,10 @@
   html {
     @apply font-sans;
     background: var(--field-base);
+    /* The top bar is sticky and 64px high; keep focused controls clear of it
+       (WCAG 2.2 SC 2.4.11). The bottom value is for B04's sticky decisions bar. */
+    scroll-padding-top: 5rem;
+    scroll-padding-bottom: 5rem;
   }
   body {
     @apply bg-transparent text-foreground;
@@ -294,5 +298,18 @@
 @utility row-enter {
   @media (prefers-reduced-motion: no-preference) {
     animation: row-enter 200ms ease-out 1 both;
+  }
+}
+
+/* Reduced motion: nothing loops or slides, including skeleton pulses, shadcn
+   overlay animations and button transitions (EXPERIENCE "Motion"). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
