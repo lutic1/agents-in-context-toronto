@@ -7,7 +7,7 @@ import importlib
 import pytest
 from a21_a22_fakes import CLAIM, M1_TEXT, OTHER_TEAM, TEAM, install, reviewer_ctx, sam
 from dxp import memory
-from dxp.api.models import Memory, MemorySource, MemoryUse, Retrieval, RetrievalFilter, RetrievalItem
+from dxp.api.models import Memory, MemorySource, Retrieval, RetrievalFilter, RetrievalItem
 
 retrieve_module = importlib.import_module("dxp.memory.retrieve")
 
@@ -120,7 +120,6 @@ async def test_revoking_m1_removes_it_from_the_next_report(database, fake_gate, 
     after, retrieval = await memory.retrieve(TEAM, ANCHOR_TEXT, ANCHOR_TAGS)
     assert [item.id for item in before] == [m1.id]
     assert after == [] and retrieval.items == []
-    assert retrieve_module.memory_uses(after, retrieval) == []
 
 
 async def test_a_corrected_version_is_replaced_by_its_successor(database, fake_gate, search):
@@ -154,13 +153,14 @@ async def test_no_memories_is_an_empty_result(database, fake_gate, search):
     assert found == [] and retrieval.items == [] and retrieval.top_k == 3
 
 
-async def test_memory_uses_carry_author_source_version_and_score_with_no_effect_yet(database, fake_gate, search):
+async def test_the_retrieval_carries_each_memorys_score_for_memories_used(database, fake_gate, search):
+    """The seam with A10 and A19+A20: each item's ref is the memory ID and its score is the one
+    `reports.draft` copies into `memories_used[].score`."""
     m1 = await create("dec_reject")
     search.scores = {m1.id: 0.81}
     found, retrieval = await memory.retrieve(TEAM, ANCHOR_TEXT, ANCHOR_TAGS)
-    assert retrieve_module.memory_uses(found, retrieval) == [MemoryUse(
-        memory_id=m1.id, version=1, author="sam",
-        source=MemorySource(decision_id="dec_reject", report_id="rep_dec_reject"), score=0.81, effect=None)]
+    assert [(m.id, m.version, m.author) for m in found] == [(m1.id, 1, "sam")]
+    assert [(item.ref, item.score) for item in retrieval.items] == [(m1.id, 0.81)]
 
 
 async def test_until_a19_a20_merges_the_frozen_stub_says_so(database, fake_gate):

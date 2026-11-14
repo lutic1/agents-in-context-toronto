@@ -187,4 +187,6 @@ def test_the_memory_code_names_no_authority_collection():
     assert store.COLLECTION == "memories"
     for path in files:
         source = path.read_text()
-        assert "get_db" not in source and "get_client" not in source and ".db(" not in source, path
+        # The client is used for one thing only: the session of correct()'s transaction.
+        rest = source.replace("database.get_client().start_session()", "")
+        assert "get_db" not in rest and "get_client" not in rest and ".db(" not in rest, path

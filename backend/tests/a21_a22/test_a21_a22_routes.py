@@ -235,3 +235,13 @@ def test_the_frozen_route_contract_is_unchanged():
         op = paths[f"/api/v1/memories/{{memory_id}}/{path}"]["post"]
         assert op["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(model)
         assert op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("MemoryChangeResponse")
+
+
+@pytest.mark.parametrize(("path", "body"), [("correct", {"text": "", "note": ""}), ("revoke", {"note": ""})])
+async def test_an_invalid_change_from_an_unknown_or_agent_key_is_refused_before_it_is_validated(
+        client, database, fake_gate, path, body):
+    """Authentication comes first: 401/403, never a 422 that tells a stranger what is missing."""
+    m1 = await make()
+    assert client.post(f"{API}/memories/{m1.id}/{path}", json=body).status_code == 401
+    assert client.post(f"{API}/memories/{m1.id}/{path}", json=body, headers=SEED).status_code == 403
+    assert client.post(f"{API}/memories/{m1.id}/{path}", json=body, headers=AGENT).status_code == 403

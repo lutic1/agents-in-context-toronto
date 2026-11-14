@@ -12,7 +12,7 @@ from typing import Any
 
 from dxp import retrieval
 from dxp import store as database
-from dxp.api.models import Memory, MemoryUse, Retrieval, RetrievalFilter, RetrievalItem
+from dxp.api.models import Memory, Retrieval, RetrievalFilter, RetrievalItem
 from dxp.memory import store as memory_store
 
 ACTIVE = "active"
@@ -113,16 +113,6 @@ def _is_number(value: Any) -> bool:
     return value == value and value not in (float("inf"), float("-inf"))
 
 
-def memory_uses(memories: list[Memory], found: Retrieval) -> list[MemoryUse]:
-    """One `MemoryUse` per retrieved memory, in order, with its score and no effect yet.
-
-    The effect is filled in by `reports.draft` from its two drafts (AD-28).
-    """
-    scores = {item.ref: item.score for item in found.items}
-    return [MemoryUse(memory_id=memory.id, version=memory.version, author=memory.author, source=memory.source,
-                      score=scores.get(memory.id), effect=None) for memory in memories]
-
-
 # ---------------------------------------------------------------------------
 # Retrieval (frozen signature)
 # ---------------------------------------------------------------------------
@@ -132,7 +122,9 @@ async def retrieve(team_id: str, text: str, tags: dict[str, Any] | None) -> tupl
     """Only active versions of the Team, ranked by retrieval.memories.
 
     Filters on the Team, `active` and `tags.claim_kind`, never on the assay (V22). The returned
-    Retrieval lists only the memories returned, in the same order, each `ref` a memory ID.
+    Retrieval lists only the memories returned, in the same order, each `ref` a memory ID with
+    its score. A10 keeps it on the item (`memory_retrieval`) and `reports.draft` copies each
+    score into `memories_used[].score`.
     """
     wanted = search_tags(tags)
     found = await retrieval.memories(team_id, text, wanted, DEFAULT_TOP_K)

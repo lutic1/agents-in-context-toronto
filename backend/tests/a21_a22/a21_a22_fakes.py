@@ -85,6 +85,7 @@ class FakeCollection:
         self.documents: list[dict[str, Any]] = []
         self.writes: list[tuple[str, Any]] = []
         self.fail_next_insert: Exception | None = None
+        self.fail_next_insert_in_session: Exception | None = None
 
     def find(self, query: dict[str, Any] | None = None, *args: Any, **kwargs: Any) -> FakeCursor:
         return FakeCursor([copy.deepcopy(d) for d in self.documents if _matches(d, query or {})])
@@ -94,6 +95,10 @@ class FakeCollection:
         return found[0] if found else None
 
     async def insert_one(self, document: dict[str, Any], **kwargs: Any) -> None:
+        session = kwargs.get("session")
+        if session is not None and self.fail_next_insert_in_session is not None:
+            error, self.fail_next_insert_in_session = self.fail_next_insert_in_session, None
+            raise error
         if self.fail_next_insert is not None:
             error, self.fail_next_insert = self.fail_next_insert, None
             raise error
@@ -104,10 +109,14 @@ class FakeCollection:
                 raise DuplicateKeyError("duplicate key")
         self.documents.append(copy.deepcopy(document))
         self.writes.append(("insert_one", document["_id"]))
+        if session is not None:
+            session.undo.append((self, document["_id"], None))
 
     async def update_one(self, query: dict[str, Any], update: dict[str, Any], **kwargs: Any) -> Changed:
         for held in self.documents:
             if _matches(held, query):
+                if kwargs.get("session") is not None:
+                    kwargs["session"].undo.append((self, held["_id"], copy.deepcopy(held)))
                 held.update(copy.deepcopy(update["$set"]))
                 self.writes.append(("update_one", held["_id"]))
                 return Changed(1, 1)
@@ -119,6 +128,7 @@ class FakeDatabase:
     collections: dict[str, FakeCollection] = field(default_factory=dict)
     events: list[dict[str, Any]] = field(default_factory=list)
     opened: list[str] = field(default_factory=list)
+    transactions: int = 0
 
     def collection(self, name: str) -> FakeCollection:
         self.opened.append(name)
@@ -147,11 +157,47 @@ class FakeDatabase:
         return {name: copy.deepcopy(self.collections[name].documents) for name in names}
 
 
+class FakeSession:
+    """`with_transaction`: on any error, the writes made with this session are undone (an
+    abort); writes made without it (another request) stay."""
+
+    def __init__(self, database: "FakeDatabase") -> None:
+        self.database = database
+        self.undo: list[tuple[Any, Any, Any]] = []
+
+    async def __aenter__(self) -> "FakeSession":
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    async def with_transaction(self, callback: Any) -> Any:
+        self.database.transactions += 1
+        self.undo = []
+        try:
+            return await callback(self)
+        except BaseException:
+            for collection, _id, before in reversed(self.undo):
+                collection.documents = [d for d in collection.documents if d["_id"] != _id]
+                if before is not None:
+                    collection.documents.append(before)
+            raise
+
+
+class FakeClient:
+    def __init__(self, database: "FakeDatabase") -> None:
+        self.database = database
+
+    def start_session(self) -> FakeSession:
+        return FakeSession(self.database)
+
+
 def install(monkeypatch: Any) -> FakeDatabase:
     import dxp.store
 
     database = FakeDatabase()
     monkeypatch.setattr(dxp.store, "collection", database.collection)
+    monkeypatch.setattr(dxp.store, "get_client", lambda: FakeClient(database))
     monkeypatch.setattr(dxp.store, "emit_event", database.emit_event)
     return database
 

@@ -7,6 +7,8 @@ Nothing here reads or writes a grant, a policy or a policy set.
 
 from __future__ import annotations
 
+import logging
+import os
 import secrets
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -18,7 +20,10 @@ from dxp import gate, identity
 from dxp import store as database
 from dxp.api.models import Decision, Memory, MemorySource, Principal, ProposedAction, RunContext, Target
 
+log = logging.getLogger("dxp.memory")
+
 COLLECTION = "memories"
+EMBEDDING_PATH = "embedding"  # the same field retrieval's vector index reads (A19+A20)
 DESTINATION = "ledger"
 
 # tags.claim_kind uses the gate's claim-check vocabulary, plus the tag of a correction that
@@ -221,6 +226,7 @@ async def create(team_id: str, text: str, tags: dict[str, Any], source: MemorySo
     if decision.outcome != "allowed":
         return None, decision  # type: ignore[return-value]
     document = new_memory(memory_id, team_id, reviewer.id, source.model_dump(), text, tags, decision.id, _stamp(ctx), _now())
+    await _embed_into(document)
     try:
         await database.collection(COLLECTION).insert_one(document)
     except DuplicateKeyError:
@@ -247,25 +253,26 @@ async def correct(memory_id: str, text: str, note: str, ctx: RunContext) -> tupl
     if decision.outcome != "allowed":
         return to_model(current), decision
     successor, superseded = corrected_successor(current, text, ctx.principal.id, decision.id, _stamp(ctx), _now())
+    await _embed_into(successor)
     memories = database.collection(COLLECTION)
-    # The guard: only one request moves this version from active to corrected. A revocation or
-    # another correction that got there first leaves no match, and nothing else is written.
+
+    async def swap(session: Any) -> None:
+        # One transaction: the old version becomes corrected and the new one is inserted, or
+        # neither happens, so a crash can never leave the memory without an active version.
+        # The guard: only one request moves this version from active to corrected.
+        claimed = await memories.update_one({"_id": current["_id"], "status": ACTIVE},
+                                            {"$set": {"status": CORRECTED}}, session=session)
+        if claimed.matched_count == 0:
+            raise MemoryStateError(f"memory {current['_id']} was changed by another request")
+        try:
+            await memories.insert_one(successor, session=session)
+        except DuplicateKeyError as exc:
+            raise MemoryStateError(f"memory {current['_id']} was changed by another request") from exc
+
     try:
-        claimed = await memories.update_one({"_id": current["_id"], "status": ACTIVE}, {"$set": {"status": CORRECTED}})
+        await _in_transaction(swap)
     except Exception:
         await _fail_action(decision)
-        raise
-    if claimed.matched_count == 0:
-        await _fail_action(decision)
-        raise MemoryStateError(f"memory {current['_id']} was changed by another request")
-    try:
-        await memories.insert_one(successor)
-    except Exception as exc:
-        # Put the old version back, so the memory is not left with no active version.
-        await memories.update_one({"_id": current["_id"], "status": CORRECTED}, {"$set": {"status": ACTIVE}})
-        await _fail_action(decision)
-        if isinstance(exc, DuplicateKeyError):
-            raise MemoryStateError(f"memory {current['_id']} was changed by another request") from exc
         raise
     await _emit(superseded, decision, ctx)
     await _emit(successor, decision, ctx)
@@ -297,6 +304,25 @@ async def revoke(memory_id: str, note: str, ctx: RunContext) -> tuple[Memory, De
     await _emit(gone, decision, ctx)
     await _finish_action(decision, gone)
     return to_model(gone), decision
+
+
+async def _in_transaction(work: Any) -> None:
+    """Run `work(session)` in one transaction (retried by the driver on a transient error)."""
+    async with database.get_client().start_session() as session:
+        await session.with_transaction(work)
+
+
+async def _embed_into(document: dict[str, Any]) -> None:
+    """In `voyage` mode, the version's embedding is written with it, here, because only memory
+    writes `memories` (AD-28). Without one the memory is still stored; text search finds it."""
+    if (os.environ.get("DXP_EMBEDDING") or "none").strip().lower() != "voyage":
+        return
+    try:
+        from dxp import retrieval
+
+        document[EMBEDDING_PATH] = (await retrieval.embed([document["text"]]))[0]
+    except Exception as exc:
+        log.warning("memory: %s stored without an embedding: %s", document["_id"], type(exc).__name__)
 
 
 async def _active(memory_id: str) -> dict[str, Any]:

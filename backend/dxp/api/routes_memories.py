@@ -103,8 +103,8 @@ async def get_memory(request: Request, memory_id: str, version: int | None = Que
 
 @router.post("/memories/{memory_id}/correct", response_model=m.MemoryChangeResponse, tags=["memories"])
 async def correct_memory(request: Request, memory_id: str, body: m.MemoryCorrectRequest) -> m.MemoryChangeResponse:
+    reviewer, grant = await _reviewer(request)  # 401/403 before any 422
     text, note = _required(body.text, "text"), _required(body.note, "note")
-    reviewer, grant = await _reviewer(request)
     memory = await _own(memory_id, grant)
     ctx = await _context(reviewer, grant, memory)
     try:
@@ -116,8 +116,8 @@ async def correct_memory(request: Request, memory_id: str, body: m.MemoryCorrect
 
 @router.post("/memories/{memory_id}/revoke", response_model=m.MemoryChangeResponse, tags=["memories"])
 async def revoke_memory(request: Request, memory_id: str, body: m.MemoryRevokeRequest) -> m.MemoryChangeResponse:
+    reviewer, grant = await _reviewer(request)  # 401/403 before any 422
     note = _required(body.note, "note")
-    reviewer, grant = await _reviewer(request)
     memory = await _own(memory_id, grant)
     ctx = await _context(reviewer, grant, memory)
     try:

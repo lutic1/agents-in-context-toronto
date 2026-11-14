@@ -119,7 +119,7 @@ async def test_the_claim_kind_is_one_of_the_gates_kinds_or_reviewer_correction(d
     assert created.tags.claim_kind == claim_kind
 
 
-@pytest.mark.parametrize("claim_kind", ["outcome_claim_without_results", "Claim_Planned", "anything"])
+@pytest.mark.parametrize("claim_kind", ["claim_results", "Claim_Planned", "anything"])
 async def test_any_other_claim_kind_is_refused_before_the_gate(database, fake_gate, claim_kind):
     with pytest.raises(ValueError, match="claim_kind"):
         await create_m1(tags={"assay": None, "claim_kind": claim_kind})
@@ -455,3 +455,64 @@ async def test_stored_versions_have_the_ids_and_types_the_memories_validator_req
 
     for document in database.memories:
         check(JSON_SCHEMA, document, document["_id"])
+
+
+# --- one transaction for a correction; embeddings written by memory (AD-28) ---
+
+
+async def test_a_correction_writes_both_versions_in_one_transaction(database, fake_gate):
+    m1, _ = await create_m1()
+    before = database.transactions
+    await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert database.transactions == before + 1
+
+
+async def test_a_crash_between_the_two_writes_leaves_the_old_version_active(database, fake_gate, monkeypatch):
+    m1, _ = await create_m1()
+    actions = gate_with_actions(database, fake_gate, monkeypatch)
+    database.collection("memories").fail_next_insert_in_session = RuntimeError("connection lost")
+    with pytest.raises(RuntimeError):
+        await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert [(d["version"], d["status"]) for d in database.memories] == [(1, "active")]
+    assert [a["status"] for a in actions] == ["failed"]
+    changed, _ = await memory.revoke(m1.id, "still revocable", reviewer_ctx(request_id="req_r", memory_id=m1.id))
+    assert changed.status == "revoked"
+
+
+async def test_voyage_mode_embeds_each_version_as_memory_writes_it(database, fake_gate, monkeypatch):
+    import dxp.retrieval
+
+    monkeypatch.setenv("DXP_EMBEDDING", "voyage")
+    texts = []
+
+    async def embed(batch):
+        texts.extend(batch)
+        return [[0.1, 0.2] for _ in batch]
+
+    monkeypatch.setattr(dxp.retrieval, "embed", embed)
+    m1, _ = await create_m1()
+    await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert texts == [M1_TEXT, "new wording"]
+    assert all(d["embedding"] == [0.1, 0.2] for d in database.memories)
+    assert "embedding" not in (await store.get(m1.id)).model_dump()  # never in the API shape
+
+
+@pytest.mark.parametrize("mode", ["auto", "none"])
+async def test_other_modes_write_no_embedding(database, fake_gate, monkeypatch, mode):
+    monkeypatch.setenv("DXP_EMBEDDING", mode)
+    await create_m1()
+    assert all("embedding" not in d for d in database.memories)
+
+
+async def test_a_failed_embedding_still_stores_the_memory(database, fake_gate, monkeypatch):
+    import dxp.retrieval
+
+    monkeypatch.setenv("DXP_EMBEDDING", "voyage")
+
+    async def embed(batch):
+        raise RuntimeError("voyage down")
+
+    monkeypatch.setattr(dxp.retrieval, "embed", embed)
+    created, decision = await create_m1()
+    assert created.status == "active" and decision.outcome == "allowed"
+    assert all("embedding" not in d for d in database.memories)
