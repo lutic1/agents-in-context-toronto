@@ -534,15 +534,38 @@ def _has_name(text: str, names: list[str]) -> bool:
     return any(name.lower() in lowered for name in names)
 
 
+def _gate_kind(claim: dict[str, Any]) -> str | None:
+    """The claim policy the gate applies to this sentence, used to tag an untagged claim.
+
+    The gate refuses an untagged claim (GateAction.validate) and the decisions validator allows
+    only the three kinds, so every claim sent must carry one. The kind comes from the gate's own
+    detector (``gate.claims``), so a "showed"/results sentence is ``claim_performed_or_results``
+    and a "completed" sentence ``claim_planned``. None when no claim policy applies: check 4 then
+    has nothing to judge in it and it is not sent."""
+    from dxp.gate import claims as gate_claims_module
+
+    kind = claim.get("claim_kind")
+    if kind in CLAIM_KINDS:
+        return kind
+    text, quote = str(claim.get("text") or ""), str(claim.get("quote") or "")
+    return next((p for p in CLAIM_KINDS if gate_claims_module._policy_applies(p, "", text, quote)), None)
+
+
 def gate_claims(one_draft: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every sentence the draft states, for check 4: the tagged claims, then the headline
-    and summary sentences not already among them."""
-    claims = [{k: c[k] for k in ("claim_kind", "text", "quote") if c.get(k)} for c in one_draft.get("claims") or []]
-    seen = {c["text"] for c in claims}
-    for sentence in split_sentences(one_draft.get("headline")) + split_sentences(one_draft.get("summary")):
-        if sentence not in seen:
-            seen.add(sentence)
-            claims.append({"text": sentence})
+    """Every sentence the draft states that a claim policy applies to, for check 4: the claims,
+    then the headline and summary sentences not already among them, each tagged with a kind."""
+    claims: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    candidates = [c for c in one_draft.get("claims") or [] if isinstance(c, dict) and c.get("text")]
+    candidates += [{"text": s} for s in split_sentences(one_draft.get("headline")) + split_sentences(one_draft.get("summary"))]
+    for claim in candidates:
+        if claim["text"] in seen:
+            continue
+        seen.add(claim["text"])
+        kind = _gate_kind(claim)
+        if kind is None:
+            continue
+        claims.append({k: v for k, v in {"claim_kind": kind, "text": claim["text"], "quote": claim.get("quote")}.items() if v})
     return claims
 
 

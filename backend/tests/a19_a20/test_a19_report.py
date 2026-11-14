@@ -447,14 +447,17 @@ async def test_the_gate_sees_claims_source_fields_retrieval_and_memories(world):
     first, second = [a for _, a in world.gate.calls if "draft" in a.inputs]
     assert first.destination == "ledger" and first.target.scope_id == SCOPE and first.target.diagnostic_id is None
     assert {"claim_kind": "claim_performed_or_results", "text": SHOWED, "quote": Q_DESIGN} in first.inputs["claims"]
-    assert {"text": HEADLINE.split(". ")[0] + "."} in first.inputs["claims"]  # untagged: judged on its words
+    # Every claim reaches the gate tagged (GateAction.validate and the decisions validator allow only the
+    # three kinds); a neutral headline sentence no claim policy applies to is not sent.
+    assert all(c.get("claim_kind") in ("claim_performed_or_results", "claim_planned", "claim_preclinical") for c in first.inputs["claims"])
+    assert not any(c["text"] == HEADLINE.split(". ")[0] + "." for c in first.inputs["claims"])
     kinds = {c.get("claim_kind") for c in first.inputs["claims"] + second.inputs["claims"]}
     assert kinds <= {None, "claim_performed_or_results", "claim_planned", "claim_preclinical"}
     assert first.inputs["source_fields"] == {"overall_status": "RECRUITING", "has_results": False}
     assert first.evidence_ref.version_id == VERSION and first.evidence_ref.source_ref == REF
     assert first.memories_used == [] and first.retrieval.method == "vector_search"
     assert second.memories_used[0].memory_id == "mem_1111111111111111"
-    assert HEADLINE.split(". ")[0] + "." in [c["text"] for c in second.inputs["claims"]]
+    assert all(c.get("claim_kind") in ("claim_performed_or_results", "claim_planned", "claim_preclinical") for c in second.inputs["claims"])
     assert all(q["version_id"] == VERSION for q in second.inputs["checked_quotes"])
 
 

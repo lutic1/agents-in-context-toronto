@@ -58,3 +58,24 @@ def test_related_evidence_checks_need_both_quotes_found():
     one = file_module.quote_checks([_relationship(True, False).new_quote, _relationship(True, False).related_quote])
     assert gate_checks._requires_failures(gate_checks._policies_for("file_related_evidence", POLICIES), both) == []
     assert gate_checks._requires_failures(gate_checks._policies_for("file_related_evidence", POLICIES), one) != []
+
+
+def test_every_report_claim_passes_the_real_gates_validation():
+    """I1 defect: headline and summary sentences reached the gate untagged, and the real gate's
+    GateAction.validate raised ValueError, so every report draft failed at "file"."""
+    draft = {**DRAFT, "headline": "This terminated study profiled ctDNA in lung cancer. No results posted.",
+             "summary": "The study enrolled patients with NSCLC.",
+             "claims": [{"text": "Untagged claim from the model.", "quote": "q", "quote_found": True}],
+             "quotes": [{"text": "q", "quote_found": True, "version_id": "sv_aaaaaaaaaaaaaaaa"}]}
+    action = file_module.report_action("rep_1", draft, draft)
+    gate_checks.GateAction.coerce(action).validate()  # raised ValueError before the fix
+    assert all(c["claim_kind"] in ("claim_performed_or_results", "claim_planned", "claim_preclinical")
+               for c in action.inputs["claims"])
+
+
+def test_a_results_sentence_is_still_tagged_and_judged():
+    draft = {**DRAFT, "headline": "The study showed ctDNA detected EGFR in 42% of patients.", "summary": "",
+             "claims": [], "quotes": [{"text": "q", "quote_found": True, "version_id": "sv_aaaaaaaaaaaaaaaa"}]}
+    action = file_module.report_action("rep_1", draft, draft)
+    gate_checks.GateAction.coerce(action).validate()
+    assert any(c["claim_kind"] == "claim_performed_or_results" for c in action.inputs["claims"])
