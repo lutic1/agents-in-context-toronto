@@ -12,6 +12,9 @@ from pymongo.errors import DuplicateKeyError
 
 def _get(doc: Any, path: str) -> Any:
     for part in path.split("."):
+        if isinstance(doc, list):
+            doc = [d.get(part) for d in doc if isinstance(d, dict) and part in d]
+            continue
         if not isinstance(doc, dict) or part not in doc:
             return None
         doc = doc[part]
