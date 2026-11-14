@@ -4,8 +4,10 @@ import "server-only";
  * The one place the server talks to the DxP API with the reviewer key.
  *
  * DXP_API_KEY is read here, on the server only. It is never NEXT_PUBLIC_, is
- * never logged, and is never put in a response. NEXT_PUBLIC_API_URL is the API
- * origin; the API itself lives under `/api/v1` (AD-9).
+ * never logged, and is never put in a response. The API origin is the server-only
+ * DXP_API_URL, read at request time, falling back to NEXT_PUBLIC_API_URL (which Next
+ * inlines at build time, so changing it needs a rebuild). The API itself lives under
+ * `/api/v1` (AD-9).
  */
 
 export class UpstreamConfigError extends Error {
@@ -19,7 +21,9 @@ export class UpstreamConfigError extends Error {
 const TIMEOUT_MS = 30_000;
 
 function config(): { base: string; key: string } {
-  const origin = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "");
+  // DXP_API_URL is not NEXT_PUBLIC_, so Next leaves it as a runtime lookup. The fallback is
+  // inlined at build time, which is why the server-only name is preferred.
+  const origin = (process.env.DXP_API_URL || process.env.NEXT_PUBLIC_API_URL)?.trim().replace(/\/+$/, "");
   const key = process.env.DXP_API_KEY?.trim();
   if (!origin || !key) throw new UpstreamConfigError();
   return { base: `${origin}/api/v1`, key };
