@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-
 from conftest import CLAIM_POLICY_IDS, NOW, SCOPE_ID, TEAM_ID, grant_doc, policy_doc
+
 from dxp.gate.checks import CHECK_ORDER, GateAction, GateCtx, Loaded, run_checks
 
 PLASMA_DX = ["dx_plasma1", "dx_plasma2"]

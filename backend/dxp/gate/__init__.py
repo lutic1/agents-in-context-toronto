@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from dxp.gate import claims, checks, decisions
+from dxp.gate import checks, claims, decisions
 from dxp.gate.checks import CHECK_ORDER, GateAction, GateCtx, Loaded, run_checks
 from dxp.gate.decisions import Decision, deps
 
