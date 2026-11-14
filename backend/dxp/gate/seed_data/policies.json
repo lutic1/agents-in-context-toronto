@@ -1,0 +1,54 @@
+{
+  "//": [
+    "Hand-written, versioned policies (Story 9.2, Story 10.7, AD-18, NFR15, V7). Loaded by python -m dxp.gate.seed.",
+    "requires accepts only quote_found, supported, min_confidence and claim_checks; text is description and is never executed.",
+    "The claim checks themselves are decided by gate/claims.py (A06) from the source's own fields (overall_status, has_results) and checked quotes.",
+    "Never edit a seeded version in place: a change is a new version (bump version and _id)."
+  ],
+  "policies": [
+    {
+      "_id": "evidence_quote_supported@v1",
+      "policy_id": "evidence_quote_supported",
+      "version": 1,
+      "status": "active",
+      "applies_to": ["file_proposal", "file_related_evidence"],
+      "requires": {"quote_found": true, "supported": true},
+      "text": "A change is filed only when its quote is found word for word in the source version it cites and the quote supports the value. For a report, this holds for every supporting quote and for both quotes of each established relationship.",
+      "author": "luis",
+      "approved_by": "luis"
+    },
+    {
+      "_id": "claim_performed_or_results@v1",
+      "policy_id": "claim_performed_or_results",
+      "version": 1,
+      "status": "active",
+      "applies_to": ["file_proposal"],
+      "requires": {"claim_checks": ["claim_performed_or_results"]},
+      "text": "A sentence stating that an assay was performed, detected something, showed or produced results needs has_results true in the source, or a checked quote saying the assay was performed with results.",
+      "author": "luis",
+      "approved_by": "luis"
+    },
+    {
+      "_id": "claim_planned@v1",
+      "policy_id": "claim_planned",
+      "version": 1,
+      "status": "active",
+      "applies_to": ["file_proposal"],
+      "requires": {"claim_checks": ["claim_planned"]},
+      "text": "When the source status is NOT_YET_RECRUITING or RECRUITING, or the trial is otherwise planned, the report must describe it as planned or ongoing.",
+      "author": "luis",
+      "approved_by": "luis"
+    },
+    {
+      "_id": "claim_preclinical@v1",
+      "policy_id": "claim_preclinical",
+      "version": 1,
+      "status": "active",
+      "applies_to": ["file_proposal"],
+      "requires": {"claim_checks": ["claim_preclinical"]},
+      "text": "Evidence from cell lines or animals must be labelled preclinical.",
+      "author": "luis",
+      "approved_by": "luis"
+    }
+  ]
+}
