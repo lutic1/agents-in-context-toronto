@@ -1,7 +1,8 @@
 """Reviewer memory (Stories 10.5, 10.6). A21+A22.
 
 Paths, methods, parameters and response models are frozen by A01 (AD-14): only the bodies
-change. Every route is for a Reviewer and stays inside the Team of the Reviewer's grant.
+change. Reads need a known key that is not the seed key (V67); changes are for a Reviewer. Every
+route stays inside the Team of the caller's own grant.
 Correct and revoke are gated in `memory.store`; a blocked change answers 200 with its
 Decision and the unchanged memory (D5). No route here writes a grant or a policy.
 """
@@ -25,21 +26,25 @@ OWNER = "A21+A22"
 KEY_HEADER = "X-DxP-Key"
 
 
-async def _reviewer(request: Request) -> tuple[m.Principal, m.Grant]:
-    """The Reviewer the key resolves to, with the current version of their grant.
+async def _caller(request: Request) -> tuple[m.Principal, m.Grant]:
+    """The principal the key resolves to, with the latest version of the key's own grant.
 
-    The principal comes from the key only (AD-18): no name in a body or a query is read.
+    401 for a missing or unknown key and 403 for the seed key (V67). The principal and the
+    Team come from the key only (AD-18): no name in a body or a query is read.
     """
-    key = request.headers.get(KEY_HEADER)
-    if not key:
-        raise ApiError(401, "unauthorised", "X-DxP-Key is required.")
-    reviewer = await auth.resolve_actor(key)
-    if reviewer.kind != "person":
-        raise ApiError(403, "forbidden", "Memories are for Reviewers only.")
-    grant = await policy_sets.current_grant(reviewer.id)
-    if grant is None or not grant.team_id:
-        raise ApiError(403, "forbidden", "The Reviewer has no grant for a Team.")
-    return reviewer, grant
+    caller = await auth.require_principal(request)
+    stored = await auth.grant_for_key(request.headers.get(KEY_HEADER))
+    if stored is None or not stored.get("team_id"):
+        raise ApiError(403, "forbidden", "This key has no grant for a Team.")
+    return caller, policy_sets.grant_model(stored)
+
+
+async def _reviewer(request: Request) -> tuple[m.Principal, m.Grant]:
+    """A change is for a Reviewer only; the gate then judges the Reviewer's grant."""
+    caller, grant = await _caller(request)
+    if caller.kind != "person":
+        raise ApiError(403, "forbidden", "Only a Reviewer can change a memory.")
+    return caller, grant
 
 
 async def _own(memory_id: str, grant: m.Grant, version: int | None = None) -> m.Memory:
@@ -82,7 +87,7 @@ def _required(value: str, name: str) -> str:
 @router.get("/memories", response_model=m.MemoryList, tags=["memories"])
 async def list_memories(request: Request, team_id: str | None = Query(default=None), status: str | None = Query(default=None)) -> m.MemoryList:
     """The latest version of each of the Team's memories, with author, source and status."""
-    _, grant = await _reviewer(request)
+    _, grant = await _caller(request)
     if team_id is not None and team_id != grant.team_id:
         raise ApiError(403, "forbidden", "Another Team's memories cannot be read.")
     if status is not None and status not in get_args(m.MemoryStatus):
@@ -92,7 +97,7 @@ async def list_memories(request: Request, team_id: str | None = Query(default=No
 
 @router.get("/memories/{memory_id}", response_model=m.Memory, tags=["memories"])
 async def get_memory(request: Request, memory_id: str, version: int | None = Query(default=None)) -> m.Memory:
-    _, grant = await _reviewer(request)
+    _, grant = await _caller(request)
     return await _own(memory_id, grant, version)
 
 

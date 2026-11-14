@@ -105,8 +105,25 @@ async def test_create_needs_the_source_decision_and_report_before_the_gate(datab
 async def test_tags_keep_only_assay_and_claim_kind_and_either_may_be_missing(database, fake_gate):
     created, _ = await create_m1(tags={"assay": None, "claim_kind": CLAIM, "grant": "lbdx"})
     assert created.tags.model_dump() == {"assay": None, "claim_kind": CLAIM}
-    untagged, _ = await create_m1(tags=None, source=MemorySource(decision_id="dec_other", report_id="rep_2"))
-    assert untagged.tags.model_dump() == {"assay": None, "claim_kind": None}
+
+
+async def test_a_correction_that_names_no_claim_kind_is_tagged_reviewer_correction(database, fake_gate):
+    for n, tags in enumerate((None, {}, {"assay": "A"}, {"assay": "A", "claim_kind": None})):
+        untagged, _ = await create_m1(tags=tags, source=MemorySource(decision_id=f"dec_{n}", report_id="rep_2"))
+        assert untagged.tags.claim_kind == "reviewer_correction"
+
+
+@pytest.mark.parametrize("claim_kind", ["claim_performed_or_results", "claim_planned", "claim_preclinical", "reviewer_correction"])
+async def test_the_claim_kind_is_one_of_the_gates_kinds_or_reviewer_correction(database, fake_gate, claim_kind):
+    created, _ = await create_m1(tags={"assay": None, "claim_kind": claim_kind})
+    assert created.tags.claim_kind == claim_kind
+
+
+@pytest.mark.parametrize("claim_kind", ["outcome_claim_without_results", "Claim_Planned", "anything"])
+async def test_any_other_claim_kind_is_refused_before_the_gate(database, fake_gate, claim_kind):
+    with pytest.raises(ValueError, match="claim_kind"):
+        await create_m1(tags={"assay": None, "claim_kind": claim_kind})
+    assert fake_gate.calls == [] and database.memories == []
 
 
 @pytest.mark.parametrize("changes", [{"text": ""}, {"text": "  "}, {"team_id": ""}])
@@ -117,21 +134,37 @@ async def test_create_needs_a_team_and_a_text(database, fake_gate, changes):
 
 
 def gate_with_actions(database, fake_gate, monkeypatch):
-    """The fake gate, also inserting the queued action an allowed Decision gets (AD-19)."""
+    """The fake gate as Governance: it inserts the queued action an allowed Decision gets
+    (AD-19) and offers A06's `gate.mark_action(action_id, status, result=None, *, session=None)`,
+    the only way an action is settled (V65)."""
     import dxp.gate
 
     evaluate = fake_gate.evaluate
+    actions = FakeActions()
+
+    async def mark_action(action_id, status, result=None, *, session=None):
+        action = next(a for a in actions if a["_id"] == action_id)
+        if action["status"] != "queued":
+            return False
+        action.update(status=status, result=result)
+        return True
+
+    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
 
     async def with_action(ctx, action):
         decision = await evaluate(ctx, action)
         if decision.outcome != "allowed":
             return decision
         action_id = f"act_{len(fake_gate.calls)}"
-        await database.collection("actions").insert_one({"_id": action_id, "decision_id": decision.id, "status": "queued"})
+        actions.append({"_id": action_id, "decision_id": decision.id, "status": "queued", "result": None})
         return decision.model_copy(update={"action_id": action_id})
 
     monkeypatch.setattr(dxp.gate, "evaluate", with_action)
-    return database.collection("actions").documents
+    return actions
+
+
+class FakeActions(list):
+    """Governance's own actions, held outside the database the memory code can reach."""
 
 
 class WriteFailed(Exception):
@@ -142,9 +175,28 @@ async def test_an_allowed_action_is_set_done_with_its_result(database, fake_gate
     actions = gate_with_actions(database, fake_gate, monkeypatch)
     created, _ = await create_m1()
     action = actions[0]
-    assert action["status"] == "done"
+    assert action["status"] == "done" and "actions" not in database.opened
     assert action["result"] == {"proposal_ids": [], "value_ids": [], "report_id": "rep_setup",
                                 "memory_id": created.id, "task_id": None}
+
+
+async def test_the_memory_code_never_writes_actions_or_runs_itself(database, fake_gate, monkeypatch):
+    """V65: with or without Governance's helper, memory opens only `memories`."""
+    import dxp.gate
+
+    async def with_action_id(ctx, action, evaluate=fake_gate.evaluate):
+        return (await evaluate(ctx, action)).model_copy(update={"action_id": "act_1"})
+
+    monkeypatch.setattr(dxp.gate, "evaluate", with_action_id)
+    monkeypatch.delattr(dxp.gate, "mark_action", raising=False)  # as on main before A06 merges
+    created, _ = await create_m1()
+    await memory.correct(created.id, "new wording", "note", reviewer_ctx(request_id="req_2"))
+    await memory.revoke(created.id, "note", reviewer_ctx(request_id="req_3"))
+    assert set(database.opened) == {"memories"}
+    gate_with_actions(database, fake_gate, monkeypatch)
+    other, _ = await create_m1(source=MemorySource(decision_id="dec_two", report_id="rep_2"))
+    await memory.revoke(other.id, "note", reviewer_ctx(request_id="req_4"))
+    assert set(database.opened) == {"memories"}
 
 
 async def test_a_failed_write_after_an_allowed_create_marks_the_action_failed(database, fake_gate, monkeypatch):
@@ -165,7 +217,7 @@ async def test_correct_writes_a_successor_and_marks_the_old_version_corrected(da
     changed, decision = await memory.correct(m1.id, "new wording", "clearer", ctx)
     _, action = fake_gate.calls[-1]
     assert (action.kind, action.destination, action.target.memory_id) == ("correct_memory", "ledger", m1.id)
-    assert action.inputs["memory_version"] == f"{m1.id}@v1" and action.inputs["note"] == "clearer"
+    assert action.inputs["memory_version"] == 1 and action.inputs["team_id"] == TEAM and action.inputs["note"] == "clearer"
     assert decision.kind == "correct_memory" and decision.request_id == "req_c" and decision.cause.memory_id == m1.id
     assert (changed.version, changed.status, changed.text) == (2, "active", "new wording")
     assert changed.supersedes == f"{m1.id}@v1" and changed.decision_id == decision.id and changed.author == "sam"
@@ -316,7 +368,7 @@ async def test_revoke_marks_the_latest_version_revoked(database, fake_gate):
     m1, _ = await create_m1()
     gone, decision = await memory.revoke(m1.id, "no longer true", reviewer_ctx(request_id="req_r", memory_id=m1.id))
     _, action = fake_gate.calls[-1]
-    assert (action.kind, action.target.memory_id, action.inputs["memory_version"]) == ("revoke_memory", m1.id, f"{m1.id}@v1")
+    assert (action.kind, action.target.memory_id, action.inputs["memory_version"]) == ("revoke_memory", m1.id, 1)
     assert decision.kind == "revoke_memory" and decision.request_id == "req_r"
     assert (gone.id, gone.version, gone.status, gone.text) == (m1.id, 1, "revoked", M1_TEXT)
     assert len(database.memories) == 1 and database.memory(f"{m1.id}@v1")["status"] == "revoked"
@@ -385,3 +437,21 @@ async def test_stored_versions_have_the_ids_and_types_the_memories_validator_req
         assert set(document["tags"]) == {"assay", "claim_kind"}
     first, second = database.memories
     assert first["supersedes"] is None and second["supersedes"] == first["_id"]
+    # The same documents against A03's own schema: every required key, every pattern.
+    from dxp.store.schemas.memories import JSON_SCHEMA
+
+    def check(schema, value, path):
+        for key in schema.get("required", []):
+            assert key in value, f"{path}.{key} is required"
+        for key, rule in schema.get("properties", {}).items():
+            if key not in value:
+                continue
+            if "pattern" in rule:
+                assert isinstance(value[key], str) and re.search(rule["pattern"], value[key]), f"{path}.{key}"
+            if rule.get("bsonType") == "object":
+                check(rule, value[key], f"{path}.{key}")
+            if "enum" in rule and rule.get("bsonType") == "string":
+                assert value[key] in rule["enum"], f"{path}.{key}"
+
+    for document in database.memories:
+        check(JSON_SCHEMA, document, document["_id"])

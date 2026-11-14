@@ -147,7 +147,7 @@ async def test_memory_changes_leave_grants_policies_policy_sets_and_gate_outcome
     for name in AUTHORITY:
         assert database.collections[name].writes == [], name
     # The memory code never even opens an authority collection.
-    assert set(database.opened) <= {"memories", "actions"}, database.opened
+    assert set(database.opened) == {"memories"}, database.opened
 
 
 async def test_the_gate_never_receives_a_memory_as_authority(world):
@@ -179,7 +179,9 @@ def test_the_memory_code_names_no_authority_collection():
     opened = set()
     for path in files:
         opened |= set(re.findall(r"\.collection\(([^)]*)\)", path.read_text()))
-    assert opened == {"COLLECTION", "memory_store.COLLECTION", '"actions"', '"reports"'}, opened
+    # `memories`, and one read of the source report's run for the audit link: no grant,
+    # policy or policy set, and no write to `actions` or `runs` (V65).
+    assert opened == {"COLLECTION", "memory_store.COLLECTION", '"reports"'}, opened
     from dxp.memory import store
 
     assert store.COLLECTION == "memories"

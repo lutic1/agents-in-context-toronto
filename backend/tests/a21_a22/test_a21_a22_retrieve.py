@@ -8,7 +8,7 @@ retrieve = importlib.import_module("dxp.memory.retrieve")
 
 TEAM = "team_lbdx"
 OTHER_TEAM = "team_other"
-CLAIM = "outcome_claim_without_results"
+CLAIM = "claim_performed_or_results"
 STAMP = {"kind": "reviewer", "run_id": None, "principal": "sam"}
 
 
@@ -66,13 +66,13 @@ def test_search_tags_never_carry_the_assay():
 
 
 def test_a_different_claim_kind_is_not_retrieved_even_with_the_same_assay():
-    other = make("mem_other", claim_kind="planned_claim")
+    other = make("mem_other", claim_kind="claim_planned")
     tags = {"assay": "Guardant360 CDx", "claim_kind": CLAIM}
     assert retrieve.rank([other], found(("mem_other@v1", 0.99)), TEAM, tags) == []
 
 
 def test_no_claim_kind_in_the_query_means_no_claim_kind_filter():
-    memories = [make("mem_m1"), make("mem_other", claim_kind="planned_claim"), make("mem_none", claim_kind=None)]
+    memories = [make("mem_m1"), make("mem_other", claim_kind="claim_planned"), make("mem_none", claim_kind=None)]
     result = found(("mem_m1@v1", 0.9), ("mem_other@v1", 0.8), ("mem_none@v1", 0.7))
     for tags in (None, {}, {"claim_kind": ""}, {"assay": "Guardant360 CDx"}):
         assert ids(retrieve.rank(memories, result, TEAM, tags)) == ["mem_m1", "mem_other", "mem_none"]

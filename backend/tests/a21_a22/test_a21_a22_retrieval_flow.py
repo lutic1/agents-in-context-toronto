@@ -93,7 +93,7 @@ async def test_retrieved_for_a_discovery_that_names_no_assay(database, fake_gate
 
 
 async def test_another_claim_kind_is_not_retrieved(database, fake_gate, search):
-    await create("dec_reject", claim_kind="planned_claim")
+    await create("dec_reject", claim_kind="claim_planned")
     found, retrieval = await memory.retrieve(TEAM, ANCHOR_TEXT, ANCHOR_TAGS)
     assert found == [] and retrieval.items == []
 

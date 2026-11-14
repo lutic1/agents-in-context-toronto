@@ -16,7 +16,7 @@ from pymongo.errors import DuplicateKeyError
 
 TEAM = "team_lbdx"
 OTHER_TEAM = "team_other"
-CLAIM = "outcome_claim_without_results"
+CLAIM = "claim_performed_or_results"
 M1_TEXT = "Terminated trial with no posted results: describe its status; do not state outcomes"
 
 

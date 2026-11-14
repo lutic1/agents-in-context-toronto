@@ -21,6 +21,11 @@ from dxp.api.models import Decision, Memory, MemorySource, Principal, ProposedAc
 COLLECTION = "memories"
 DESTINATION = "ledger"
 
+# tags.claim_kind uses the gate's claim-check vocabulary, plus the tag of a correction that
+# names none (V60, V61). A memory is never tagged with any other string.
+REVIEWER_CORRECTION = "reviewer_correction"
+CLAIM_KINDS = ("claim_performed_or_results", "claim_planned", "claim_preclinical", REVIEWER_CORRECTION)
+
 ACTIVE = "active"
 CORRECTED = "corrected"
 REVOKED = "revoked"
@@ -200,7 +205,10 @@ async def create(team_id: str, text: str, tags: dict[str, Any], source: MemorySo
     # The store and the gate both need them: checked here, before any Decision is written.
     _require_text(source.decision_id, "source.decision_id")
     _require_text(source.report_id, "source.report_id")
-    tags = {"assay": (tags or {}).get("assay"), "claim_kind": (tags or {}).get("claim_kind")}
+    claim_kind = (tags or {}).get("claim_kind") or REVIEWER_CORRECTION
+    if claim_kind not in CLAIM_KINDS:
+        raise ValueError(f"tags.claim_kind must be one of {', '.join(CLAIM_KINDS)}")
+    tags = {"assay": (tags or {}).get("assay"), "claim_kind": claim_kind}
     ctx = _with_request_id(ctx)
     # One memory per source decision: a repeat of the same step finds the stored memory.
     memory_id = identity.derive("mem_", team_id, source.decision_id)
@@ -303,7 +311,8 @@ def _change(kind: str, current: dict[str, Any], inputs: dict[str, Any]) -> Propo
         kind=kind,
         destination=DESTINATION,
         target=Target(memory_id=current["memory_id"]),
-        inputs={"memory_version": current["_id"], "version": current["version"], "team_id": current["team_id"], **inputs},
+        # The gate reads the Team (check 2) and the version (the Decision ID's target) from inputs.
+        inputs={"memory_version": current["version"], "team_id": current["team_id"], **inputs},
     )
 
 
@@ -333,18 +342,19 @@ async def _emit(document: dict[str, Any], decision: Decision, ctx: RunContext) -
 
 
 async def _finish_action(decision: Decision, document: dict[str, Any]) -> None:
-    """The owning module sets its DxP-state action done with its result (AD-19)."""
-    if not decision.action_id:
-        return
     result = {"proposal_ids": [], "value_ids": [], "report_id": document["source"].get("report_id"),
               "memory_id": document["memory_id"], "task_id": None}
-    await database.collection("actions").update_one(
-        {"_id": decision.action_id, "status": "queued"},
-        {"$set": {"status": "done", "result": result, "observed_at": _now()}})
+    await _settle(decision, "done", result)
 
 
 async def _fail_action(decision: Decision) -> None:
-    if not decision.action_id:
-        return
-    await database.collection("actions").update_one(
-        {"_id": decision.action_id, "status": "queued"}, {"$set": {"status": "failed", "observed_at": _now()}})
+    await _settle(decision, "failed", None)
+
+
+async def _settle(decision: Decision, status: str, result: dict[str, Any] | None) -> None:
+    """Set the Decision's action done or failed through Governance, which alone writes
+    `actions` (V65). `gate.mark_action` comes with the gate (A06); without it the action
+    stays queued, and nothing here writes `actions`."""
+    mark_action = getattr(gate, "mark_action", None)
+    if decision.action_id and mark_action is not None:
+        await mark_action(decision.action_id, status, result)

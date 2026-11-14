@@ -17,28 +17,36 @@ def database(monkeypatch):
     return install(monkeypatch)
 
 
+GRANTS = {
+    "test-dxp-api-key": {**sam_grant().model_dump(exclude={"id"}), "_id": "sam@v1"},
+    "test-dxp-agent-key": {"_id": "lbdx@v1", "grant_id": "lbdx", "version": 1, "principal": "dxp-curator", "kind": "agent",
+                           "team_id": TEAM, "scope": {"diagnostic_ids": [], "scope_id": "scope_plasma"},
+                           "destinations": ["ledger"], "actions": ["file_proposal"], "status": "active"},
+    "test-dxp-seed-key": {"_id": "seed@v1", "grant_id": "seed", "version": 1, "principal": "seed", "kind": "seed",
+                          "team_id": None, "scope": {"all": True}, "destinations": ["ledger"],
+                          "actions": ["apply_value"], "status": "active"},
+}
+AGENT = {"X-DxP-Key": "test-dxp-agent-key"}
+SEED = {"X-DxP-Key": "test-dxp-seed-key"}
+
+
 @pytest.fixture
 def client(api_client, database, fake_gate, monkeypatch):
-    """The API with Sam's key resolving to Sam and `sam` resolving to grant sam@v1."""
+    """The API with A03's key lookup faked: each key resolves to the latest version of its own
+    grant, as `auth.grant_for_key` and `auth.resolve_actor` do against the stored grants."""
     from dxp.api import auth
-    from dxp.gate import policy_sets
 
-    principals = {"test-dxp-api-key": sam(),
-                  "test-dxp-agent-key": Principal(id="dxp-curator", name="DxP curator", kind="agent")}
-    seen = {"grants": []}
+    async def grant_for_key(api_key, db=None):
+        return GRANTS.get(api_key)
 
     async def resolve_actor(api_key):
-        if api_key not in principals:
-            raise ApiError(401, "unauthorised", "Unknown key.")
-        return principals[api_key]
+        grant = GRANTS.get(api_key)
+        if grant is None:
+            raise ApiError(401, "unknown_key", "Unknown API key.")
+        return Principal(id=grant["principal"], name=grant["principal"], kind=grant["kind"], actions=grant["actions"])
 
-    async def current_grant(grant_id):
-        seen["grants"].append(grant_id)
-        return sam_grant()
-
+    monkeypatch.setattr(auth, "grant_for_key", grant_for_key)
     monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
-    monkeypatch.setattr(policy_sets, "current_grant", current_grant)
-    api_client.grants_read = seen["grants"]
     return api_client
 
 
@@ -63,7 +71,6 @@ async def test_list_returns_the_teams_memories_with_author_source_and_status(cli
     assert item["source"] == {"decision_id": "dec_reject", "report_id": "rep_dec_reject"}
     assert item["tags"] == {"assay": "Guardant360 CDx", "claim_kind": CLAIM}
     assert client.get(f"{API}/memories", headers=KEY).json() == body  # the grant's Team by default
-    assert client.grants_read == ["sam", "sam"]
 
 
 async def test_list_filters_on_the_latest_versions_status(client, database):
@@ -169,33 +176,50 @@ async def test_a_note_is_required_before_the_gate(client, database, fake_gate, p
     assert len(fake_gate.calls) == calls and database.memory(f"{m1.id}@v1")["status"] == "active"
 
 
-@pytest.mark.parametrize(("method", "path", "body"), [
+ROUTES = [
     ("GET", "/memories", None), ("GET", "/memories/mem_x", None),
     ("POST", "/memories/mem_x/correct", {"text": "t", "note": "n"}), ("POST", "/memories/mem_x/revoke", {"note": "n"}),
-])
-async def test_every_route_needs_a_reviewers_key(client, database, fake_gate, method, path, body):
+]
+
+
+@pytest.mark.parametrize(("method", "path", "body"), ROUTES)
+async def test_every_route_needs_a_known_key_and_refuses_the_seed_key(client, database, fake_gate, method, path, body):
+    """V67: 401 for a missing or unknown key, 403 for the seed key, on reads and changes alike."""
     missing = client.request(method, API + path, json=body)
     unknown = client.request(method, API + path, json=body, headers={"X-DxP-Key": "nope"})
-    agent = client.request(method, API + path, json=body, headers={"X-DxP-Key": "test-dxp-agent-key"})
-    assert (missing.status_code, unknown.status_code, agent.status_code) == (401, 401, 403)
-    assert missing.json()["error"]["code"] == "unauthorised" and agent.json()["error"]["code"] == "forbidden"
+    seed = client.request(method, API + path, json=body, headers=SEED)
+    assert (missing.status_code, unknown.status_code, seed.status_code) == (401, 401, 403)
+    assert missing.json()["error"]["code"] == "unknown_key"
+    assert seed.json()["error"]["code"] == "seed_key_not_accepted"
     assert fake_gate.calls == []
 
 
-@pytest.mark.parametrize(("method", "path", "body"), [
-    ("GET", "/memories", None), ("GET", "/memories/mem_x", None),
-    ("POST", "/memories/mem_x/correct", {"text": "t", "note": "n"}), ("POST", "/memories/mem_x/revoke", {"note": "n"}),
-])
-async def test_a_reviewer_with_no_grant_is_forbidden_not_a_server_error(client, database, fake_gate, monkeypatch, method, path, body):
-    from dxp.gate import policy_sets
+async def test_the_agents_key_reads_its_own_teams_memories_but_changes_none(client, database, fake_gate):
+    m1 = await make()
+    theirs = await make("dec_theirs", team_id=OTHER_TEAM)
+    calls = len(fake_gate.calls)
+    listed = client.get(f"{API}/memories", headers=AGENT)
+    assert listed.status_code == 200 and [item["id"] for item in listed.json()["items"]] == [m1.id]
+    assert client.get(f"{API}/memories/{m1.id}", headers=AGENT).status_code == 200
+    assert client.get(f"{API}/memories/{theirs.id}", headers=AGENT).status_code == 404
+    for path, body in ((f"/memories/{m1.id}/correct", {"text": "t", "note": "n"}), (f"/memories/{m1.id}/revoke", {"note": "n"})):
+        refused = client.post(API + path, json=body, headers=AGENT)
+        assert refused.status_code == 403 and refused.json()["error"]["code"] == "forbidden"
+    assert len(fake_gate.calls) == calls and database.memory(f"{m1.id}@v1")["status"] == "active"
 
-    async def no_grant(grant_id):
-        return None
 
-    monkeypatch.setattr(policy_sets, "current_grant", no_grant)
-    response = client.request(method, API + path, json=body, headers=KEY)
-    assert response.status_code == 403, response.text
-    assert set(response.json()) == {"error"} and response.json()["error"]["code"] == "forbidden"
+@pytest.mark.parametrize(("method", "path", "body"), ROUTES)
+async def test_a_key_with_no_grant_for_a_team_is_forbidden_not_a_server_error(client, database, fake_gate, monkeypatch, method, path, body):
+    from dxp.api import auth
+
+    for stored in (None, {**GRANTS["test-dxp-api-key"], "team_id": None}):
+        async def no_team(api_key, db=None, stored=stored):
+            return stored
+
+        monkeypatch.setattr(auth, "grant_for_key", no_team)
+        response = client.request(method, API + path, json=body, headers=KEY)
+        assert response.status_code == 403, response.text
+        assert set(response.json()) == {"error"} and response.json()["error"]["code"] == "forbidden"
     assert fake_gate.calls == []
 
 

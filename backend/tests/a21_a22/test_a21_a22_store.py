@@ -27,7 +27,7 @@ def m1(**changes):
         author="sam",
         source={"decision_id": "dec_reject", "report_id": "rep_setup"},
         text=M1_TEXT,
-        tags={"assay": "Guardant360 CDx", "claim_kind": "outcome_claim_without_results"},
+        tags={"assay": "Guardant360 CDx", "claim_kind": "claim_performed_or_results"},
         decision_id="dec_create",
         stamp=STAMP,
         created_at="2026-11-14T14:10:00Z",
@@ -51,7 +51,7 @@ def test_version_one_document_follows_the_spine_shape():
         "author": "sam",
         "source": {"decision_id": "dec_reject", "report_id": "rep_setup"},
         "text": M1_TEXT,
-        "tags": {"assay": "Guardant360 CDx", "claim_kind": "outcome_claim_without_results"},
+        "tags": {"assay": "Guardant360 CDx", "claim_kind": "claim_performed_or_results"},
         "status": "active",
         "supersedes": None,
         "decision_id": "dec_create",
@@ -118,7 +118,7 @@ def test_correction_writes_a_successor_and_marks_the_old_version_corrected():
         "author": "sam",
         "source": {"decision_id": "dec_reject", "report_id": "rep_setup"},
         "text": "new wording",
-        "tags": {"assay": "Guardant360 CDx", "claim_kind": "outcome_claim_without_results"},
+        "tags": {"assay": "Guardant360 CDx", "claim_kind": "claim_performed_or_results"},
         "status": "active",
         "supersedes": "mem_m1@v1",
         "decision_id": "dec_correct",
@@ -187,7 +187,7 @@ def test_api_shape_has_no_embedding_stamp_or_document_id():
     v2, _ = correct(m1())
     assert store.to_api(v2)["supersedes"] == "mem_m1@v1"
     memory["tags"]["claim_kind"] = "changed"
-    assert document["tags"]["claim_kind"] == "outcome_claim_without_results"
+    assert document["tags"]["claim_kind"] == "claim_performed_or_results"
 
 
 def test_api_shape_validates_as_the_frozen_memory_model():
