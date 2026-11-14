@@ -9,111 +9,133 @@ sources:
 
 # DxP build schedule for Saturday
 
-This schedule keeps the whole scope of `epics.md`. It plans by dependencies and agent capacity, not by summed hours, and it names the milestones that trigger a fallback cut if they are missed.
+This schedule keeps the whole scope of `epics.md`. The PR-by-PR assignment that agents work from is `development-plan.md`. It plans by dependencies and agent capacity, not by summed hours, and it names the milestones that trigger a fallback cut if they are missed.
 
 ## Assumptions
 
 - Coding starts about 9:39 and runs to 18:00: about 8 hours 20 minutes. Clock times below start from 9:39.
-- Capacity: Luis runs up to 44 agents on his Claude plan. Vlad has Claude Pro, which runs one or two agents before its usage limit, plus $300 of API credit. Agents build, review, test and integrate; Luis and Vlad decide and merge.
+- Capacity: Luis runs up to 44 agents on Luis's Claude plan and holds the product's API key. Vlad has Claude Pro plus $300 of API credit and runs Sonnet 5.5 at high effort through ten subagents. Agents build, review, test and integrate; Luis and Vlad decide and merge.
 - Task durations are agent cycle times: the story's time in `epics.md` (developer estimate × CVH factor), split where a story has separable parts. A cycle time runs from start to merge and includes tests and review.
 - A module can be built against its contract before the modules it calls exist. Story 1.1 and task C3 publish those contracts in the first 90 minutes. Real wiring happens in the two integration tasks, I1 and I2.
 
 ## What limits the day
 
-**Capacity is not the limit.** At the peak, about 29 build tasks run at once. Add a reviewer agent for each open pull request and two or three integration and contract agents, and the peak need is about 45 agents. Luis's 44 is just enough on its own, so the plan puts every Demo path build on Luis's agents. Vlad's capacity goes where people are needed, not agents.
+**Capacity is not the limit.** At the peak, about 19 builders run in Luis's lane and 10 in Vlad's. Reviewer agents, the contract keeper and the integrators take the rest of Luis's 44 slots.
 
-**The dependency path is the limit.** The longest path runs through the real-data pipeline:
+**The dependency path is the limit, and several paths are close.** With contracts frozen in the first hour and start requirements separate from merge requirements (see `development-plan.md`), the model gives:
 
-C1 contract (1 h) → C3 Finding fixtures (0.5 h) → 1.5 extraction calls (1.5 h) → 1.5 tuning on real items (1 h) → I1 50-item integration run (0.75 h) → 1.9 Baseline load (0.9 h) → I2 screens on production data (0.5 h) → 8.2 rehearsal (0.75 h)
+| Path | Reaches final acceptance (P38) | Slack |
+|---|---|---|
+| Web skeleton → graph component → graph page, changed highlight, Home hero | 14:54 | none: this is the critical path |
+| Contracts → extraction → tuning → 50-item run (P15) → Baseline load (P16) | 14:48 | 6 minutes |
+| 50-item run → screens on the small ingest (P42) | 14:24 | 30 minutes |
+| Memory adapter → resume summary | 14:15 | 39 minutes |
+| Every other screen and API | by 13:54 | an hour or more |
 
-That is **6.9 hours, ending about 16:33**: it fits, with about 1 hour 25 minutes to spare before 18:00. Three choices keep it that short; without them the path is about 7.6 hours and ends about 17:15, which still fits, with no room for a slip:
+Final acceptance runs 14:54 to 15:24 and the rehearsal 15:24 to 16:09. That leaves **about 1 hour 50 minutes before 18:00**, but three paths arrive within six minutes of each other, so a slip on any of them moves the end. These are forecasts from a model, not a validated run; the milestones below are where the day checks them.
 
-1. The ledger builds its Baseline-mode path first, so the seed (1.2) runs on it by about 13:20 while live mode is finished separately.
-2. The Baseline load runs the 293 trials first. The 150 PubMed items continue in the background while I2 runs.
-3. The web skeleton starts at 9:39 without waiting for the API contract, so the graph component starts at 10:24. Otherwise the graph screens become the longest path, about 7.5 hours, ending about 17:09.
+What keeps the paths this short:
 
-The next-longest paths are the graph screens and the Home hero, which finish about 14:54 with about 25 minutes of slack before I2, and Value history (2.5), which finishes about 16:39. The Review screen finishes about 13:54, with about 1.5 hours of slack.
+1. P01, P02 and P04 start together at 9:39. The Finding fixtures are drafted from the architecture spine and validated when the contracts merge, so nothing waits an extra hour for them.
+2. The web skeleton and the memory adapter start at 9:39, because neither needs the API contract to begin.
+3. The ledger builds its Baseline-mode path first, so the seed runs on it at 12:03.
+4. The Baseline load runs the trials first; the PubMed items continue in the background during final acceptance.
+
+**The 50-item run (P15) needs five things, and the schedule tracks each:**
+
+| Needed | PR | Ready | Slack |
+|---|---|---|---|
+| Tuned extraction | P14 | 13:09 | none |
+| Batch job | P12 | 13:09 | none |
+| Ledger, live mode | P13 | 12:45 | 24 minutes |
+| Seed | P11 | 12:48 | 21 minutes |
+| Source items loaded | P07 | 11:15 | about 2 hours |
+| Production environment and CI | P06 | 11:39 | 90 minutes |
+
+**The rehearsal needs** final acceptance, the dry run (P17, ready 14:24) and, through final acceptance, the review loop, rules, Alerts and memory APIs, all merged by 14:15 at the latest.
 
 ## Who does what
 
-Luis has the agent capacity; Vlad has a person's time, a small agent budget and the API key the product itself runs on. So Luis builds everything on the Demo path, and Vlad owns the work that needs a person and five small stories that nothing else depends on.
+Both people build from 9:39. Luis has the agent capacity and the product's API key, so Luis takes the critical path, the ingest pipeline, the three integration checks and every production task. Vlad takes Find and Categories (Epic 4), three screens whose files are independent of Luis's (Jobs page, Digest, Rules on screen), five isolated stories and Value history. The PR-by-PR assignment, with start and merge requirements and owned files, is in `development-plan.md`.
 
-**Luis (up to 44 agents):** the contracts (C1, C2, C3), the whole pipeline (1.4 to 1.7, 1.2), the review loop (2.2 to 2.7), Alerts (3.1 to 3.3, 3.5), Find and Categories (4.1 to 4.7), the graph (5.1 to 5.3), memory and Home (6.1 to 6.4), the shell (1.12) and both integration runs. Luis merges the API lane.
+**Luis (up to 44 agents, the product's API key):** contracts (P01 to P04), read model, deploys and CI, the ingest pipeline (P07 to P15), the review loop and Alerts APIs, graph, memory, Home, the shell, Review and Alerts inbox screens, Diagnostics and Record, the Baseline load, the dry run, the three integration checks (P41, P42, P38), the rehearsal and the submission. Luis coordinates merges on Luis's lane.
 
-**Vlad (a person, one or two agents, $300 of API credit):**
+**Vlad (Claude Pro plus $300 of API credit, Sonnet 5.5 at high effort, ten subagents):** V01 to V19, about 39 agent-hours on Sonnet. The Jobs page, Digest and Rules screens finish about 12:54, two hours before final acceptance needs them. Epic 4 finishes by about 15:24 and the whole lane about 15:49. Vlad coordinates merges on Vlad's lane after Luis's review agent passes each PR.
 
-| When | What | Kind |
-|---|---|---|
-| 9:39 to 11:39 | Story 8.1: CI, Modal and Vercel deploys, secrets in Modal and Vercel; Vlad is the one person who runs `modal deploy` | Person, one agent |
-| From 11:39 | Merges the web lane's pull requests after Luis's reviewer agents have checked them | Person |
-| From 11:39, in the background | Five isolated stories, in this order: 3.4 audio briefing, 1.11 Tavily scan, 1.10 scheduled scan, 7.1 quick capture, 4.8 unmatched terms page. About 5.2 hours of agent time | One or two agents |
-| 14:24 to 15:19 | Runs the Baseline load in production (1.9) and saves the snapshot | Person |
-| 14:24 to 14:54 | Reads the dry run (2.1) and picks the items to show on camera | Person |
-| 15:00 to 16:00 | Story 8.3 README and submission text; the HeyGen intro and close clips | Person, one agent |
-| 15:49 to 16:34 | Rehearsal (8.2) with Luis: Vlad drives the live run, Luis watches the screens | Person |
+- [ASSUMPTION: Sonnet 5.5 at high effort takes about 1.25 times as long per story as the Opus 5.5 agents the CVH factors were measured on.]
+- Vlad's stories need one developer database in Atlas; Luis shares its connection string through `.env`, never in the repository.
+- If Vlad's lane falls behind, the cut order in the milestones section applies first to 7.1, 1.11, 1.10 and 4.8. The three moved screens are on the Demo path, so if they slip past 14:00, Luis's agents take them back.
 
-**Forecast for Vlad's stories.** With one or two agents, about 5.2 hours of agent time lands by about 15:00 if Pro's usage limit holds through the morning. If the limit stops Vlad's agents, he switches Claude Code to the API key for the rest of them. These five are the first fallback cuts anyway, so a slip here never touches the Demo path. If Vlad finishes early, he takes 4.5 export and 4.7 add-a-value from Luis's list, in that order.
+**Review of Vlad's lane.** One review agent run by Luis checks each of Vlad's PRs against its acceptance criteria and for secrets, `.env` values and PubMed text, at about 15 minutes a PR. Between about 12:15 and 14:00 most of Vlad's PRs arrive; if a PR waits more than 30 minutes, Luis starts a second review agent.
 
-**API budget ($300, on Vlad's account).** The product's own calls come first. Extraction on Sonnet 5.5 is about $14 per 500 items (from `dxp-claude-api`), and the quote check roughly doubles it. Saturday runs about 800 items: the 50-item test, the 443-item Baseline, the dry run, the rehearsal, two retakes and the tuning items. Add the rule drafts, why lines, query parsing and resume summaries, and the product needs about $50 to $80. Keep $100 for it. That leaves about $200 for Vlad's coding agents if Pro runs out. Set a spend alert at $150, and never let coding agents spend the product's share. [ASSUMPTION: the product uses Vlad's API key; Luis's Claude plan does not include API credit.]
+**Forecast for Vlad's credit.** Sonnet 5.5 costs half of Opus 5.5 ($2 and $10 per million input and output tokens). [ASSUMPTION: a Sonnet subagent costs about $5 an hour on the API, mostly cache reads, and the main agent coordinating ten adds about a quarter on top; Pro covers the first hour or two.] About 39 agent-hours is then about $240, leaving about $60. At the morning peak, ten subagents spend about $50 to $60 an hour. Check at 10:39: above $60 an hour, cap the subagents at six and drop 7.1 and 1.10.
+
+**Product API budget (Luis's key).** About 800 items on Saturday, plus rule drafts, why lines, query parsing and resume summaries: about $50 to $80. Set a spend alert at $100.
 
 ## Schedule
 
-| Task | Owner | What | Depends on | Cycle time | Start | Finish | |
-|---|---|---|---|---|---|---|---|
-| C4 | Luis | Web skeleton: create-next-app, shadcn, api.ts (1.3) | none | 0.75 h | 09:39 | 10:24 | |
-| C1 | Luis | API models, OpenAPI, generated types, store, indexes (1.1) | none | 1 h | 09:39 | 10:39 | **critical** |
-| C2 | Luis | Registry and identity (1.2) | none | 1 h | 09:39 | 10:39 | |
-| 4.8 | Vlad | Unmatched terms page (4.8) | C4 | 1 h | 10:24 | 11:24 | |
-| 1.8 | Luis | Jobs page (1.8) | C4 | 2 h | 10:24 | 12:24 | |
-| 2.7 | Luis | Rules on screen (2.7) | C4 | 2 h | 10:24 | 12:24 | |
-| 3.2 | Luis | Alerts inbox (3.2) | C4 | 2 h | 10:24 | 12:24 | |
-| 3.3 | Luis | Digest (3.3) | C4 | 2 h | 10:24 | 12:24 | |
-| 6.4b | Luis | Home welcome panel, Alerts and Digest layout (6.4) | C4 | 2 h | 10:24 | 12:24 | |
-| 4.6 | Luis | Category landscape (4.6) | C4 | 2 h | 10:24 | 12:24 | |
-| 5.2a | Luis | Graph component (5.2) | C4 | 2.5 h | 10:24 | 12:54 | |
-| 1.12 | Luis | App shell (1.12) | C4 | 3 h | 10:24 | 13:24 | |
-| 2.4 | Luis | Review screen (2.4) | C4 | 3.5 h | 10:24 | 13:54 | |
-| 4.3 | Luis | Comparison table (4.3) | C4 | 3.5 h | 10:24 | 13:54 | |
-| C3 | Luis | Finding fixtures and module interfaces (llm, ledger.file, job item) | C1, C2 | 0.5 h | 10:39 | 11:09 | **critical** |
-| 1.4 | Luis | Load Source items (1.4) | C1 | 0.6 h | 10:39 | 11:15 | |
-| C5 | Vlad | CI, Modal and Vercel walking skeleton (8.1) | C1, C4 | 1 h | 10:39 | 11:39 | |
-| 1.1b | Luis | Read model and /changes (1.1) | C1 | 1 h | 10:39 | 11:39 | |
-| 6.1 | Luis | Memory adapter, two backends (6.1) | C1 | 3 h | 10:39 | 13:39 | |
-| 4.1 | Luis | Search indexes and synonyms (4.1) | C1 | 4.8 h | 10:39 | 15:27 | |
-| 2.2 | Luis | Proposals queue API (2.2) | C3 | 0.9 h | 11:09 | 12:03 | |
-| 1.5b | Luis | Quote check and supported check (1.5) | C3 | 1 h | 11:09 | 12:09 | |
-| 4.7 | Luis | Add a value API (4.7) | C3 | 1.2 h | 11:09 | 12:21 | |
-| 1.11 | Vlad | Tavily provider scan (1.11) | C3 | 1.2 h | 11:09 | 12:21 | |
-| 7.1 | Vlad | Quick capture (7.1) | C3 | 1.2 h | 11:09 | 12:21 | |
-| 1.6m | Luis | Ledger baseline-mode path first (1.6) | C3 | 1.4 h | 11:09 | 12:33 | |
-| 1.5a | Luis | Triage and extraction calls (1.5) | C3 | 1.5 h | 11:09 | 12:39 | **critical** |
-| 2.3 | Luis | Decisions API (2.3) | C3 | 1.5 h | 11:09 | 12:39 | |
-| 2.6 | Luis | Learned rules API (2.6) | C3 | 2.4 h | 11:09 | 13:33 | |
-| 5.1 | Luis | Graph API (5.1) | C3 | 2.4 h | 11:09 | 13:33 | |
-| 1.7 | Luis | Batch job with stubbed extraction and ledger (1.7) | C3 | 2.5 h | 11:09 | 13:39 | |
-| 3.1 | Luis | Alerts API (3.1) | C3 | 2.8 h | 11:09 | 13:57 | |
-| 4.2 | Luis | Plain-language query, two agents: parsing and ranking (4.2) | C3 | 2.8 h | 11:09 | 13:57 | |
-| 8.3 | Vlad | Submission package (8.3) | C5 | 1 h | 11:39 | 12:39 | |
-| 1.3 | Luis | Diagnostics and Record pages (1.3) | C4, 1.1b | 3.5 h | 11:39 | 15:09 | |
-| 3.5 | Luis | Play button (3.5) | 3.2 | 1 h | 12:24 | 13:24 | |
-| 1.6 | Luis | Ledger live mode, pending and stage rules (1.6) | 1.6m | 0.7 h | 12:33 | 13:15 | |
-| 1.2b | Luis | Seed FDA rows, Teams and terms through the ledger (1.2) | 1.6m, C2 | 0.75 h | 12:33 | 13:18 | |
-| 1.5c | Luis | Tune extraction on 20 real items (1.5) | 1.5a, 1.5b, 1.4 | 1 h | 12:39 | 13:39 | **critical** |
-| 5.2b | Luis | Graph page, click-through and focus, two agents (5.2) | 5.2a | 2 h | 12:54 | 14:54 | |
-| 5.3 | Luis | Changed highlight, pulse and live updates, two agents (5.3) | 5.2a | 2 h | 12:54 | 14:54 | |
-| 6.4a | Luis | Home hero network (6.4) | 5.2a | 2 h | 12:54 | 14:54 | |
-| 6.2 | Luis | Synthetic Team history (6.2) | 6.1, 1.2b | 0.6 h | 13:39 | 14:15 | |
-| I1 | Luis | Integration: 50-item run on the dev database | 1.5c, 1.6, 1.7, 1.4, 1.2b | 0.75 h | 13:39 | 14:24 | **critical** |
-| 1.10 | Vlad | Scheduled scan (1.10) | 1.7 | 0.9 h | 13:39 | 14:33 | |
-| 6.3 | Luis | Resume summary (6.3) | 6.1, 1.1b | 1.6 h | 13:39 | 15:15 | |
-| 4.5 | Luis | Export (4.5) | 4.3 | 0.9 h | 13:54 | 14:48 | |
-| 4.4 | Luis | Shortlist (4.4) | 4.3 | 2 h | 13:54 | 15:54 | |
-| 3.4 | Vlad | Audio briefing (3.4) | 3.1 | 0.9 h | 13:57 | 14:51 | |
-| 2.1 | Vlad | Dry run of the Held-back set on the dev database (2.1) | I1 | 0.5 h | 14:24 | 14:54 | |
-| 1.9 | Vlad | Baseline load in production: trials first, PubMed continues in the background (1.9) | I1, 1.2b, C5 | 0.9 h | 14:24 | 15:18 | **critical** |
-| 2.5 | Luis | Value history (2.5) | 1.3 | 1.5 h | 15:09 | 16:39 | |
-| I2 | Both | Integration: every demo screen on production data | 1.9, 1.3, 1.12, 1.8, 2.4, 2.7, 3.2, 3.3, 5.2b, 5.3, 6.4a, 6.4b, 2.2, 2.3, 2.6, 3.1, 5.1, 6.2, 6.3 | 0.5 h | 15:18 | 15:48 | **critical** |
-| 8.2 | Both | Rehearsal: live run, decisions, rule, memory, restore (8.2) | I2, 2.1 | 0.75 h | 15:48 | 16:33 | **critical** |
+Start requirements and merge requirements for each PR are in `development-plan.md`. Vlad's times assume ten Sonnet subagents with cycle times 1.25 times the Opus figures.
+
+| PR | Owner | What | Cycle time | Start | Finish | Path |
+|---|---|---|---|---|---|---|
+| P03 | Luis | Web skeleton | 0.75 h | 09:39 | 10:24 | critical |
+| P01 | Luis | API contract stub and generated types | 1 h | 09:39 | 10:39 | near-critical |
+| P02 | Luis | Registry and identity | 1 h | 09:39 | 10:39 | |
+| P04 | Luis | Finding contract and module interfaces | 1 h | 09:39 | 10:39 | near-critical |
+| P23 | Luis | Memory adapter | 3 h | 09:39 | 12:39 | |
+| V01 | Vlad | Unmatched terms page | 1.25 h | 10:24 | 11:39 | |
+| V02 | Vlad | Comparison table: Evidence panel and keyboard | 1.875 h | 10:24 | 12:17 | |
+| P34 | Luis | Home welcome panel, Alerts and Digest layout | 2 h | 10:24 | 12:24 | |
+| P31 | Luis | Alerts inbox | 2 h | 10:24 | 12:24 | |
+| P33 | Luis | Graph component | 2.5 h | 10:24 | 12:54 | critical |
+| V17 | Vlad | Jobs page | 2.5 h | 10:24 | 12:54 | |
+| V18 | Vlad | Digest | 2.5 h | 10:24 | 12:54 | |
+| V19 | Vlad | Rules on screen | 2.5 h | 10:24 | 12:54 | |
+| V06 | Vlad | Comparison table and chips | 2.5 h | 10:24 | 12:54 | |
+| V07 | Vlad | Category landscape | 2.5 h | 10:24 | 12:54 | |
+| P27 | Luis | App shell | 3 h | 10:24 | 13:24 | |
+| P26 | Luis | Diagnostics and Record pages | 3.5 h | 10:24 | 13:54 | |
+| P29 | Luis | Review screen | 3.5 h | 10:24 | 13:54 | |
+| P07 | Luis | Load Source items | 0.6 h | 10:39 | 11:15 | |
+| P18 | Luis | Proposals queue API | 0.9 h | 10:39 | 11:33 | |
+| P06 | Luis | Deploy and CI | 1 h | 10:39 | 11:39 | |
+| P05 | Luis | Read model and change feed | 1 h | 10:39 | 11:39 | |
+| P09 | Luis | Quote and support checks | 1 h | 10:39 | 11:39 | |
+| P10 | Luis | Ledger, Baseline mode | 1.4 h | 10:39 | 12:03 | |
+| P08 | Luis | Triage and extraction calls | 1.5 h | 10:39 | 12:09 | near-critical |
+| P19 | Luis | Decisions API | 1.5 h | 10:39 | 12:09 | |
+| P20 | Luis | Learned rules API | 2.4 h | 10:39 | 13:03 | |
+| P22 | Luis | Graph API | 2.4 h | 10:39 | 13:03 | |
+| P12 | Luis | Batch job | 2.5 h | 10:39 | 13:09 | near-critical |
+| P21 | Luis | Alerts API | 2.8 h | 10:39 | 13:27 | |
+| V08 | Vlad | Search index with synonyms | 2.875 h | 10:39 | 13:31 | |
+| V09 | Vlad | Vector Search index | 3.125 h | 10:39 | 13:47 | |
+| V11 | Vlad | Plain-language query API | 3.5 h | 10:39 | 14:09 | |
+| P40 | Luis | Submission package | 1 h | 11:39 | 12:39 | |
+| V03 | Vlad | Add a value API | 1.5 h | 11:39 | 13:09 | |
+| P13 | Luis | Ledger, live mode and stage rule | 0.7 h | 12:03 | 12:45 | |
+| P11 | Luis | Seed FDA rows, Teams and terms | 0.75 h | 12:03 | 12:48 | |
+| P14 | Luis | Tune extraction on real items | 1 h | 12:09 | 13:09 | near-critical |
+| V04 | Vlad | Tavily provider scan | 1.5 h | 12:17 | 13:47 | |
+| P25 | Luis | Resume summary | 1.6 h | 12:39 | 14:15 | |
+| P41 | Luis | Integration: screens on seeded records | 0.5 h | 12:48 | 13:18 | |
+| P24 | Luis | Synthetic Team history | 0.6 h | 12:48 | 13:24 | |
+| V10 | Vlad | Export | 1.125 h | 12:54 | 14:01 | |
+| V05 | Vlad | Quick capture | 1.5 h | 12:54 | 14:24 | |
+| P35 | Luis | Graph page | 2 h | 12:54 | 14:54 | critical |
+| P36 | Luis | Changed highlight | 2 h | 12:54 | 14:54 | critical |
+| P37 | Luis | Home hero network | 2 h | 12:54 | 14:54 | critical |
+| V14 | Vlad | Shortlist | 2.5 h | 12:54 | 15:24 | |
+| P15 | Luis | Integration run: 50 items | 0.75 h | 13:09 | 13:54 | near-critical |
+| V12 | Vlad | Scheduled scan | 1.125 h | 13:09 | 14:17 | |
+| V13 | Vlad | Audio briefing | 1.125 h | 13:27 | 14:35 | |
+| P42 | Luis | Integration: screens on the small real ingest | 0.5 h | 13:54 | 14:24 | |
+| P17 | Luis | Dry run of the Held-back set | 0.5 h | 13:54 | 14:24 | |
+| P16 | Luis | Baseline load and snapshot | 0.9 h | 13:54 | 14:48 | near-critical |
+| V16 | Vlad | Value history | 1.875 h | 13:54 | 15:47 | |
+| V15 | Vlad | Play button | 1.25 h | 14:35 | 15:49 | |
+| P38 | Luis | Final acceptance on production data | 0.5 h | 14:54 | 15:24 | critical |
+| P39 | Luis | Rehearsal | 0.75 h | 15:24 | 16:09 | critical |
 
 ## Milestones and fallback triggers
 
@@ -121,14 +143,17 @@ Cuts are triggered by a missed milestone, not decided in advance.
 
 | By | Milestone | If missed |
 |---|---|---|
-| 11:09 | C1, C2 and C3 merged: types generated, registry, identity and Finding fixtures published | Everything slips one for one. Hold all other merges until the contracts land |
-| 11:39 | CI and the walking skeleton deployed to Modal and Vercel (8.1) | One person fixes the deploy while the rest continue; nothing merges to production until it works |
-| 13:19 | Seed in the dev database through the ledger | Seed directly in Baseline mode with a script, and reconcile it in I1 |
-| 13:39 | Extraction passes on 20 real items with quotes found | Narrow the Baseline to the 100 most recent trials (about 20 minutes) |
-| 14:24 | I1 passes: 50 items, one forced failure, no duplicates | Run the Baseline anyway, on whatever passes. Skip the separate dry run (2.1) and rely on the I1 data to pick the camera items |
-| 15:19 | Baseline in production and the snapshot saved | Rehearse on the dev database, and record from production after 18:00 |
-| 15:49 | I2 passes: every demo screen shows production data | Drop the stories that are not on the Demo path from the rehearsal; leave them deployed if they work |
-| 16:34 | Rehearsal done and the database restored | Record what works; the video names only behaviour shown live |
+| 10:39 | P01, P02 and P04 merged: routes, shapes, errors, signatures and Finding fixtures frozen | Everything slips one for one. Hold other merges until the contracts land |
+| 11:39 | CI and the walking skeleton deployed to Modal and Vercel (P06) | One agent fixes the deploy while the rest continue; nothing merges to production until it works |
+| 12:48 | Seed in the dev database through the ledger (P11) | Seed directly in Baseline mode with a script, and reconcile it in P15 |
+| 13:09 | Extraction passes on 20 real items with quotes found (P14) | Narrow the Baseline to the 100 most recent trials (about 20 minutes) |
+| 13:18 | Screens on seeded records (P41) | Fix before more screens merge; a broken contract shows here first |
+| 13:54 | 50-item run passes: one forced failure, no duplicates (P15) | Run the Baseline anyway, on whatever passes. Skip the separate dry run (P17) and pick camera items from the P15 data |
+| 14:24 | Screens on the small real ingest (P42) | Fix the read model or the screen before the Baseline finishes |
+| 14:48 | Baseline in production and the snapshot saved (P16) | Rehearse on the dev database, and record from production after 18:00 |
+| 14:54 | Graph page, changed highlight and Home hero merged (P35, P36, P37) | Rehearse with the graph as it is; the Home hero falls back to the welcome panel alone |
+| 15:24 | Final acceptance on production data (P38) | Drop the stories that are not on the Demo path from the rehearsal; leave them deployed if they work |
+| 16:09 | Rehearsal done and the database restored (P39) | Use the time to 18:00 to fix and rehearse again |
 
 If a fallback is triggered, these go first, in this order, because no Demo path story needs them: 7.1, 1.11, 1.10, 4.8, 4.6 with 4.7, 4.5, 4.4, then 3.4 with 3.5.
 
@@ -138,8 +163,8 @@ Extra agents only help if two of them never edit the same module at once.
 
 | Module | Owner | Others call it, never edit it |
 |---|---|---|
-| `backend/dxp/api/models.py`, `store`, read model | C1 (Story 1.1) | Every story; a change goes through a pull request that regenerates `web/lib/types.ts` |
-| `schema/registry.py`, `identity` | C2 (Story 1.2) | 1.5, 1.6, 4.6 (the Category map is added by 4.6 as its own function) |
+| `backend/dxp/api/models.py`, `store`, read model | P01 and P05 (Story 1.1) | Every story; a change goes through a pull request that regenerates `web/lib/types.ts` |
+| `schema/registry.py`, `identity` | P02 (Story 1.2) | 1.5, 1.6; the Category map lives in Vlad's `schema/categories.py` (V07) |
 | `ledger/file.py` (filing, modes, stage rule) | 1.6 | 1.2 seeds through it; 1.7 calls it |
 | `ledger/seed.py` | 1.2 | none |
 | `ledger/decide.py` (claim and apply a decision, review a value) | 2.3 | 2.4 calls it through the API |
@@ -147,6 +172,10 @@ Extra agents only help if two of them never edit the same module at once.
 | `memory` | 6.1 | 2.6, 6.2, 6.3 |
 | `web/components/graph` | 5.2 | 6.4 reuses it; only 5.2 edits it |
 | `web/components/shell` (top bar, tokens, badges) | 1.12 | every screen |
+| `web/components/rule-panel` | V19 (Story 2.7, Vlad) | P29 Review screen embeds it |
+| `web/components/digest` | V18 (Story 3.3, Vlad) | P34 Home embeds it |
+| `web/components/alert-item` | P31 (Story 3.2) | V15 adds `audio.tsx` beside it; P34 Home embeds it |
+| `search/completeness.py`, `schema/categories.py` | V07 (Story 4.6, Vlad) | P05's read model calls `completeness()` through its frozen signature |
 
 ## Agent roles
 
@@ -158,7 +187,7 @@ Extra agents only help if two of them never edit the same module at once.
 ## Not modelled
 
 - Claude API rate limits: the pipeline is set to 16 concurrent calls (Story 1.7), and agents share the same account's limits.
-- The time Luis and Vlad spend reading and merging pull requests: about 45 merges in about 8 hours 20 minutes, one every 11 minutes or so for the two of them.
+- The time Luis and Vlad spend reading and merging pull requests: 58 merges in about 8 hours 20 minutes: 39 on Luis's lane (one every 13 minutes or so) and 19 on Vlad's.
 - Account and key setup, assumed done on Friday.
 
 ## Open questions
