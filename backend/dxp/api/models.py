@@ -50,6 +50,7 @@ ActionKind = Literal[
     "review_value",
     "resolve_notification",
     "revert_report",  # V48, AD-31
+    "answer_question",  # V70: Interview this evidence (interview flag)
     # superseded by decide_report (V8); granted to no one
     "decide_proposal",
 ]
@@ -164,7 +165,7 @@ class AuthorisedBy(Shape):
     acting_for: str | None = None
     granted_by: str | None = None
     grant_id: str
-    grant_version: int
+    grant_version: int | None = Field(default=None, description="null when no grant version exists (check 1 blocked)")
     expires_at: datetime | None = None
     policy_set_version: str | None = None
 
@@ -478,7 +479,7 @@ class Decision(Shape):
     checks: list[CheckResult] = []
     failed_check: str | None = None
     grant_id: str
-    grant_version: int = Field(description="evaluated")
+    grant_version: int | None = Field(description="evaluated; null when the grant does not exist (check 1 blocked)")
     run_grant_version: int | None = Field(default=None, description="pinned at run start")
     policy_set_version: str | None = None
     outcome: Outcome
@@ -1192,6 +1193,35 @@ class ReportRevertRequest(Shape):
     """V48: note required before the gate (400)."""
 
     note: str
+
+
+class InterviewRequest(Shape):
+    """V70: one question about an accepted report (interview flag)."""
+
+    question: str = Field(min_length=1, max_length=500)
+
+
+class InterviewCitation(Shape):
+    """A verbatim quote stored on the accepted report, pinned to the version it came from (V40)."""
+
+    quote: str
+    source_ref: str
+    version_id: str | None = None
+    field: str | None = Field(default=None, description="where on the report the quote sits, e.g. discovery or related")
+
+
+class InterviewResponse(Shape):
+    """V70: an answer built only from the report's own verbatim quotes, every sentence cited.
+
+    `refused` is true for a medical-advice question (one fixed refusal, no model call) or when
+    the gate blocked the `answer_question` action; `answer` then carries the refusal text.
+    """
+
+    answer: str
+    citations: list[InterviewCitation] = Field(default_factory=list)
+    refused: bool = False
+    refusal_reason: str | None = Field(default=None, description="medical_advice | not_in_record | blocked")
+    decision_id: str
 
 
 class TeamSeenRequest(Shape):

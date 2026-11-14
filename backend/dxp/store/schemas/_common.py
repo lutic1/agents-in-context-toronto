@@ -36,6 +36,7 @@ HUMAN_KINDS = [
     "review_value",
     "resolve_notification",
     "revert_report",  # V48, AD-31: seeded on sam@v1 from the start
+    "answer_question",  # V70: granted to sam by a new grant version (sam@v2), never in place
 ]
 # The two media kinds are machine kinds that only the Reviewer requests, on
 # demand, under `sam@v1` (V29).
