@@ -129,7 +129,11 @@ export function ReportView({ reportId }: { reportId: string }) {
                 <InterviewWorkspace reportId={report.id} stacked />
               </>
             ) : (
-              <p className="text-caption text-muted-foreground">The interview opens after this report is approved.</p>
+              <p className="text-caption text-muted-foreground">
+                {report.status === "pending" || report.status === "accepting"
+                  ? "The interview opens after this report is approved."
+                  : "Only an accepted report can be interviewed."}
+              </p>
             )}
           </section>
         ) : null}
