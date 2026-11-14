@@ -41,6 +41,7 @@ ActionKind = Literal[
     # on-demand external kinds, Reviewer only under sam@v1 (V29)
     "generate_briefing",
     "generate_avatar_video",
+    "transcribe_question",  # V73: voice input, transcription only (voice_input flag)
     # human kinds
     "decide_report",
     "authorise_task",
@@ -60,6 +61,7 @@ Destination = Literal[
     "slack:#all-mango-db-hackathon",
     "source:clinicaltrials.gov",
     "tts:elevenlabs",
+    "stt:elevenlabs",
     "video:heygen",
 ]
 
@@ -1232,6 +1234,18 @@ class InterviewResponse(Shape):
     refused: bool = False
     refusal_reason: str | None = Field(default=None, description="medical_advice | not_in_record | blocked")
     decision_id: str
+
+
+class TranscribeResponse(Shape):
+    """V73: the text of one recorded question, for the user to read and edit before asking.
+
+    Nothing is submitted automatically and the audio is never stored. `refused` is true when the
+    gate blocked `transcribe_question`; `text` is then empty."""
+
+    text: str = ""
+    decision_id: str
+    refused: bool = False
+    refusal_reason: str | None = Field(default=None, description="blocked | too_long | unavailable")
 
 
 class TeamSeenRequest(Shape):

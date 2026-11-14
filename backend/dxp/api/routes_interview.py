@@ -71,3 +71,12 @@ async def interview_report(report_id: str, body: m.InterviewRequest, request: Re
         raise ApiError(404, "not_found", "Report not found.")
     ctx = await reviewer_context(request, principal, report)
     return await answer_question(report_id, body.question, ctx, report=report)
+
+
+@router.post("/reports/{report_id}/interview/transcribe", response_model=m.TranscribeResponse, tags=["reports"])
+async def transcribe_question(report_id: str, request: Request) -> m.TranscribeResponse:
+    """V73 stub (A01 contract): the raw audio body (`audio/webm` or `audio/wav`) is transcribed
+    for the user to read and edit. Finished by the interview lane; 404 while `voice_input` is off."""
+    from dxp.api.errors import not_implemented
+
+    raise not_implemented("POST /reports/<report_id>/interview/transcribe", "Interview")

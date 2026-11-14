@@ -27,6 +27,7 @@ BUILT_ROUTES = [
     ("GET", "/reports"), ("GET", "/reports/{report_id}"), ("POST", "/reports/{report_id}/decision"),
     ("POST", "/reports/{report_id}/revert"),
     ("POST", "/reports/{report_id}/interview"),
+    ("POST", "/reports/{report_id}/interview/transcribe"),
     ("POST", "/reports/{report_id}/briefing"), ("GET", "/reports/{report_id}/briefing"),
     ("POST", "/reports/{report_id}/avatar"), ("GET", "/reports/{report_id}/avatar"),
     ("GET", "/memories"), ("GET", "/memories/{memory_id}"),
@@ -254,7 +255,7 @@ async def test_start_hook_order_and_no_task_start_while_task_run_is_off(monkeypa
 def test_flags_are_off_by_default(features) -> None:
     from dxp import feature_enabled
 
-    for flag in ("task_run", "revert", "live_stream", "interview"):
+    for flag in ("task_run", "revert", "live_stream", "interview", "voice_input"):
         assert not feature_enabled(flag)
     features("revert")
     assert feature_enabled("revert") and not feature_enabled("task_run")
