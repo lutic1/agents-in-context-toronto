@@ -7,6 +7,8 @@ Frozen signatures (A01): `dispatch(action, ctx)`, `mark_unknown(action_id, error
   what was observed (S7).
 - `slack.py`: the only module that posts to Slack; configuration, the message, the sender.
 - `marks.py`: `mark_unknown` and `mark_failed`, for the sweep (D24, D43).
+- `source.py`: `record_source_result`, the `search_source` action's claim and observed result,
+  for A05's scan (nothing outside runs, gate and actions writes `actions`).
 - `resolution.py`: the Reviewer's manual resolution of an `unknown` alert (S8).
 - `records.py`: the conditional updates on `actions`; A09 writes nothing else.
 
@@ -19,6 +21,7 @@ from dxp.actions.dispatcher import dispatch
 from dxp.actions.errors import ActionBlocked, ActionNotFound, NotResolvable, NoteRequired, ReportNotFound, SenderNotConfigured
 from dxp.actions.marks import mark_failed, mark_unknown
 from dxp.actions.resolution import resolve
+from dxp.actions.source import record_source_result
 
 __all__ = [
     "ActionBlocked",
@@ -30,5 +33,6 @@ __all__ = [
     "dispatch",
     "mark_failed",
     "mark_unknown",
+    "record_source_result",
     "resolve",
 ]

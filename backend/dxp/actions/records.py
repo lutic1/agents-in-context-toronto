@@ -55,10 +55,16 @@ async def insert_if_absent(doc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         return stored, False
 
 
-async def transition(action_id: str, from_status: str, to_status: str, fields: dict[str, Any] | None = None) -> bool:
-    """`from_status` -> `to_status`, conditional on the current status; emits on a change."""
+async def transition(
+    action_id: str, from_status: str, to_status: str, fields: dict[str, Any] | None = None, *, kind: str | None = None
+) -> bool:
+    """`from_status` -> `to_status`, conditional on the current status (and the kind, when
+    given); emits on a change."""
     update = {"status": to_status, **(fields or {})}
-    result = await get_db()[ACTIONS].update_one({"_id": action_id, "status": from_status}, {"$set": update})
+    query: dict[str, Any] = {"_id": action_id, "status": from_status}
+    if kind is not None:
+        query["kind"] = kind
+    result = await get_db()[ACTIONS].update_one(query, {"$set": update})
     if not result.modified_count:
         return False
     doc = await get(action_id) or {}
