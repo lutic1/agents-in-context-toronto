@@ -14,7 +14,8 @@ Rules kept here:
   each its own Decision. Draft 2 is the one filed; a blocked draft 2 ends the item with
   nothing filed. A blocked draft 1 is the "blocked claim"; draft 2 is its one redraft.
 - One `notify_slack` per filed report, through `actions.dispatch()` (V11). A blocked report
-  gets no alert. The run never calls ElevenLabs or HeyGen (V29).
+  gets no alert. A blocked alert (A09 raises `ActionBlocked`) is a blocked step, not an item
+  failure. The run never calls ElevenLabs or HeyGen (V29).
 - The node never raises: an error becomes a failure line with a code, never source text.
 """
 
@@ -126,6 +127,15 @@ async def release(admission_ids: list[str]) -> None:
 
 def with_admission(ctx: RunContext, adm: str) -> RunContext:
     return ctx.model_copy(update={"admission_id": adm})
+
+
+def is_action_blocked(exc: BaseException) -> bool:
+    """A09's `actions.dispatch` raises `ActionBlocked` when the gate blocks the action. Matched
+    by name so this module does not depend on A09 being merged."""
+    blocked = getattr(actions, "ActionBlocked", None)
+    if isinstance(blocked, type) and isinstance(exc, blocked):
+        return True
+    return type(exc).__name__ == "ActionBlocked"
 
 
 def report_id_for(run_id: str, source_ref: str) -> str:
@@ -336,7 +346,9 @@ async def file_drafts(
 async def notify(filed: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo) -> Any:
     """The report's one notify_slack (V11), with its own admission. Returns the Action."""
     diagnostic_ids = [d for d in filed.get("diagnostic_ids") or [] if d]
-    dx = diagnostic_ids[0] if diagnostic_ids else None  # None on the demo path (V43)
+    # Same rule as A09's action ID: the report's first diagnostic_ids entry, else "-" (V43), so
+    # the admission key and the action ID line up. The demo report has none.
+    dx = diagnostic_ids[0] if diagnostic_ids else None
     adm = await admit(info.run_id, item_key(item["source_ref"], "notify_slack", dx, report_id))
     if adm is None:
         return None
@@ -354,7 +366,15 @@ async def notify(filed: dict[str, Any], item: dict[str, Any], report_id: str, in
             },
             evidence_ref=EvidenceRef(source_ref=item["source_ref"], version_id=item["version_id"], report_id=report_id),
         )
-        return await actions.dispatch(action, with_admission(info.ctx, adm))
+        try:
+            return await actions.dispatch(action, with_admission(info.ctx, adm))
+        except Exception as exc:
+            if not is_action_blocked(exc):
+                raise
+            # The gate blocked the alert: its Decision and action_blocked event are recorded
+            # by A09; nothing was sent. A blocked step, not an item failure.
+            log.info("alert blocked run=%s report=%s", info.run_id, report_id)
+            return {"status": "blocked", "decision_id": get(exc, "decision_id") or get(get(exc, "decision"), "id")}
     finally:
         await release([adm])
 

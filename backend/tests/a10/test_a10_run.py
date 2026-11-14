@@ -291,3 +291,43 @@ async def test_the_pipeline_never_writes_runs_directly(world: World) -> None:
     await pipeline.run(RUN_ID)
     assert calls == [] and before  # every change came through the faked runs functions
     assert "runs.record_progress" in world.names()
+
+
+async def test_a_blocked_alert_is_a_blocked_step_not_a_failure(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    import dxp.actions
+
+    class ActionBlocked(Exception):
+        def __init__(self, decision_id: str) -> None:
+            super().__init__("blocked")
+            self.decision_id = decision_id
+
+    async def dispatch(action: Any, ctx: Any) -> Any:
+        world.calls.append(("actions.dispatch", action))
+        raise ActionBlocked("dec_slack_blocked")
+
+    monkeypatch.setattr(dxp.actions, "dispatch", dispatch)
+    monkeypatch.setattr(dxp.actions, "ActionBlocked", ActionBlocked, raising=False)
+    await pipeline.run(RUN_ID)
+    run = world.run
+    assert run["status"] == "done" and run["counts"]["done"] == 1 and run["counts"].get("failed", 0) == 0
+    assert run["failures"] == [] and world.slack == []
+    assert len(world.db["reports"].docs) == 1  # the report stays filed and pending
+    assert released_once(world)
+
+
+async def test_an_alert_for_a_report_with_a_diagnostic_uses_it_in_the_admission_key(world: World) -> None:
+    import dxp.reports
+
+    real_draft = dxp.reports.draft
+
+    async def draft(*args: Any) -> Any:
+        out = await real_draft(*args)
+        for d in out["drafts"]:
+            d["diagnostic_ids"] = ["dx_g360", "dx_other"]
+        return out
+
+    dxp.reports.draft = draft
+    await pipeline.run(RUN_ID)
+    report_id = next(iter(world.db["reports"].docs))
+    assert list(world.admitted.values())[-1] == f"{ANCHOR}|notify_slack|dx_g360|{report_id}"
+    assert world.slack[0]["action"].target.diagnostic_id == "dx_g360"
