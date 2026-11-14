@@ -98,14 +98,17 @@ def last_update_filter(cursor: str) -> str:
     return f"AREA[LastUpdatePostDate]RANGE[{cursor},MAX]"
 
 
-def search_params(term: str, cond: str | None, cursor: str | None, page_size: int = PAGE_SIZE) -> dict[str, Any]:
+def search_params(
+    term: str, cond: str | None, cursor: str | None, page_size: int = PAGE_SIZE, extra_filter: str | None = None
+) -> dict[str, Any]:
     params: dict[str, Any] = {"format": "json", "pageSize": page_size, "countTotal": "true"}
     if term:
         params["query.term"] = term
     if cond:
         params["query.cond"] = cond
-    if cursor:
-        params["filter.advanced"] = last_update_filter(cursor)
+    advanced = [f for f in (last_update_filter(cursor) if cursor else None, extra_filter) if f]
+    if advanced:
+        params["filter.advanced"] = " AND ".join(advanced)
     return params
 
 
@@ -167,6 +170,7 @@ async def search(
     max_pages: int | None = None,
     max_results: int | None = None,
     client: httpx.AsyncClient | None = None,
+    extra_filter: str | None = None,
 ) -> SearchResult:
     """Every page of one query, up to `max_pages` pages (or `max_results` records).
 
@@ -175,7 +179,7 @@ async def search(
     """
     max_pages = max_pages or MAX_PAGES
     size = min(page_size, max_results) if max_results else page_size
-    params = search_params(term, cond, cursor, size)
+    params = search_params(term, cond, cursor, size, extra_filter)
     result = SearchResult(params=dict(params))
     own = client is None
     client = client or make_client()

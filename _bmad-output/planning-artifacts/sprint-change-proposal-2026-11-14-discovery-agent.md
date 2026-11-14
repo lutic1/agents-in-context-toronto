@@ -678,3 +678,10 @@ These rulings were approved by Luis on 14 Nov during the build, win over V1 to V
 - **V72. Briefing retry after an unknown outcome.**
   - Pressing the briefing button again after an `unknown` outcome may call ElevenLabs again, as a new Reviewer Decision. Luis accepts the possible double charge.
   - This narrows AD-30's "never retried after unknown" to automatic retries within one request.
+- **V73. Voice input, transcription only (Luis, 14 Nov; amends V70's "voice input: out today").**
+  - Behind the `voice_input` flag, default off. If it is not working end to end by 15:45, the flag stays off.
+  - The user records a short clip on the interview page. `POST /reports/{report_id}/interview/transcribe` (raw `audio/webm` or `audio/wav` body) sends it to ElevenLabs speech-to-text as the gated Reviewer media kind `transcribe_question` (destination `stt:elevenlabs`, granted by `sam@v3`, never in place). The action follows V71.
+  - The text lands in the question box, where the user reads and edits it. Nothing is submitted automatically, and the typed path (`answer_question`, grounding, medical refusal) is unchanged.
+  - Audio is never stored or logged; the size is capped (about 30 s or 1 MB).
+  - The microphone is allowed only on the interview route; the camera stays blocked everywhere. LiveAvatar never listens and stays `repeat(text)` only.
+- **V74. The interview and avatar before approval (Luis, 14 Nov; amends V70's "an accepted report only").** The interview (`answer_question`), the avatar token and transcription accept a report that is `pending` or `accepted`; `rejected`, `reverted`, `accepting` and `reverting` stay 409. On the report page the avatar comes first with an Engage button (a session starts only on press); the decision bar and the memory panel stay open; long sections are collapsed. Grounding, the medical refusal, the gate, person-only, the flags and V73's microphone rule are unchanged.

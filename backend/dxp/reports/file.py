@@ -65,6 +65,18 @@ def _plain(value: Any) -> dict[str, Any]:
     return dict(value or {})
 
 
+def quote_checks(quotes: list[Any]) -> list[dict[str, bool]]:
+    """The AD-6 checks the evidence policy reads (`evidence_quote_supported`: quote_found and
+    supported), one per quote. A quote counts only when it was found word for word in the pinned
+    version; then it is the record's own words and supports what it quotes. No quote, no check:
+    the gate then fails closed, which is the policy's intent."""
+    out = []
+    for quote in quotes or []:
+        found = (quote.get("quote_found") if isinstance(quote, dict) else getattr(quote, "quote_found", None)) is True
+        out.append({"quote_found": found, "supported": found})
+    return out
+
+
 def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) -> ProposedAction:
     """The report-level file_proposal for one draft. The claims, the source's own status
     fields and the checked quotes travel in `inputs` for check 4; the retrieval and the
@@ -83,10 +95,12 @@ def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) ->
             "id_target": gate_target(report_id, number, attempt),
             "source_ref": draft.get("source_ref"),
             "headline": one.get("headline"),
+            "summary": one.get("summary"),  # the audit shows each draft's full wording (V14, memory before/after)
             "gap": one.get("gap"),
             "claims": gate_claims(one),
             "source_fields": dict(draft.get("source_fields") or {}),
             "checked_quotes": [dict(q) for q in one.get("quotes") or []],
+            "checks": quote_checks(one.get("quotes") or []),  # one per quote for a report (A06)
         },
         evidence_ref=EvidenceRef(source_ref=draft.get("source_ref"), version_id=draft.get("version_id"), report_id=report_id),
         retrieval=draft.get("retrieval") or None,
@@ -290,6 +304,9 @@ async def add_related(report_id: str, refs: list[str], ctx: RunContext) -> list[
                     {"text": q.text, "quote_found": q.quote_found, "version_id": q.version_id}
                     for q in (relationship.new_quote, relationship.related_quote) if q is not None
                 ],
+                # Both sides must be found for the policy, the same rule as an established label.
+                "checks": quote_checks([relationship.new_quote, relationship.related_quote]
+                                       if relationship.new_quote and relationship.related_quote else []),
             },
             evidence_ref=EvidenceRef(
                 source_ref=ref,

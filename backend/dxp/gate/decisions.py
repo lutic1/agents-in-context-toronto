@@ -162,7 +162,7 @@ async def _maybe_await(value: Any) -> Any:
 # --- IDs (AD-3, D20, D49) ----------------------------------------------------
 
 REPORT_TARGET_KINDS = frozenset(
-    {"decide_report", "create_memory", "notify_slack", "generate_briefing", "generate_avatar_video", "revert_report"}
+    {"decide_report", "create_memory", "notify_slack", "generate_briefing", "generate_avatar_video", "revert_report", "transcribe_question"}
 )
 
 # Reviewer kinds whose IDs are derived without the request ID, so a retry finds

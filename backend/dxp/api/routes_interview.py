@@ -1,20 +1,113 @@
-"""Interview this evidence (V70, interview flag). Stub from A01 (contract); finished by the interview lane.
+"""Interview this evidence (V70, interview flag).
 
-Paths, methods, parameters and response models are frozen (AD-14): only the bodies change.
-Returns 501 in the error shape until the interview lane finishes it (then 404 when `interview` is off).
+`POST /reports/<report_id>/interview { question }` returns `{ answer, citations[], refused, refusal_reason,
+decision_id }`. Paths, methods, parameters and response models are A01's frozen ones (AD-14).
+
+- Flag `interview` off: 404, as for every flagged route.
+- The caller comes from `X-DxP-Key` (a body field never confers permission). Only a person may ask: any other
+  principal (the agent key) is a 403 before any Decision is written. The Reviewer context the gate
+  needs is built here: no run, a Reviewer stamp, a server-generated request ID and the report as the cause.
+- A blocked question is not an error: it is a 200 with `refused: true`, `refusal_reason: "blocked"` and the
+  blocked Decision's ID (D5).
+- `POST /reports/<report_id>/interview/transcribe` (V73, flags `interview` and `voice_input`): see `transcribe_question`.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+import secrets
 
+from fastapi import APIRouter, Request
+
+from dxp import feature_enabled
+from dxp.api import auth
 from dxp.api import models as m
-from dxp.api.errors import not_implemented
+from dxp.api.errors import ApiError
+from dxp.gate import policy_sets
+from dxp.interview import answer_question, cards, repo, transcribe
 
 router = APIRouter()
 OWNER = "Interview"
 
 
+async def reviewer_context(request: Request, principal: m.Principal, report: dict) -> m.RunContext:
+    """The context of a Reviewer decision (D19, D20): `run_id` null, Reviewer stamp, request ID and cause set."""
+    grant = await auth.grant_for_key(request.headers.get(auth.KEY_HEADER) or "")
+    if grant is None:
+        raise ApiError(401, "unknown_key", "Unknown API key.")
+    current_set = await policy_sets.current_set()
+    stamp = m.Stamp(
+        kind="reviewer",
+        run_id=None,
+        agent=None,
+        initiated_by=principal.id,
+        principal=principal.id,
+        acting_for=grant.get("acting_for"),
+        grant_id=grant["grant_id"],
+        grant_version=grant["version"],
+        policy_set_version=current_set.id,
+    )
+    return m.RunContext(
+        run_id=None,
+        principal=principal,
+        stamp=stamp,
+        grant_id=grant["grant_id"],
+        grant_version=grant["version"],
+        policy_set_version=current_set.id,
+        mode="live",
+        request_id=f"req_{secrets.token_hex(8)}",
+        cause=m.DecisionCause(report_id=report.get("_id") or report.get("id"), origin_run_id=report.get("run_id")),
+    )
+
+
 @router.post("/reports/{report_id}/interview", response_model=m.InterviewResponse, tags=["reports"])
-async def interview_report(report_id: str, body: m.InterviewRequest) -> m.InterviewResponse:
-    raise not_implemented("POST /reports/<report_id>/interview", OWNER)
+async def interview_report(report_id: str, body: m.InterviewRequest, request: Request) -> m.InterviewResponse:
+    if not feature_enabled("interview"):
+        raise ApiError(404, "not_found", "Not found.")
+    principal = await auth.require_principal(request)
+    if principal.kind != "person":
+        # An agent key is not a Reviewer: the Decision would be stamped `reviewer` for a caller that is not one.
+        raise ApiError(403, "person_only", "Only a person can interview a report.")
+    report = await repo.get_report(report_id)
+    if report is None:
+        raise ApiError(404, "not_found", "Report not found.")
+    ctx = await reviewer_context(request, principal, report)
+    return await answer_question(report_id, body.question, ctx, report=report)
+
+
+@router.post("/reports/{report_id}/interview/transcribe", response_model=m.TranscribeResponse, tags=["reports"])
+async def transcribe_question(report_id: str, request: Request) -> m.TranscribeResponse:
+    """V73: the raw audio body (`audio/webm` or `audio/wav`) is transcribed for the user to read and edit.
+
+    Order: both flags (404), a person (403), the report (404, 409), the content type (415), the size cap (a refusal
+    `too_long`, before the gate), then the gate and the ElevenLabs call. Nothing is submitted and nothing is stored."""
+    if not (feature_enabled("interview") and feature_enabled("voice_input")):
+        raise ApiError(404, "not_found", "Not found.")
+    principal = await auth.require_principal(request)
+    if principal.kind != "person":
+        raise ApiError(403, "person_only", "Only a person can ask a question by voice.")
+    report = await repo.get_report(report_id)
+    if report is None:
+        raise ApiError(404, "not_found", "Report not found.")
+    if not cards.is_interviewable(report):
+        raise ApiError(409, "report_not_accepted", "Only a pending or accepted report can be interviewed.")
+    mime = transcribe.normalise_mime(request.headers.get("content-type"))
+    if mime is None:
+        raise ApiError(415, "unsupported_media_type", "Send the recording as audio/webm or audio/wav.")
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > transcribe.MAX_BYTES:
+        return transcribe.too_long()
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():  # stop reading at the cap: an oversized body is never held in memory
+        size += len(chunk)
+        if size > transcribe.MAX_BYTES:
+            return transcribe.too_long()
+        chunks.append(chunk)
+    audio = b"".join(chunks)
+    if not audio:
+        raise ApiError(422, "invalid_request", "No audio was sent.")
+    ctx = await reviewer_context(request, principal, report)
+    try:
+        return await transcribe.transcribe(report_id, audio, mime, ctx, report=report)
+    except NotImplementedError as exc:
+        raise ApiError(501, "not_implemented", "The policy gate is not on main yet (A06).") from exc

@@ -16,16 +16,28 @@ import { formatDateTime, shortId } from "@/lib/format";
  * is labelled "Named in the record" and never as a claim about what the trial
  * tests or relies on (V37).
  */
-export function Discovery({ report }: { report: Report }) {
+export function Discovery({
+  report,
+  part = "all",
+}: {
+  report: Report;
+  /** "header": badges, headline and summary only. "details": the source fields, intervention and quotes only (V74). */
+  part?: "all" | "header" | "details";
+}) {
+  const showHeader = part !== "details";
+  const showDetails = part !== "header";
   const nct = report.nct_id ?? nctIdOf(report.source_ref);
   const d = report.discovery;
   const status = statusWord(d.trial_status);
 
   return (
     <section
-      aria-labelledby="discovery-heading"
+      aria-labelledby={showHeader ? "discovery-heading" : undefined}
+      aria-label={showHeader ? undefined : "Quotes and source fields"}
       className="flex min-w-0 flex-col gap-5 rounded-lg bg-card p-5 shadow-sm"
     >
+      {showHeader ? (
+        <>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="inline-flex items-center gap-1.5">
           <FlaskConical className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
@@ -51,6 +63,11 @@ export function Discovery({ report }: { report: Report }) {
         {d.summary ? <p className="text-body m-0 max-w-[75ch]">{d.summary}</p> : null}
       </div>
 
+        </>
+      ) : null}
+
+      {showDetails ? (
+        <>
       <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-caption">
         <Meta label="Found by run">
           <Link href={`/runs/${encodeURIComponent(report.run_id)}`} className="text-identifier underline underline-offset-2">
@@ -122,6 +139,8 @@ export function Discovery({ report }: { report: Report }) {
           </ul>
         )}
       </div>
+        </>
+      ) : null}
     </section>
   );
 }

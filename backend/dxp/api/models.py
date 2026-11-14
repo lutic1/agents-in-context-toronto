@@ -41,6 +41,7 @@ ActionKind = Literal[
     # on-demand external kinds, Reviewer only under sam@v1 (V29)
     "generate_briefing",
     "generate_avatar_video",
+    "transcribe_question",  # V73: voice input, transcription only (voice_input flag)
     # human kinds
     "decide_report",
     "authorise_task",
@@ -60,6 +61,7 @@ Destination = Literal[
     "slack:#all-mango-db-hackathon",
     "source:clinicaltrials.gov",
     "tts:elevenlabs",
+    "stt:elevenlabs",
     "video:heygen",
 ]
 
@@ -318,6 +320,14 @@ class RunFailure(Shape):
     error: str
 
 
+class RunCause(Shape):
+    """What a task run was started for, as runs.start_if_absent stores it (A07+A11): set only on
+    task runs, null on every other run."""
+
+    task_id: str
+    report_id: str | None = Field(default=None, description="the task's report, when it has one")
+
+
 class Run(Shape):
     id: str
     agent: str
@@ -335,6 +345,7 @@ class Run(Shape):
     kind: RunKind
     scope_id: str | None = None
     task_id: str | None = Field(default=None, description='task runs only; their id is derive("run_", task_id) (V38)')
+    cause: RunCause | None = Field(default=None, description="task runs only: the task and its report")
     scan: RunScan | None = None
     status: RunStatus
     in_flight: int = Field(default=0, description="count of admitted admissions")
@@ -991,6 +1002,7 @@ class AuditEntry(Shape):
     evidence_ref: EvidenceRef | None = None
     stamp: Stamp | None = None
     cause: DecisionCause | None = None
+    target: Target | None = Field(default=None, description="the Decision's target; shows a scope target for a diagnostic_id: null update (V43)")
     grant_id: str
     grant_version: int
     policy_set_version: str | None = None
@@ -1222,6 +1234,18 @@ class InterviewResponse(Shape):
     refused: bool = False
     refusal_reason: str | None = Field(default=None, description="medical_advice | not_in_record | blocked")
     decision_id: str
+
+
+class TranscribeResponse(Shape):
+    """V73: the text of one recorded question, for the user to read and edit before asking.
+
+    Nothing is submitted automatically and the audio is never stored. `refused` is true when the
+    gate blocked `transcribe_question`; `text` is then empty."""
+
+    text: str = ""
+    decision_id: str
+    refused: bool = False
+    refusal_reason: str | None = Field(default=None, description="blocked | too_long | unavailable")
 
 
 class TeamSeenRequest(Shape):

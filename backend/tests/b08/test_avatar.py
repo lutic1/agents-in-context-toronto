@@ -57,11 +57,21 @@ def test_an_agent_principal_gets_403_and_records_nothing(api_client, monkeypatch
     assert media_store.actions == {}  # no Decision, so no action either
 
 
-# --- not accepted ----------------------------------------------------------------
+# --- not pending or accepted (V74) ------------------------------------------------
 
 
-@pytest.mark.parametrize("status", ["pending", "accepting", "rejected", "reverting", "reverted"])
-def test_a_report_that_is_not_accepted_is_409_with_no_gate_and_no_provider_call(
+def test_a_pending_report_gets_a_token_through_the_gate(api_client, reviewer, fake_gate, live, media_store) -> None:
+    # V74: the avatar runs before approval too.
+    media_store.reports[REPORT_ID]["status"] = "pending"
+    response = post(api_client)
+    assert response.status_code == 200, response.text
+    assert response.json()["decision"]["outcome"] == "allowed" and response.json()["session_token"] == SECRET_TOKEN
+    (_, action), = fake_gate.calls
+    assert action.kind == "generate_avatar_video" and len(live.calls) == 1
+
+
+@pytest.mark.parametrize("status", ["accepting", "rejected", "reverting", "reverted"])
+def test_a_report_that_is_not_pending_or_accepted_is_409_with_no_gate_and_no_provider_call(
     api_client, reviewer, fake_gate, live, media_store, status
 ) -> None:
     media_store.reports[REPORT_ID]["status"] = status

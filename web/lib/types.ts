@@ -319,7 +319,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Memories */
+        /**
+         * List Memories
+         * @description The latest version of each of the Team's memories, with author, source and status.
+         */
         get: operations["list_memories_api_v1_memories_get"];
         put?: never;
         post?: never;
@@ -530,10 +533,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Avatar */
+        /**
+         * Get Avatar
+         * @description The latest avatar status for the report; 404 when none was requested. Never returns a token.
+         */
         get: operations["get_avatar_api_v1_reports__report_id__avatar_get"];
         put?: never;
-        /** Render Avatar */
+        /**
+         * Render Avatar
+         * @description Reviewer only, with the `avatar` flag on (else 404). Gated as `generate_avatar_video` under
+         *     `sam@v1`; mints one token after an allowed Decision, only for an accepted report (else 409). A blocked
+         *     request is a 200 with the blocked Decision (D5), never an error.
+         */
         post: operations["render_avatar_api_v1_reports__report_id__avatar_post"];
         delete?: never;
         options?: never;
@@ -550,11 +561,18 @@ export interface paths {
         };
         /**
          * Get Briefing
-         * @description The script as text always, plus the audio status and URL (V41).
+         * @description The script as text always (V41), plus the audio status and URL; or the audio itself.
+         *     404 when the `briefing` flag is off.
          */
         get: operations["get_briefing_api_v1_reports__report_id__briefing_get"];
         put?: never;
-        /** Generate Briefing */
+        /**
+         * Generate Briefing
+         * @description Generate the briefing from `report.script`, gated as `generate_briefing` under the Reviewer's
+         *     grant. A blocked request is not an error: 200 with the Decision, nothing called. A failed or
+         *     unavailable ElevenLabs is the error shape with 503 (the Decision is in the audit); the report,
+         *     the decision and everything else carry on. 404 when the `briefing` flag is off.
+         */
         post: operations["generate_briefing_api_v1_reports__report_id__briefing_post"];
         delete?: never;
         options?: never;
@@ -590,6 +608,27 @@ export interface paths {
         put?: never;
         /** Interview Report */
         post: operations["interview_report_api_v1_reports__report_id__interview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{report_id}/interview/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe Question
+         * @description V73 stub (A01 contract): the raw audio body (`audio/webm` or `audio/wav`) is transcribed
+         *     for the user to read and edit. Finished by the interview lane; 404 while `voice_input` is off.
+         */
+        post: operations["transcribe_question_api_v1_reports__report_id__interview_transcribe_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -969,7 +1008,7 @@ export interface components {
              * Destination
              * @enum {string}
              */
-            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "video:heygen";
+            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "stt:elevenlabs" | "video:heygen";
             /** Error */
             error: ("abandoned_before_send" | "abandoned_in_flight") | null;
             evidence_ref: components["schemas"]["EvidenceRef"] | null;
@@ -989,7 +1028,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /** Observed At */
             observed_at: string | null;
             /** Proposed At */
@@ -1147,7 +1186,7 @@ export interface components {
              * Destination
              * @enum {string}
              */
-            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "video:heygen";
+            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "stt:elevenlabs" | "video:heygen";
             evidence_ref: components["schemas"]["EvidenceRef"] | null;
             /** Failed Check */
             failed_check: string | null;
@@ -1166,7 +1205,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /**
              * Memories Used
              * @default []
@@ -1203,6 +1242,8 @@ export interface components {
             stamp: components["schemas"]["Stamp"] | null;
             /** Status */
             status: ("queued" | "dispatching" | "delivered" | "failed" | "unknown" | "done" | "reconciling") | null;
+            /** @description the Decision's target; shows a scope target for a diagnostic_id: null update (V43) */
+            target: components["schemas"]["Target"] | null;
             /** Task Id */
             task_id: string | null;
         };
@@ -1374,7 +1415,7 @@ export interface components {
              * Destination
              * @enum {string}
              */
-            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "video:heygen";
+            destination: "ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "stt:elevenlabs" | "video:heygen";
             evidence_ref: components["schemas"]["EvidenceRef"] | null;
             /** Failed Check */
             failed_check: string | null;
@@ -1403,7 +1444,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
+            kind: "search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal";
             /**
              * Memories Used
              * @default []
@@ -1549,14 +1590,14 @@ export interface components {
              * Actions
              * @default []
              */
-            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
+            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Created At */
             created_at: string | null;
             /**
              * Destinations
              * @default []
              */
-            destinations: ("ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "video:heygen")[];
+            destinations: ("ledger" | "slack:#all-mango-db-hackathon" | "source:clinicaltrials.gov" | "tts:elevenlabs" | "stt:elevenlabs" | "video:heygen")[];
             /** Expires At */
             expires_at: string | null;
             /** Grant Id */
@@ -1980,7 +2021,7 @@ export interface components {
              * Applies To
              * @default []
              */
-            applies_to: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
+            applies_to: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Approved By */
             approved_by: string | null;
             /** Author */
@@ -2061,7 +2102,7 @@ export interface components {
              * Actions
              * @default []
              */
-            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
+            actions: ("search_source" | "file_proposal" | "file_related_evidence" | "notify_slack" | "apply_value" | "generate_briefing" | "generate_avatar_video" | "transcribe_question" | "decide_report" | "authorise_task" | "create_memory" | "correct_memory" | "revoke_memory" | "review_value" | "resolve_notification" | "revert_report" | "answer_question" | "decide_proposal")[];
             /** Id */
             id: string;
             /**
@@ -2750,6 +2791,8 @@ export interface components {
             active: components["schemas"]["RunActive"][];
             /** Agent */
             agent: string;
+            /** @description task runs only: the task and its report */
+            cause: components["schemas"]["RunCause"] | null;
             counts: components["schemas"]["RunCounts"];
             /**
              * Failures
@@ -2830,6 +2873,20 @@ export interface components {
             source_ref: string;
             /** Step */
             step: string;
+        };
+        /**
+         * RunCause
+         * @description What a task run was started for, as runs.start_if_absent stores it (A07+A11): set only on
+         *     task runs, null on every other run.
+         */
+        RunCause: {
+            /**
+             * Report Id
+             * @description the task's report, when it has one
+             */
+            report_id: string | null;
+            /** Task Id */
+            task_id: string;
         };
         /** RunCounts */
         RunCounts: {
@@ -3380,6 +3437,32 @@ export interface components {
         TeamSeenRequest: {
             /** Seq */
             seq: number;
+        };
+        /**
+         * TranscribeResponse
+         * @description V73: the text of one recorded question, for the user to read and edit before asking.
+         *
+         *     Nothing is submitted automatically and the audio is never stored. `refused` is true when the
+         *     gate blocked `transcribe_question`; `text` is then empty.
+         */
+        TranscribeResponse: {
+            /** Decision Id */
+            decision_id: string;
+            /**
+             * Refusal Reason
+             * @description blocked | too_long | unavailable
+             */
+            refusal_reason: string | null;
+            /**
+             * Refused
+             * @default false
+             */
+            refused: boolean;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
         };
         /**
          * Value
@@ -6609,6 +6692,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewResponse"];
+                };
+            };
+            /** @description bad_request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description unauthorised */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_request */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description not_implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    transcribe_question_api_v1_reports__report_id__interview_transcribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscribeResponse"];
                 };
             };
             /** @description bad_request */

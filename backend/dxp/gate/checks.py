@@ -31,7 +31,7 @@ LEDGER = "ledger"
 MACHINE_KINDS = frozenset(
     {"search_source", "file_proposal", "file_related_evidence", "notify_slack", "apply_value"}
 )
-MEDIA_KINDS = frozenset({"generate_briefing", "generate_avatar_video"})
+MEDIA_KINDS = frozenset({"generate_briefing", "generate_avatar_video", "transcribe_question"})  # V73
 HUMAN_KINDS = frozenset(
     {
         "decide_report",
@@ -55,9 +55,10 @@ EXPECTED_DESTINATION = {
     "notify_slack": SLACK_DESTINATION,
     "generate_briefing": "tts:elevenlabs",
     "generate_avatar_video": "video:heygen",
+    "transcribe_question": "stt:elevenlabs",  # V73
 }
 KNOWN_DESTINATIONS = frozenset(
-    {LEDGER, SLACK_DESTINATION, "source:clinicaltrials.gov", "tts:elevenlabs", "video:heygen"}
+    {LEDGER, SLACK_DESTINATION, "source:clinicaltrials.gov", "tts:elevenlabs", "video:heygen", "stt:elevenlabs"}
 )
 
 # Check 4 applies to these kinds (D50, extended 14 Nov); every other kind records n/a.

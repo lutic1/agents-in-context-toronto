@@ -59,6 +59,7 @@ log = logging.getLogger("dxp.briefing.avatar")
 
 LIVEAVATAR_API_URL = "https://api.liveavatar.com"
 TOKEN_PATH = "/v1/sessions/token"
+AVATAR_STATUSES = frozenset({"pending", "accepted"})  # V74: the avatar runs before approval too
 KEY_ENV = "LIVEAVATAR_API_KEY"  # the only secret; read here only, never logged or returned
 AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: overrides which LiveAvatar avatar speaks (a UUID)
 SANDBOX_ENV = "LIVEAVATAR_SANDBOX"  # "true" asks for sandbox mode, which consumes no credits
@@ -358,9 +359,9 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
     report = await store.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")
-    if report.get("status") != "accepted":
-        # Before the gate and before any provider call: only an accepted report is interviewed (V70).
-        raise ApiError(409, "report_not_accepted", "The avatar is available only for an accepted report.")
+    if report.get("status") not in AVATAR_STATUSES:
+        # Before the gate and before any provider call: only a pending or accepted report is interviewed (V70, V74).
+        raise ApiError(409, "report_not_accepted", "The avatar is available only for a pending or accepted report.")
     script_hash = report.get("script_hash")
 
     # 1. The gate, before any call to LiveAvatar. The Decision is recorded allowed or blocked.

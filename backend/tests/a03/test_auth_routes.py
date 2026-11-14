@@ -111,7 +111,7 @@ def test_list_grants(client, keys):
     response = get(client, "/grants", keys["DXP_API_KEY"])
     assert response.status_code == 200
     items = {g["id"]: g for g in response.json()["items"]}
-    assert set(items) == {"lbdx@v1", "sam@v2", "seed@v1"}  # the latest version of each grant (sam@v2, V70)
+    assert set(items) == {"lbdx@v1", "sam@v3", "seed@v1"}  # the latest version of each grant (sam@v3, V73)
     lbdx = items["lbdx@v1"]
     assert lbdx["team_name"] == "Team Liquid Biopsy Dx"
     assert lbdx["scope_name"] == "Plasma ctDNA genotyping assays in NSCLC"

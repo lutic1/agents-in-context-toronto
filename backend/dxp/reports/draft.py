@@ -143,15 +143,33 @@ def verified_citations(draft_without, draft_candidate, cited, memory_ids):
     """
     changes = draft_changes(draft_without, draft_candidate)
     accepted = []
+
+    def take(memory_id, change):
+        if not any(c is change or (c["before"], c["after"]) == (change["before"], change["after"]) for _, c in accepted):
+            accepted.append((memory_id, change))
+
     for entry in cited or []:
         if not isinstance(entry, dict) or entry.get("memory_id") not in memory_ids:
             continue
+        exact = next((c for c in changes if _same(c["before"], entry.get("before")) and _same(c["after"], entry.get("after"))), None)
+        if exact is not None:
+            take(entry["memory_id"], exact)
+            continue
+        # The model may cite at a coarser grain than the sentence diff: an added sentence cited as
+        # "old sentence" -> "old sentence + new sentence", or several sentences at once. Accept each
+        # real sentence-level change whose after-sentence is in the cited after and new to it, and
+        # whose before-sentence (if any) is in the cited before. Only actual differences between the
+        # two drafts are ever accepted; nothing is inferred from wording.
+        cited_before = [x for x in split_sentences(entry.get("before") or "")]
+        cited_after = [x for x in split_sentences(entry.get("after") or "")]
         for change in changes:
-            if _same(change["before"], entry.get("before")) and _same(change["after"], entry.get("after")):
-                if not any(c is change or (c["before"], c["after"]) == (change["before"], change["after"])
-                           for _, c in accepted):
-                    accepted.append((entry["memory_id"], change))
-                break
+            if change["target"] != "sentence" or not change["after"]:
+                continue
+            in_after = any(_same(change["after"], x) for x in cited_after)
+            new_in_after = not any(_same(change["after"], x) for x in cited_before)
+            before_ok = not change["before"] or any(_same(change["before"], x) for x in cited_before)
+            if in_after and new_in_after and before_ok:
+                take(entry["memory_id"], change)
     return accepted
 
 
@@ -534,15 +552,38 @@ def _has_name(text: str, names: list[str]) -> bool:
     return any(name.lower() in lowered for name in names)
 
 
+def _gate_kind(claim: dict[str, Any]) -> str | None:
+    """The claim policy the gate applies to this sentence, used to tag an untagged claim.
+
+    The gate refuses an untagged claim (GateAction.validate) and the decisions validator allows
+    only the three kinds, so every claim sent must carry one. The kind comes from the gate's own
+    detector (``gate.claims``), so a "showed"/results sentence is ``claim_performed_or_results``
+    and a "completed" sentence ``claim_planned``. None when no claim policy applies: check 4 then
+    has nothing to judge in it and it is not sent."""
+    from dxp.gate import claims as gate_claims_module
+
+    kind = claim.get("claim_kind")
+    if kind in CLAIM_KINDS:
+        return kind
+    text, quote = str(claim.get("text") or ""), str(claim.get("quote") or "")
+    return next((p for p in CLAIM_KINDS if gate_claims_module._policy_applies(p, "", text, quote)), None)
+
+
 def gate_claims(one_draft: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every sentence the draft states, for check 4: the tagged claims, then the headline
-    and summary sentences not already among them."""
-    claims = [{k: c[k] for k in ("claim_kind", "text", "quote") if c.get(k)} for c in one_draft.get("claims") or []]
-    seen = {c["text"] for c in claims}
-    for sentence in split_sentences(one_draft.get("headline")) + split_sentences(one_draft.get("summary")):
-        if sentence not in seen:
-            seen.add(sentence)
-            claims.append({"text": sentence})
+    """Every sentence the draft states that a claim policy applies to, for check 4: the claims,
+    then the headline and summary sentences not already among them, each tagged with a kind."""
+    claims: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    candidates = [c for c in one_draft.get("claims") or [] if isinstance(c, dict) and c.get("text")]
+    candidates += [{"text": s} for s in split_sentences(one_draft.get("headline")) + split_sentences(one_draft.get("summary"))]
+    for claim in candidates:
+        if claim["text"] in seen:
+            continue
+        seen.add(claim["text"])
+        kind = _gate_kind(claim)
+        if kind is None:
+            continue
+        claims.append({k: v for k, v in {"claim_kind": kind, "text": claim["text"], "quote": claim.get("quote")}.items() if v})
     return claims
 
 
