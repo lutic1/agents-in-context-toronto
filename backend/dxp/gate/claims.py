@@ -10,9 +10,11 @@ The three claim policies:
 
 * ``claim_performed_or_results``: a sentence stating that an assay was
   performed, detected something, showed or produced results needs
-  ``has_results: true`` or its own checked quote stating a result (an
-  eligibility or design sentence that only says an assay "was performed" is
-  not a result). A claim of this kind that makes no such statement passes.
+  ``has_results: true`` or its own checked quote stating a result. An
+  eligibility, enrolment, cohort-definition or design sentence states no
+  result, nor does a bare "was performed" or a result verb used as a
+  participle that defines a population ("patients with ctDNA detected at
+  baseline"). A claim of this kind that makes no such statement passes.
 * ``claim_planned``: when the trial is NOT_YET_RECRUITING or RECRUITING (or
   otherwise planned), it must be described as planned or ongoing.
 * ``claim_preclinical``: cell-line or animal evidence must be labelled
@@ -50,33 +52,73 @@ _PERFORMED = re.compile(
     re.IGNORECASE,
 )
 
-# Past-tense RESULT wording: what a quote must say to support a performance claim. A quote
+# Eligibility, enrolment, cohort, design or plan wording: a quote like this describes who
+# may take part or what will be done, never a result ("patients in whom tumor NGS was
+# performed within 90 days are eligible", "patients with an EGFR mutation detected by tumor
+# NGS are enrolled", "Cohort B: patients with ctDNA detected at baseline").
+_NOT_A_RESULT = re.compile(
+    r"\b("
+    r"inclusion|exclusion|eligible|eligibility|criteria|criterion|must have|must be|required to|"
+    r"will be|will undergo|to be performed|primary outcome|secondary outcome|outcome measures?|"
+    r"enrol\w*|enroll\w*|recruit\w*|randomi[sz]\w*|allocat\w*|assigned to|stratified|"
+    r"cohorts?|arms?|may|can|should|qualif\w*"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Past-tense RESULT wording is what a quote must say to support a performance claim. A quote
 # that only says an assay "was performed" states no result (review item 5), so the bare
 # performance verbs are not here.
-_RESULT_PAST = re.compile(
+#
+# The single result verbs. Each is also a past participle, so on its own it
+# can describe a population ("patients with ALK fusions identified by tissue NGS") instead of
+# reporting a finding. It counts as a result only when it is used as a finite verb.
+_RESULT_VERB = re.compile(
+    r"\b(showed|demonstrated|detected|yielded|achieved|revealed|identified)\b", re.IGNORECASE
+)
+# Result phrases that are finite by construction.
+_RESULT_PHRASE = re.compile(
     r"\b("
-    r"showed|demonstrated|detected|found that|yielded|achieved|revealed|identified|"
-    r"resulted in|results showed|results demonstrated|reported (?:a|an|that)|"
+    r"found that|resulted in|results showed|results demonstrated|reported (?:a|an|that)|"
     r"(?:sensitivity|specificity|concordance|accuracy|detection rate) (?:was|were|of)"
     r")\b",
     re.IGNORECASE,
 )
-
-# Eligibility, design or plan wording: a quote like this describes who may enrol or what will
-# be done, never a result ("patients in whom tumor NGS was performed within 90 days are eligible").
-_NOT_A_RESULT = re.compile(
-    r"\b("
-    r"inclusion|exclusion|eligible|eligibility|criteria|criterion|must have|must be|required to|"
-    r"will be|will undergo|to be performed|primary outcome|secondary outcome|outcome measures?"
-    r")\b",
+_AUXILIARY_BEFORE = re.compile(r"\b(?:was|were|is|are|has been|have been|had been)\s+$", re.IGNORECASE)
+# A participle that modifies a noun is followed by its agent or circumstance ("detected by
+# tumor NGS", "identified at baseline", "detected within 90 days"), or ends the sentence.
+_PARTICIPLE_AFTER = re.compile(
+    r"^\s*(?:$|[.;:,)]|(?:by|at|within|on|via|using|through|from|with|during|after|before|"
+    r"prior|among|across|per|under|for|in)\b)",
     re.IGNORECASE,
 )
 
 
+def _finite_result_verb(quote: str) -> bool:
+    """True when one of the single result verbs is used finitely: after an auxiliary
+    ("EGFR mutations were detected in 42%") or with a direct object ("Tumor NGS detected EGFR
+    mutations"), not as a participle modifying a noun ("an EGFR mutation detected by NGS")."""
+    for m in _RESULT_VERB.finditer(quote):
+        if _AUXILIARY_BEFORE.search(quote[: m.start()]):
+            return True
+        if not _PARTICIPLE_AFTER.match(quote[m.end():]):
+            return True
+    return False
+
+
 def quote_states_a_result(quote: str) -> bool:
-    """True when a quote reports a result: past-tense result wording and no eligibility,
-    design or plan wording."""
-    return bool(_RESULT_PAST.search(quote or "")) and not _NOT_A_RESULT.search(quote or "")
+    """True when a quote reports a result.
+
+    A positive test, not only a blocklist: the quote must use result wording as a finite
+    statement (a result phrase such as "sensitivity was", or a result verb used finitely), and
+    it must not contain eligibility, enrolment, cohort, design or plan wording. A result verb
+    used as a participle that defines a population ("patients with ctDNA detected at
+    baseline") states no result.
+    """
+    q = quote or ""
+    if _NOT_A_RESULT.search(q):
+        return False
+    return bool(_RESULT_PHRASE.search(q)) or _finite_result_verb(q)
 
 # Wording that describes a trial as planned or still running.
 _PLANNED_WORDS = re.compile(

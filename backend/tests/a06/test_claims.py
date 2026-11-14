@@ -154,3 +154,57 @@ def test_item5_an_eligibility_sentence_is_not_a_result():
     for kind in ("claim_performed_or_results", "claim_planned"):
         out = judge([{"claim_kind": kind, "text": "NCT04712877 is recruiting; no results posted."}])
         assert out[0]["passed"] is True, out
+
+
+def test_item5_enrolment_and_cohort_sentences_are_not_results_under_every_policy_set():
+    """Review item 5 (Luis, 6881072627), the verifier's probe at 2cce926: eligibility, enrolment
+    and cohort-definition wording states no result, so with has_results false it cannot support
+    a performance claim, whatever the wording. Run with all three claim policies."""
+    completed = {"overall_status": "COMPLETED", "has_results": False}
+    probes = [
+        ("Tumor NGS was performed.",
+         "Patients with an EGFR mutation detected by tumor NGS within 90 days are enrolled"),
+        ("Tumor NGS was performed.",
+         "Participants with ALK fusions identified by tissue NGS may enrol"),
+        ("ctDNA was detected.", "Cohort B: patients with ctDNA detected at baseline"),
+        # the same population definitions with no enrolment or cohort word: the result verb is a
+        # participle that defines who, not a finding
+        ("ctDNA was detected.", "Patients with ctDNA detected at baseline"),
+        ("Tumor NGS was performed.", "Participants with ALK fusions identified by tissue NGS"),
+        ("Tumor NGS was performed.",
+         "Inclusion: patients in whom tumor NGS was performed within 90 days are eligible"),
+    ]
+    for text, quote in probes:
+        claim = {"claim_kind": "claim_performed_or_results", "text": text, "quote": quote}
+        found = [{"text": quote, "quote_found": True}]
+        out = judge([claim], source=completed, quotes=found, policies=ALL)
+        assert out[0]["passed"] is False, (quote, out)
+        assert "claim_performed_or_results" in out[0]["failed_policies"], (quote, out)
+        assert "states no result" in out[0]["detail"], (quote, out)
+        assert c.quote_states_a_result(quote) is False, quote
+        # under RECRUITING it is blocked by claim_performed_or_results itself, not only by claim_planned
+        out = judge([claim], source=RECRUITING, quotes=found, policies=ALL)
+        assert "claim_performed_or_results" in out[0]["failed_policies"], (quote, out)
+        # has_results: true supports the same claim on a finished trial
+        out = judge([claim], source={"overall_status": "COMPLETED", "has_results": True}, quotes=found)
+        assert out[0]["passed"] is True, (quote, out)
+
+    # controls: real result quotes still support the claim
+    for text, quote in [
+        ("Tumor NGS was performed.", "Tumor NGS detected EGFR mutations in 42% of patients"),
+        ("ctDNA was detected.", "ctDNA was detected at baseline in 30% of patients"),
+        ("Plasma genotyping detected EGFR mutations.", "Sensitivity was 87% against tissue"),
+    ]:
+        claim = {"claim_kind": "claim_performed_or_results", "text": text, "quote": quote}
+        out = judge([claim], source=completed, quotes=[{"text": quote, "quote_found": True}])
+        assert out[0]["passed"] is True, (quote, out)
+        assert "states a result" in out[0]["detail"]
+    # a bare "was performed" is still no result
+    bare = "Tumor NGS was performed in all 120 patients"
+    out = judge([{"claim_kind": "claim_performed_or_results", "text": "Tumor NGS was performed.", "quote": bare}],
+                source=completed, quotes=[{"text": bare, "quote_found": True}])
+    assert out[0]["passed"] is False
+    # the redraft passes under both claim kinds
+    for kind in ("claim_performed_or_results", "claim_planned"):
+        out = judge([{"claim_kind": kind, "text": "The trial is recruiting; no results posted."}])
+        assert out[0]["passed"] is True, out
