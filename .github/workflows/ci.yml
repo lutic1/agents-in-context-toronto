@@ -1,0 +1,196 @@
+# CI for DxP (Story 8.1, A04). Runs on every pull request into main and on every push to main.
+#
+# - backend: `uv run pytest` in backend/ against the Atlas Sandbox. MONGODB_URI comes from the
+#   repository secret and is never printed; DXP_DB names a throwaway CI database, never `dxp` or
+#   `dxp_smoke` (A01's conftest then uses its own fresh `dxp_test_<hex>` database and drops it).
+#   Skipped cleanly until backend/pyproject.toml (A01) is on the branch. The Anthropic key
+#   (Actions secret ANTHROPIC_KEY) reaches pytest only; Slack, ElevenLabs and LiveAvatar/HeyGen
+#   secrets never reach CI.
+# - web: type check and `next build`. Skipped cleanly until web/package.json (B01) is on the branch.
+# - secrets: fails if a .env file (other than .env.example) is tracked.
+#
+# Backend feature flags stay off here: DXP_FEATURES is empty (task_run, revert, live_stream off).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: No committed .env
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse tracked .env files
+        run: |
+          tracked="$(git ls-files | grep -E '(^|/)\.env(\..+)?$' | grep -vE '(^|/)\.env\.example$' || true)"
+          if [ -n "$tracked" ]; then
+            echo "::error::A .env file is tracked. Remove it from the repository (names only below):"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "No .env file is tracked."
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Throwaway CI database name; never dxp or dxp_smoke.
+      DXP_DB: dxp_ci_${{ github.run_id }}_${{ github.run_attempt }}
+      DXP_FEATURES: ""
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect backend package
+        id: detect
+        working-directory: .
+        run: |
+          if [ -f backend/pyproject.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::backend/pyproject.toml is not on this branch yet (A01): backend tests skipped."
+          fi
+
+      - name: Guard the database name
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          case "$DXP_DB" in
+            dxp|dxp_smoke) echo "::error::DXP_DB must never be the demo or smoke database"; exit 1 ;;
+          esac
+
+      - name: Set up uv
+        if: steps.detect.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        if: steps.detect.outputs.present == 'true'
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          if [ -f uv.lock ]; then
+            uv sync --locked --all-groups
+          else
+            uv sync --all-groups
+          fi
+
+      - name: Atlas tests
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          if [ -n "$MONGODB_URI" ]; then
+            echo "MONGODB_URI is set: Atlas Sandbox tests run in a throwaway database."
+          else
+            echo "::warning::MONGODB_URI is not available to this run (for example a fork): Atlas tests skip."
+          fi
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+      - name: Run pytest
+        if: steps.detect.outputs.present == 'true'
+        run: uv run pytest -ra
+        # Only these secrets reach CI. SLACK_WEBHOOK_URL, ELEVENLABS_API_KEY and
+        # LIVEAVATAR_API_KEY are deliberately NOT passed to any job: CI (and a merge) must never
+        # post to the real Slack channel, and the media tests use fakes.
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          # A01's conftest replaces ANTHROPIC_API_KEY with a fake for every test, so A08's live
+          # extraction tests read the real key from DXP_LIVE_ANTHROPIC_API_KEY (test only).
+          DXP_LIVE_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY }}
+
+      - name: Import the Modal app
+        if: steps.detect.outputs.present == 'true' && hashFiles('backend/modal_app.py') != ''
+        # Builds the app definition only (no deploy, no Modal credentials needed).
+        run: uv run python -c "import modal_app; print('modal_app imports:', modal_app.app.name)"
+
+  web:
+    name: Web type check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    env:
+      # Placeholders for the build only; the real values live in Vercel (A04, D48).
+      NEXT_PUBLIC_API_URL: https://api.ci.invalid
+      NEXT_PUBLIC_DXP_FEATURES: ""
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect web package
+        id: detect
+        working-directory: .
+        run: |
+          if [ ! -f web/package.json ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::web/package.json is not on this branch yet (B01): web checks skipped."
+            exit 0
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          if [ -f web/pnpm-lock.yaml ]; then pm=pnpm
+          elif [ -f web/yarn.lock ]; then pm=yarn
+          elif [ -f web/bun.lock ] || [ -f web/bun.lockb ]; then pm=bun
+          else pm=npm
+          fi
+          echo "pm=$pm" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        if: steps.detect.outputs.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - name: Set up Bun
+        if: steps.detect.outputs.pm == 'bun'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Node
+        if: steps.detect.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          case "${{ steps.detect.outputs.pm }}" in
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) corepack enable && yarn install --immutable ;;
+            bun)  bun install --frozen-lockfile ;;
+            *)    if [ -f package-lock.json ]; then npm ci; else npm install; fi ;;
+          esac
+
+      - name: Type check
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.typecheck ? 0 : 1)"; then
+            ${{ steps.detect.outputs.pm }} run typecheck
+          else
+            npx --no-install tsc --noEmit
+          fi
+
+      - name: Build
+        if: steps.detect.outputs.present == 'true'
+        run: ${{ steps.detect.outputs.pm }} run build
