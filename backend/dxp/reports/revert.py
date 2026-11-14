@@ -6,7 +6,7 @@
 - Only an `accepted` report is evaluated. A report that is `reverting` or `reverted` returns its
   current state and the same Decision (a revert in `reverting` is finished first); any other
   status raises `NotRevertable` (409) and records no Decision.
-- The gate evaluates `revert_report` under the Reviewer's grant (`sam@v1`): destination
+- The gate evaluates `revert_report` under the Reviewer's grant (`sam@v2`, from the caller's key): destination
   `ledger`, the Reviewer stamp, `run_id: null`, a server-generated `request_id` and
   `cause { report_id, origin_run_id }`; the target is the report and its `scope_id` (check 2).
   The gate derives the Decision ID without the request ID,
@@ -77,7 +77,7 @@ async def _result(report_id: str, decision: dict[str, Any] | None) -> tuple[Repo
 
 
 async def revert(report_id: str, note: str, reviewer: Principal) -> tuple[Report, Decision, int]:
-    """Gated revert_report under sam@v1; claim accepted -> reverting with the revert record;
+    """Gated revert_report under the Reviewer's grant (sam@v2); claim accepted -> reverting with the revert record;
     ledger.revert_proposal per applied proposal; report and relationships reverted.
     Returns the report, the Decision and the number of accepted updates removed."""
     if not (note or "").strip():
