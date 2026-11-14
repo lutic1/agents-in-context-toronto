@@ -22,7 +22,19 @@ Nobody else runs `modal deploy`. Developers use `modal serve` with their own dat
 | `Backend tests` | `uv sync --locked`, then `uv run pytest` in `backend/`, with `MONGODB_URI` from the repository secret and `DXP_DB=dxp_ci_<run>`; A01's `tests/conftest.py` then works in a fresh `dxp_test_<hex>` database and drops it. Never `dxp` or `dxp_smoke`. Then it imports `modal_app` (builds the app definition; no deploy, no Modal credentials). Skipped with a notice while `backend/pyproject.toml` (A01) is not on the branch |
 | `Web type check and build` | Install, `typecheck` script (or `tsc --noEmit`), `build` in `web/`, with placeholder `NEXT_PUBLIC_*` values. Skipped with a notice while `web/package.json` (B01) is not on the branch |
 
-The only GitHub Actions secret is `MONGODB_URI` (set by Luis). The workflow never prints it; GitHub masks it in logs. Backend flags stay off in CI (`DXP_FEATURES` empty).
+GitHub Actions secrets (set by Luis) reach CI only; they never reach Modal or Vercel. The Modal secret and the Vercel variables are still set by hand (below). CI passes exactly two of them, to the pytest step:
+
+| Actions secret | Passed to CI as | Why |
+|---|---|---|
+| `MONGODB_URI` | `MONGODB_URI` | Atlas Sandbox tests, in throwaway databases |
+| `ANTHROPIC_KEY` | `DXP_LIVE_ANTHROPIC_API_KEY` only | A01's conftest replaces `ANTHROPIC_API_KEY` with a fake for every test, so A08's live extraction tests read the real key from `DXP_LIVE_ANTHROPIC_API_KEY`. The deployed code reads `ANTHROPIC_API_KEY` from the Modal secret |
+| `SLACK_WEBHOOK_URL` | not passed | CI and merges never post to the real Slack channel |
+| `ELEVENLABS_API_KEY` | not passed | Media tests use fakes |
+| `LIVEAVATAR_API_KEY` | not passed | Media tests use fakes |
+
+**Name mismatch, for Luis:** the plan and the code use `HEYGEN_API_KEY` (OD7, B08), but the Actions secret is named `LIVEAVATAR_API_KEY`. Nothing is renamed in code. The Modal secret must use the plan's name, `HEYGEN_API_KEY`. Decide with Vlad (B08) whether the key is a HeyGen key or a LiveAvatar key, and whether the Actions secret should be renamed.
+
+The workflow never prints a secret; GitHub masks them in logs. Backend flags stay off in CI (`DXP_FEATURES` empty).
 
 ## Variables
 

@@ -3,7 +3,9 @@
 # - backend: `uv run pytest` in backend/ against the Atlas Sandbox. MONGODB_URI comes from the
 #   repository secret and is never printed; DXP_DB names a throwaway CI database, never `dxp` or
 #   `dxp_smoke` (A01's conftest then uses its own fresh `dxp_test_<hex>` database and drops it).
-#   Skipped cleanly until backend/pyproject.toml (A01) is on the branch.
+#   Skipped cleanly until backend/pyproject.toml (A01) is on the branch. The Anthropic key
+#   (Actions secret ANTHROPIC_KEY) reaches pytest only; Slack, ElevenLabs and LiveAvatar/HeyGen
+#   secrets never reach CI.
 # - web: type check and `next build`. Skipped cleanly until web/package.json (B01) is on the branch.
 # - secrets: fails if a .env file (other than .env.example) is tracked.
 #
@@ -108,8 +110,14 @@ jobs:
       - name: Run pytest
         if: steps.detect.outputs.present == 'true'
         run: uv run pytest -ra
+        # Only these secrets reach CI. SLACK_WEBHOOK_URL, ELEVENLABS_API_KEY and
+        # LIVEAVATAR_API_KEY are deliberately NOT passed to any job: CI (and a merge) must never
+        # post to the real Slack channel, and the media tests use fakes.
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          # A01's conftest replaces ANTHROPIC_API_KEY with a fake for every test, so A08's live
+          # extraction tests read the real key from DXP_LIVE_ANTHROPIC_API_KEY (test only).
+          DXP_LIVE_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY }}
 
       - name: Import the Modal app
         if: steps.detect.outputs.present == 'true' && hashFiles('backend/modal_app.py') != ''
