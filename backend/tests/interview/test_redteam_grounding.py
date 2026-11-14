@@ -142,6 +142,14 @@ def test_cards_of_another_version_are_not_loaded() -> None:
     assert "sv_otherreport" not in cards.discovery_versions(report)
 
 
+def test_a_quote_without_its_own_version_is_never_a_card() -> None:
+    """No fallback to the report's version: an unpinned quote is unusable (Gregorio, #56)."""
+    report = make_report()
+    report["discovery"]["quotes"].append({"text": "Conditions: Melanoma", "quote_found": True})
+    raw = {VERSION_ID: RAW_TEXT + "\n\nConditions: Melanoma"}
+    assert "Conditions: Melanoma" not in [c.text for c in cards.load_cards(report, raw)]
+
+
 def test_a_report_with_no_pinned_version_has_no_cards() -> None:
     report = make_report()
     del report["version_id"]
