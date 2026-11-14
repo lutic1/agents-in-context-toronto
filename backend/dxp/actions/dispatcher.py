@@ -169,6 +169,10 @@ async def _post_once_with_one_429_retry(action_id: str, webhook_url: str, payloa
     for attempt in (1, 2):
         try:
             observed = await slack.post(webhook_url, payload)
+        except slack.NotSent as exc:
+            # Refused before anything went on the wire: nothing was posted, so `failed`.
+            log.warning("notify_slack %s: not sent (%s); failed", action_id, exc)
+            return "failed", None
         except Exception as exc:  # noqa: BLE001 - a timeout or connection error: ambiguous
             # The exception text is never logged or stored: it could carry the URL.
             log.warning("notify_slack %s: no answer from Slack (%s); outcome unknown, not retried", action_id, type(exc).__name__)

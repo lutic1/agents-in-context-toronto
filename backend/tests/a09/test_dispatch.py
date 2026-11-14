@@ -225,3 +225,20 @@ async def test_the_webhook_url_is_never_stored_logged_or_emitted(seeded, fake_sl
     assert "SECRET" not in stored
     assert "SECRET" not in caplog.text
     assert fake_slack.sent[0]["args"][0] == secret  # only the sender ever sees it
+
+
+async def test_an_error_before_anything_is_sent_is_failed_not_unknown(seeded, sent, waits) -> None:
+    sent.fail(slack.NotSent("InvalidURL"))
+    action = await actions.dispatch(notify(), run_ctx())
+    assert action.status == "failed"
+    assert action.result.http_status is None and action.result.posted_at is None
+    assert len(sent.sent) == 1 and waits == []
+    await actions.dispatch(notify(), run_ctx())
+    assert len(sent.sent) == 1
+
+
+async def test_a_malformed_webhook_url_refuses_to_start_and_stays_queued(seeded, sent, monkeypatch) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "htps:/hooks.slack.invalid")
+    with pytest.raises(actions.SenderNotConfigured):
+        await actions.dispatch(notify(), run_ctx())
+    assert (await records.get(EXPECTED_ID))["status"] == "queued" and sent.sent == []

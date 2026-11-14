@@ -121,3 +121,27 @@ def test_retry_after() -> None:
 def test_config_repr_never_shows_the_webhook(monkeypatch) -> None:
     monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/SECRET")
     assert "SECRET" not in repr(slack.require_config())
+
+
+@pytest.mark.parametrize("bad", [
+    "hooks.slack.com/services/x", "ftp://hooks.slack.invalid/services/x", "http://hooks.slack.invalid/services/x",
+    "https://hooks.slack.invalid", "https:///services/x", "https://hooks.slack.invalid/", "not a url at all",
+])
+def test_a_malformed_webhook_url_is_refused_without_echoing_it(monkeypatch, bad) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", bad)
+    with pytest.raises(slack.SenderNotConfigured) as err:
+        slack.require_config()
+    assert "SLACK_WEBHOOK_URL" in str(err.value) and bad not in str(err.value)
+
+
+@pytest.mark.parametrize("good", ["https://hooks.slack.invalid/services/TEST", "http://127.0.0.1:8080/services/x"])
+def test_valid_webhook_urls(monkeypatch, good) -> None:
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", good)
+    assert slack.require_config().webhook_url == good
+
+
+async def test_http_post_raises_not_sent_before_the_wire() -> None:
+    with pytest.raises(slack.NotSent):
+        await slack.http_post("ftp://127.0.0.1/services/x", {"text": "t"}, timeout=1.0)
+    with pytest.raises(slack.NotSent):
+        await slack.http_post("http://127.0.0.1:9/services/x", {"bad": object()}, timeout=1.0)

@@ -52,6 +52,11 @@ LABEL_WORDS = {
 LABEL_ORDER = ["supports", "contradicts", "extends", "new_question", "related_unestablished"]
 
 
+class NotSent(Exception):
+    """The request was refused before anything went on the wire (a malformed URL, a payload
+    that cannot be encoded): nothing was sent, so the outcome is `failed`, not `unknown`."""
+
+
 class SenderNotConfigured(RuntimeError):
     """`SLACK_WEBHOOK_URL` or `DXP_BASE_URL` is missing: the sender refuses to start (S3, D37).
     The message names the variable, never its value."""
@@ -77,7 +82,25 @@ def require_config() -> Config:
         raise SenderNotConfigured(f"The Slack sender refuses to start: {', '.join(missing)} is not set.")
     if not base.startswith(("https://", "http://")):
         raise SenderNotConfigured(f"The Slack sender refuses to start: {BASE_URL_ENV} must be an http(s) URL.")
+    if not webhook_url_is_valid(webhook):
+        # The message names the variable, never its value.
+        raise SenderNotConfigured(f"The Slack sender refuses to start: {WEBHOOK_ENV} must be an https URL with a host.")
     return Config(webhook_url=webhook, base_url=base)
+
+
+LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def webhook_url_is_valid(value: str) -> bool:
+    """An https URL with a host and a path. Plain http is accepted only for a local fake on
+    this machine (tests), never for a remote host."""
+    try:
+        url = httpx.URL(value)
+    except Exception:  # noqa: BLE001 - any parse error means not valid
+        return False
+    if not url.host or url.path in ("", "/"):
+        return False
+    return url.scheme == "https" or (url.scheme == "http" and url.host in LOCAL_HOSTS)
 
 
 # ---------------------------------------------------------------------------
@@ -86,8 +109,11 @@ def require_config() -> Config:
 
 
 class _RedactWebhook(logging.Filter):
-    """httpx logs every request line with its URL at INFO. Replace the webhook URL (and any
-    Slack hooks URL) in such records before any handler sees them."""
+    """httpx logs every request line with its URL at INFO, on the `httpx` logger itself.
+    Replace the webhook URL (and any Slack hooks URL) in such records before any handler sees
+    them. A logger filter applies only to records logged on that exact logger (not to records
+    propagated from its children), so the filter is attached to each logger named below; no
+    other logger is known to log the URL (httpcore logs only the host)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
@@ -106,7 +132,7 @@ class _RedactWebhook(logging.Filter):
 
 
 _REDACT = _RedactWebhook()
-for _name in ("httpx", "httpcore", "dxp.actions"):
+for _name in ("httpx", "httpcore", "httpcore.connection", "httpcore.http11", "dxp.actions", "dxp.actions.slack"):
     _logger = logging.getLogger(_name)
     if not any(isinstance(f, _RedactWebhook) for f in _logger.filters):
         _logger.addFilter(_REDACT)
@@ -300,7 +326,15 @@ Sender = Callable[..., Awaitable[Any]]
 async def http_post(url: str, payload: dict[str, Any], *, timeout: float) -> Observed:
     """The real sender: one POST to the webhook, no redirects followed, nothing retried here."""
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-        response = await client.post(url, json=payload)
+        try:
+            request = client.build_request("POST", url, json=payload)
+        except (httpx.InvalidURL, TypeError, ValueError) as exc:
+            raise NotSent(type(exc).__name__) from None
+        try:
+            response = await client.send(request)
+        except (httpx.UnsupportedProtocol, httpx.InvalidURL) as exc:
+            # Raised by the transport before any connection is made.
+            raise NotSent(type(exc).__name__) from None
         return Observed(response.status_code, response.text, dict(response.headers))
 
 
