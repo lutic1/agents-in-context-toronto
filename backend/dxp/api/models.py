@@ -318,6 +318,14 @@ class RunFailure(Shape):
     error: str
 
 
+class RunCause(Shape):
+    """What a task run was started for, as runs.start_if_absent stores it (A07+A11): set only on
+    task runs, null on every other run."""
+
+    task_id: str
+    report_id: str | None = Field(default=None, description="the task's report, when it has one")
+
+
 class Run(Shape):
     id: str
     agent: str
@@ -335,6 +343,7 @@ class Run(Shape):
     kind: RunKind
     scope_id: str | None = None
     task_id: str | None = Field(default=None, description='task runs only; their id is derive("run_", task_id) (V38)')
+    cause: RunCause | None = Field(default=None, description="task runs only: the task and its report")
     scan: RunScan | None = None
     status: RunStatus
     in_flight: int = Field(default=0, description="count of admitted admissions")
@@ -991,6 +1000,7 @@ class AuditEntry(Shape):
     evidence_ref: EvidenceRef | None = None
     stamp: Stamp | None = None
     cause: DecisionCause | None = None
+    target: Target | None = Field(default=None, description="the Decision's target; shows a scope target for a diagnostic_id: null update (V43)")
     grant_id: str
     grant_version: int
     policy_set_version: str | None = None
