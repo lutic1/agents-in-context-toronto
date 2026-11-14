@@ -597,6 +597,7 @@ async def test_add_related_appends_pending_related_evidence_under_the_task(world
     assert action.kind == "file_related_evidence" and action.target.task_id == TASK_ID
     assert action.inputs["id_target"] == f"{TASK_ID}|{NEW_REF}" and action.inputs["filed_count"] == 0
     assert action.inputs["item_scope_ids"] == [SCOPE]
+    assert action.inputs["checks"] == [{"quote_found": True, "supported": True}] * 2  # what the evidence policy reads
     assert world.mongo.events[-1]["type"] == "related_evidence_filed"
     assert world.mongo["proposals"].docs[0]["status"] == "pending"  # nothing became accepted knowledge
 
