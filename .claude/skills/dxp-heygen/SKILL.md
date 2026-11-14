@@ -1,15 +1,15 @@
 ---
 name: dxp-heygen
-description: DEFERRED (not in the Saturday plan; no clips are made). Reference for producing the two short HeyGen presenter clips (intro and close) for the old DxP three-minute recorded video, through the HeyGen web app or the HeyGen API v3. Load when a task mentions HeyGen, avatar video, talking presenter, HEYGEN_API_KEY, api.heygen.com, /v3/videos, or the demo video intro and close.
+description: Reference for the HeyGen API v3, which DxP uses (Story 10.12, PR B08, supporting, behind the `avatar` flag) to render a short avatar video explaining a research report from the same grounded script as the ElevenLabs briefing. Load when a task mentions HeyGen, avatar video, talking presenter, HEYGEN_API_KEY, api.heygen.com, /v3/videos, or the demo video intro and close.
 ---
 
 # HeyGen for DxP
 
-> **Deferred (readiness fix D55). Not in the plan: no HeyGen clips are made.** The submission is a 60-second video and a 3-minute live demo, and neither uses a HeyGen presenter. Do not create a HeyGen account, buy credits or render anything on Saturday. Everything below is kept as reference for later only.
+> **In scope again (discovery-agent proposal, V13, 14 Nov).** DxP renders one short avatar video per research report, during the event, from the report's grounded script (Story 10.12, PR B08, supporting, behind the `avatar` flag). The old intro and close presenter clips stay out of scope. Open dependency OD7: a paid plan or funded API wallet, and render time. The free plan is not usable for a public submission (see below).
 
 > **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
 >
-> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. The comprehensive Baseline load, PubMed, the Agent Memory preview SDK, Learned-rule enforcement, Alerts, Tavily and scheduled scans, and the old three-minute recorded video are deferred; ignore those parts of this skill. In scope: on-demand ClinicalTrials.gov discovery, a small prior collection loaded in baseline mode, Atlas Vector Search, reviewer memory as Atlas collections, the ElevenLabs briefing and the HeyGen avatar (see `sprint-change-proposal-2026-11-14-discovery-agent.md`).
 
 ## Verified
 Checked 12 November 2026 against official pages only. API **v3**, base URL `https://api.heygen.com`, auth header `X-Api-Key`. No SDK: the docs use plain HTTP. Pages: developers.heygen.com (`docs/quick-start`, `docs/api-key`, `endpoint-version-comparison`, `generate-avatar-video`, `models`, `docs/usage-limits`, `docs/error-codes`, `docs/for-ai-agents`, `reference/create-video`, `reference/get-video`, `reference/list-avatar-looks`, `reference/list-audio-voices`); heygen.com (`pricing`, `faq`, `moderation-policy`, `terms` last updated 16 Oct 2026); help.heygen.com articles 10060327 (API pricing), 15126059 (credits), 15125761 (plans), 9655503 (processing times), 12903996 (Quick Avatar Video), 11381771 (scripts), 11395771 (EU AI Act).
@@ -19,10 +19,10 @@ Checked 12 November 2026 against official pages only. API **v3**, base URL `http
 - **The Free plan cannot be used for this video.** Free output is watermarked, limited to 3 videos a month (1 to 3 by region), 1 minute each, 720p, 1 render at a time at "Standard" speed, and the terms license it only for "personal, non-commercial, and internal evaluation purposes" and forbid redistribution. A public submission needs Creator (US$29 a month; paid plans own their output and may use it commercially) or a funded API wallet (from US$5).
 - **There are no free API credits** (ended February 2026). API credits are a separate pay-as-you-go wallet; web plan credits do not pay for API-key calls.
 - **Do not plan to render in the final hour.** The API docs say most videos finish in 1 to 5 minutes and the help centre says about 10 minutes per minute of video, "often much faster". The same help page says the regular queue averages "just under 24h" on weekdays (faster at weekends) and that higher tiers get priority. If this skill is ever revived after the hackathon, render clips well ahead of any deadline and keep the MP4s; use the last hour only for a re-render, with the fallback ready. On Saturday 14 November nothing is rendered: the skill is deferred.
-- HeyGen is outside the product. Nothing in the app, the agents or the data path may call it.
+- Only B08's avatar module calls HeyGen, gated as `generate_avatar_video`, after a report is filed. A render that is late or fails never blocks the loop: the report shows "Rendering" or "Avatar unavailable".
 
 ## What DxP uses it for
-- Nothing on Saturday: deferred (readiness fix D55). It was written for the old three-minute recorded video, which is also deferred; the submission now has a 60-second video (SM-1, SM-2) and a 3-minute live demo, with no presenter clips.
+- One short avatar video per research report (about 20 seconds), rendered asynchronously after the report is filed and shown on the report page. The script comes only from the report's evidence fields; it never adds facts.
 - PRD §8 still applies: the avatar only opens and closes. It never stands in for the live memory write and read or the live Learned rule.
 
 ## Setup

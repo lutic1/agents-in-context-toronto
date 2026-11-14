@@ -1,174 +1,248 @@
 ---
 title: DxP build schedule for Saturday 14 November 2026
-status: draft
+status: draft (forecast, not validated; follows the discovery-agent proposal, which is draft until Luis confirms it)
 created: 2026-11-13
 updated: 2026-11-14
 sources:
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-14-discovery-agent.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
   - _bmad-output/planning-artifacts/readiness-fixes-2026-11-14.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-14-slack.md
   - _bmad-output/planning-artifacts/epics.md
+  - _bmad-output/planning-artifacts/development-plan.md
   - _bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md
 ---
 
 # DxP build schedule for Saturday
 
-This schedule follows the approved course correction in `sprint-change-proposal-2026-11-13.md` and the readiness fixes D1 to D57 (including the final audit, D41 to D57) in `readiness-fixes-2026-11-14.md`, which win where any document disagrees, and the Slack change S1 to S13 in `sprint-change-proposal-2026-11-14-slack.md`: Slack `#all-mango-db-hackathon` replaces GitHub as the external system, and that file wins on anything about the notification. DxP is pitched and built for Statement 1, "Agents You Can Audit", and the governed agent is the product. The PR-by-PR assignment that agents work from is `development-plan.md`. This file plans by dependencies and agent capacity, and names the milestones that trigger a fallback cut if they are missed.
+This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md` (V1 to V24), which wins over every earlier planning document, and adopts its section 7 cuts 1 to 5 as the baseline, with HeyGen kept as the supporting PR B08 (V13). The readiness fixes D1 to D57 and the Slack decisions S1 to S13 still apply wherever that proposal does not replace them. The PR cards, with start and merge requirements and owned files, are in `development-plan.md`.
+
+**Every time below is a forecast, not a validated run.** Cycle times come from `epics.md`; merge times are an assumption (about 10 minutes each). The milestones are where the day checks the forecast, and each has a fallback.
 
 ## Assumptions
 
-- Hacking runs 10:45 to 17:00. No coding before 10:45 unless an organiser permits it in writing. 9:00 to 10:45 is doors, breakfast and kick-off; Luis uses it to confirm the open items below with the organisers.
-- Code freeze is 16:30. The sandbox is reset with A13's `scripts/reset_demo.py` before every take (D41): at the start of I2, before each rehearsal, before the video (16:15 to 16:30) and before the live demo. R1 (Luis and Vlad) records the 60-second video and submits (description, public repository, video, team members) from 16:30 to 16:55. The sandbox is reset again from 16:55 to 17:10 (D34). The live 3-minute demo for judging starts at 17:15.
-- We build on the Atlas Sandbox from the start. Our own cluster is not the final environment. Change streams must be confirmed on the sandbox tier before the live feed depends on them.
-- No prepared code or assets are reused (D1). Skills are reference documentation only. A05 fetches the 20 selected trials (D30) from ClinicalTrials.gov and A13 fetches the FDA companion diagnostics list during the event; prepared `data/` files are loaded only if an organiser clears them in writing.
-- Capacity: Luis runs up to 44 agents on Luis's Claude plan and holds the product's API key. Vlad has Claude Pro plus $300 of API credit and runs Sonnet 5.5 at high effort through ten subagents. Luis's review agent reviews every PR on Vlad's lane. Agents build, review, test and integrate; Luis and Vlad decide and merge.
-- A module can be built against its contract before the modules it calls exist. A01 and A02 freeze the contracts by 11:45. Real wiring happens in the two integration PRs, I1 and I2. The sandbox is seeded for the first time in I1's first 15 minutes (D38).
-- Every time below is a model forecast, not a validated run. The milestones are where the day checks them.
+- Hacking runs 10:45 to 17:00; no coding before 10:45 unless an organiser permits it in writing. Code freeze 16:30. R1 records the 60-second video and submits 16:30 to 16:55. The sandbox is reset 16:55 to 17:10. The live 3-minute demo starts at 17:15.
+- We build on the Atlas Sandbox from the start (AD-24).
+- No prepared code or assets are reused (D1). The prior collection, the FDA seed and memory M1 are all created during the event (V15); M1 comes from Sam's correction through the real UI.
+- **Capacity (V19):** Luis runs up to 44 agents on his Claude plan and holds the product's keys. Vlad runs up to 22 agents (Sonnet 5.5 at high effort) on Claude Pro plus $300 of API credit; his lane runs at 1.25 times Luis's cycle times.
+- **Concurrency does not remove sequential work.** Agents run side by side, but a module still waits for the modules it calls, an integration still waits for its merges, CI still takes its minutes, and a person still looks at and merges each PR. Adding agents adds PRs to review and merge; it does not add merge desks or shorten a chain. That is why this schedule is limited by the dependency chain and the merge queue, not by agent count.
+- **Merges:** each merge on Luis's desk is about 10 minutes of CI plus a human look, one at a time. Vlad merges his own lane after Luis's review agent passes each PR. Each merge rebases on the latest `main`.
+
+## The result in one paragraph
+
+With the section 7 cuts as written, the plan does not fit: Luis would merge 15 PRs one at a time, and since only four of them can be ready before 12:40, the last would merge about 14:30 to 14:40 whatever order is chosen; the loop would then be green about 15:15 to 15:30, and the rehearsal's first pass would end after the 16:30 freeze. Two levers, added by this schedule and to be confirmed by Luis, make it fit: **L1**, the four long PRs (A06, A08, A19+A20, A21+A22) start at 10:45 as drafts against the shapes already written in AD-14 and Epic 10, as A03 does, so they are ready by 12:50 to 13:10 instead of all at 13:45; **L2**, Vlad's desk also merges four of Luis's leaf PRs (A05, A13, A14, A09), so Luis's desk holds 11 merges, not 15. With both, the last core merge lands at 14:00, the loop's first green pass is forecast for 14:30 and the I1 slot ends 14:45, approval and the task end 15:15, and the rehearsal ends 16:25. **Hard float to the freeze is 5 minutes.** The soft float is 30 minutes: 15 inside the I1 loop slot, and the 25-minute second rehearsal pass, which is dropped first. Without L1 or without L2, the 14:30 and 15:15 milestones are not reachable.
 
 ## Timeline
 
 | Time | What |
 |---|---|
-| 9:00 to 10:45 | Doors, breakfast, kick-off. No coding. Luis confirms the deadline, sandbox access, the prepared-material rules and whether `data/` and the logo are cleared, and records the answer in `docs/clearance.md` |
-| 10:45 | Hacking starts: contracts (A01, A02), web skeleton (B01), grants and policies (A03, which first generates `DXP_AGENT_KEY`, `DXP_API_KEY` and `DXP_SEED_KEY` locally into `.env`, D48); deploy on the sandbox (A04) from 11:00 |
-| 11:45 | Contracts frozen; everything else builds in parallel against them |
-| 12:00 | B01 merged; A04 merges after it (D39) |
-| 12:45 | A13 starts the FDA fetch, with a second builder on the snapshot procedure and `scripts/reset_demo.py` (D41); A18 built, waiting for A06 |
-| 13:30 | A13 merged on fake-gate tests (D38); A07, A10, A11 merged; A14 built, waiting for A06 |
-| 13:45 | Gate, ledger and apply (A06), extraction (A08) and the Slack notifier (A09) merged; A18 and A14 merge after A06; I1 starts (A04's deploy, merged at 12:00, is one of its start requirements, D51) |
-| 13:45 to 14:00 | I1 step 1 (D38, D41): grant seed, selected-set load, FDA fetch and seed on the sandbox, then the seeded snapshot with A13's procedure (`mongodump`) |
-| 14:00 | B07 done: README, submission text and video script |
-| **14:30** | **First complete loop on the sandbox (I1):** at least the NCT04712877 proposal for FoundationOne Liquid CDx filed pending and its Slack alert delivered to `#all-mango-db-hackathon` (one alert per filed proposal, D46; both links resolve once B04 is deployed), the FoundationOne CDx change blocked before execution with no Slack message, the audit reconstructs them |
-| 14:30 to 15:00 | Screens wired to the loop; B06 may merge if the loop is green; S1 (live feed) checked by 15:00 |
-| 15:00 to 15:30 | Core acceptance (I2), starting with a reset (forecast 10 minutes, D41); S2 and S3 checked by 15:30 |
-| 15:30 to 16:15 | Live-demo rehearsal (A16), twice, each from a reset with A13's script, with only the supporting and stretch items that passed their check; S4 by 15:45 joins the second pass |
-| 16:15 to 16:30 | Reset the sandbox for the video (A13's `scripts/reset_demo.py`, run by A16, D34, D41) |
+| 9:00 to 10:45 | Doors, breakfast, kick-off. No coding. Luis confirms the deadline, sandbox access and the clearance items (OD4), records them in `docs/clearance.md`; checks the sandbox for Vector Search and Automated Embedding (OD1) |
+| 10:45 | Hacking starts. A01, A02, A03 (generating the three DxP keys into `.env`, D48), B01, and the four draft PRs (A06, A08, A19+A20, A21+A22, lever L1). Luis queries ClinicalTrials.gov by hand, chooses the cursor and confirms NCT04712877 (OD2), and starts one HeyGen test render by hand to time it (OD7) |
+| 11:00 | A04 deploy starts |
+| 11:45 | A01 merged; contracts frozen; the contract keeper posts the diff and the draft PRs rebase. Every other Luis PR starts. Vlad's spend checked |
+| 12:10 | B01 merged; B04 (two builders), B02 and B03 start; A04 merges at 12:20 |
+| 12:30 | A03 merged; B06 and B08 start |
+| 12:50 to 14:00 | Luis's desk merges without a gap: A06, A19+A20, A07+A11, A08, A21+A22, A24+A25, A10. Vlad's desk merges A05, A13, A14, A09, then B04 |
+| 13:30 to 13:50 | I1 step 1 on the sandbox: grant, policy and scope seed; FDA seed; prior collection; embeddings and indexes ready |
+| 14:00 to 14:15 | I1 step 2: the setup run on NCT05715229, Sam's correction through the deployed report page creates M1, the snapshot |
+| **14:15 to 14:45** | **I1 discovery loop; first green pass by 14:30** |
+| 14:25 to 15:05 | Vlad's desk merges B02, B06 (by 14:45), B03, B07, B08 (by 15:15) |
+| **14:45 to 15:15** | **I3: approval, promotion and the follow-up task;** S1 (briefing) and S3 (memory correct and revoke) checked |
+| 15:15 to 16:25 | A16: reset, pass 1 = core acceptance (S2 avatar checked just before), reset, pass 2, reset for the video |
 | 16:30 | Code freeze |
 | 16:30 to 16:55 | R1: record the 60-second video and submit; add the video link to the README |
-| 16:55 to 17:10 | Reset the sandbox for the live demo (Luis, A13's script, D34, D41) |
+| 16:55 to 17:10 | Reset for the live demo |
 | 17:15 | Live 3-minute demo |
 
-## What limits the day
+## Inputs to the computation
 
-**Capacity is not the limit.** At the peak, about 12 builders run in Luis's lane and 5 in Vlad's. Reviewer agents, the contract keeper and the integrator take a fraction of Luis's 44 slots.
+Cycle times from `epics.md` (agent cycle time for each story; a bundle runs its stories with separate builders, so it takes about as long as its longest story, plus the rebase on A01 for a draft PR). "Ready" means reviewed and green, waiting for its merge slot.
 
-**The dependency path is the limit.** Recomputed after D26 (apply moved into A06), D38 (the sandbox seed moved into I1) and the D34 reset slots, the critical path is:
-
-A01 contract (10:45 to 11:45) → A06 ledger, gate and apply (11:45 to 13:45, no slack), with A08 extraction and A09 Slack notifier finishing at the same time → I1 step 1, seed and snapshot (13:45 to 14:00) → I1 the loop (14:00 to 14:30) → **30 minutes** → I2 core acceptance, starting with a reset (15:00 to 15:30) → A16 rehearsal (15:30 to 16:15) → reset for the video (16:15 to about 16:25) → **5 minutes** → code freeze at 16:30 → R1 record and submit (16:30 to 16:55) → **5 minutes** → deadline 17:00. For the live demo, the second reset (16:55 to 17:10) leaves **5 minutes** before 17:15.
-
-| Path | Ready | Needed by | Slack |
+| PR | Cycle basis | Start | Ready |
 |---|---|---|---|
-| A06 ledger, gate and apply; A08 extraction; A09 Slack notifier | 13:45 | I1 at 13:45 | none (A09 likely has a little in practice; see below) |
-| A13 FDA fetch and seed, snapshot procedure and `scripts/reset_demo.py` (second builder), merged on fake-gate tests (12:45 to 13:30) | 13:30 | I1 at 13:45 (the snapshot) and I2 at 15:00 (the first reset) | 15 minutes |
-| A07 runs and stop, A10 the run, A11 audit API | 13:30 | I1 at 13:45 | 15 minutes |
-| A05 fetch and load the 20 selected trials | 12:30 | A08 merge and I1 at 13:45 | 75 minutes |
-| A03 grants (agent, `sam@v1`, `seed@v1`), policies, policy sets, validators | 12:30 | A07 and A09 merges at 13:30 | 60 minutes |
-| B01 web skeleton | 12:00 | A04 merge (D39) and the screens | none for A04's merge, which only A12 (supporting) and the Vercel deploy wait on |
-| A04 deploy, with the D48 Vercel and Modal secrets | 12:00 (merged after B01) | I1 at 13:45 (a direct start requirement, D51) | 105 minutes |
-| A18 read model (built by 12:45) | 13:45 (merged after A06) | B04 merge at 14:00 | 15 minutes after A06; 60 minutes of build slack |
-| A14 proposals, Reviewer decisions, value review (built by 13:15) | 13:45 (merged after A06) | B04 merge at 14:00 | 15 minutes after A06; 30 minutes of build slack |
-| I1 step 1: sandbox seeded and snapshot taken | 14:00 | the I1 loop | none |
-| I1 loop green | 14:30 | I2 at 15:00 | 30 minutes |
-| B02 run console | 14:15 | I2 at 15:00 | 45 minutes |
-| B03 audit view, B04 record and review | 14:00 | I2 at 15:00 | 1 hour |
-| B04 deployed, so the Slack alert's two links resolve | about 14:00 | the link check in I1 (by 14:30), else in I2 | 30 minutes to I1's end; the I1 loop never waits for it |
-| I2 core acceptance (reset forecast 10 minutes, then about 20 minutes of acceptance) | 15:30 | A16 at 15:30 | none |
-| A16 rehearsal done | 16:15 | the reset at 16:15 | none |
-| Reset for the video (forecast 10 minutes) | 16:25 | code freeze at 16:30 | 5 minutes |
-| B07 README, submission text, video script | 14:00 | R1 at 16:30 | 2.5 hours |
-| R1 video recorded and submitted | 16:55 | deadline 17:00 | 5 minutes |
-| Reset for the live demo (forecast 10 to 15 minutes) | 17:10 | live demo at 17:15 | 5 minutes |
-| A12 feed, A15 graph, B05 impact, B06 audio, A17 policy draft | 13:00 to 15:30 | nothing core | not on the path |
+| A01 | 1.0 h | 10:45 | 11:35 |
+| A02 | 1.0 h | 10:45 | 11:45 |
+| A03 | 1.5 h (9.2), drafting from 10:45 | 10:45 | 12:10 |
+| A04 | 1.0 h | 11:00 | 12:00 |
+| A06 | 2.1 h (1.6), with 9.3 and 10.7 by parallel builders; draft (L1) plus 15 min rebase | 10:45 | 12:50 |
+| A19+A20 | 2.0 h (10.3), with 10.2 and 10.4 in parallel; draft (L1) plus rebase | 10:45 | 13:00 |
+| A21+A22 | 2.0 h (10.6), with 10.5 in parallel; draft (L1) plus rebase | 10:45 | 13:10 |
+| A08 | 2.0 h with two builders (as on the previous plan), draft (L1), tuned once live trials are reachable | 10:45 | 13:05 |
+| A05 | 1.2 h (10.1), with 1.4 in parallel | 11:45 | 12:55 |
+| A07+A11 | 1.2 h (9.5, 9.6), with 9.1 in parallel | 11:45 | 13:00 |
+| A24+A25 | 1.2 h (10.8, 10.9) | 11:45 | 13:00 |
+| A13 | 1.5 h (1.2 plus the snapshot script) | 11:45 | 13:15 |
+| A14 | 1.5 h (2.3 value review, A18 read model) | 11:45 | 13:15 |
+| A09 | 1.75 h (9.4, slightly simpler with Slack) | 11:45 | 13:30 |
+| A10 | 1.75 h (as on the previous plan) | 11:45 | 13:30 |
+| B01 | 1.0 h × 1.25 | 10:45 | 12:00 |
+| B04 | 4 h (10.10) with two builders × 1.25 ≈ 1.6 h after B01 | 12:10 | 13:45 |
+| B02 | about 1.65 h × 1.25 | 12:10 | 14:15 |
+| B03 | about 1.9 h × 1.25 (V14 additions) | 12:10 | 14:35 |
+| B06 | 1.5 h × 1.25 | 12:30 | 14:25 |
+| B08 | about 1.75 h × 1.25 (async render and its states) | 12:30 | 14:45 |
+| B07 | 1.0 h × 1.25 | 12:45 | 14:00 |
+
+Integration time: I1 setup 30 minutes of work (step 1 about 20 minutes including the index build; step 2 about 10 minutes plus 5 for the snapshot), I1 loop 30 minutes, I3 30 minutes (proposal section 6). A16: two resets and two passes plus the video reset, 70 minutes. Reset forecast 10 minutes each (OD6).
+
+## The merge queue
+
+Luis's desk (desk L), one merge at a time, about 10 minutes each:
+
+| Slot | PR | Ready | Waited | Why it is here |
+|---|---|---|---|---|
+| 11:35 to 11:45 | A01 | 11:35 | 0 | contract freeze |
+| 11:45 to 11:55 | A02 | 11:45 | 0 | |
+| 12:10 to 12:20 | A04 | 12:00 | 10 min | merges after B01 (12:10, D39) |
+| 12:20 to 12:30 | A03 | 12:10 | 10 min | |
+| 12:30 to 12:50 | idle | | | nothing critical is ready |
+| 12:50 to 13:00 | A06 | 12:50 | 0 | head of the late queue; A14, A19+A20 and A24+A25 merge after it |
+| 13:00 to 13:10 | A19+A20 | 13:00 | 0 | I1 step 1 needs it |
+| 13:10 to 13:20 | A07+A11 | 13:00 | 10 min | A24+A25 merges after it |
+| 13:20 to 13:30 | A08 | 13:05 | 15 min | I1 step 1 needs it (the prior collection is extracted); merges after A05 (13:05) |
+| 13:30 to 13:40 | A21+A22 | 13:10 | 20 min | merges after A19+A20 |
+| 13:40 to 13:50 | A24+A25 | 13:00 | 40 min | merges after A06, A07+A11, A21+A22 |
+| 13:50 to 14:00 | A10 | 13:30 | 20 min | last; built over stubs, so its wait costs nothing until step 2 |
+
+From 12:50 to 14:00 the desk is saturated: seven merges back to back with no gap. **Any merge that takes 20 minutes instead of 10 moves A10, I1 step 2 and everything after it by 10 minutes.**
+
+Vlad's desk (desk V), his own PRs and four of Luis's leaf PRs (lever L2; each of Luis's passes Luis's review agent and the contract keeper first, and Luis sees it in the integrator's smoke test):
+
+| Slot | PR | Ready |
+|---|---|---|
+| 12:00 to 12:10 | B01 | 12:00 |
+| 12:55 to 13:05 | A05 | 12:55 |
+| 13:15 to 13:25 | A13 | 13:15 |
+| 13:25 to 13:35 | A14 (merges after A06) | 13:15 |
+| 13:35 to 13:45 | A09 (merges after A03) | 13:30 |
+| 13:45 to 13:55 | B04 | 13:45 |
+| 14:15 to 14:25 | B02 | 14:15 |
+| 14:25 to 14:35 | B06 (must merge by 14:45) | 14:25 |
+| 14:35 to 14:45 | B03 | 14:35 |
+| 14:45 to 14:55 | B07 | 14:00 |
+| 14:55 to 15:05 | B08 (must merge by 15:15) | 14:45 |
+
+Fix PRs from I1, I3 and A16 go first in the owning desk's queue.
+
+**Without the levers.** With all of Luis's PRs starting at 11:45 and one desk, the four long PRs are all ready at 13:45 and the queue after 12:40 holds 11 merges, so the last lands about 14:40. With L1 alone (one desk) the last still lands about 14:30, because only four merges can happen before 12:40 and 11 remain. With L2 alone the long PRs still land at 13:45 and A24+A25 and A10 merge about 14:25 to 14:35. In each case I1 step 2 starts after 14:30, the loop ends about 15:15 to 15:30, I3 about 15:45 to 16:00, and the rehearsal's first pass alone runs past the 16:30 freeze. **The section 7 estimate of "about 13 merges, about 1.5 hours" is optimistic: the bundles leave 15 build-window merges on Luis's lane (about 2.5 hours on one desk).**
+
+## The critical path
+
+### Main chain
+
+```
+10:45  A01 contract ............................................ merged 11:45
+10:45  long PRs drafted (L1); 11:45 the rest start
+12:50  desk L saturated: A06 → A19+A20 → A07+A11 → A08 → A21+A22 → A24+A25 → A10
+14:00  A10 merged (last core merge); B04 deployed (merged 13:55 on desk V)
+14:00  I1 step 2: setup run on NCT05715229, Sam's correction creates M1 ...... 14:10
+14:10  snapshot with M1 (OD6) ............................................... 14:15
+14:15  I1 discovery loop: first green pass 14:30, slot ends ................. 14:45
+14:45  I3 approval → promotion → follow-up task ............................. 15:15
+15:15  A16: reset 15:15, pass 1 (core acceptance) 15:25–15:50,
+       reset 15:50, pass 2 16:00–16:15, reset for the video 16:15 .......... 16:25
+16:30  freeze (5 min hard float); R1 16:30–16:55 (5 min to 17:00)
+16:55  reset 16:55–17:10 (5 min); live demo 17:15
+```
+
+The longest chain runs through the merge queue: the four draft PRs and the leaf PRs all feed one saturated desk, and A10 (or whichever PR is last) gates I1 step 2.
+
+### Near-critical chains and their slack
+
+| Chain | Ready or done | Needed by | Slack |
+|---|---|---|---|
+| Desk L queue, 12:50 to 14:00 | last merge 14:00 | I1 step 2 at 14:00 | **0** |
+| B04 (Vlad, two builders) → merged 13:55 → deployed about 14:00 | 14:00 | I1 step 2 (Sam's correction through the UI, V15) at 14:00 | **0 to 5 min** |
+| I1 loop first green pass | 14:30 | the end of the I1 slot, 14:45 | 15 min (fix buffer inside the slot) |
+| A16 pass 2 | 16:15 | nothing core | 25 min of soft float if dropped |
+| Rehearsal end | 16:25 | freeze 16:30 | **5 min** |
+| R1 | 16:55 | deadline 17:00 | 5 min |
+| Live-demo reset | 17:10 | 17:15 | 5 min |
+| I1 step 1 (A03, A05, A06, A08, A13, A19+A20, all merged by 13:30) | 13:50 incl. index build | step 2 at 14:00 | 10 min |
+| A06 draft | ready 12:50 | its slot 12:50 | 0 (it is the head of the queue; a late A06 delays every slot after it) |
+| A08 draft | ready 13:05 | its slot 13:20 | 15 min |
+| A19+A20 draft | ready 13:00 | its slot 13:00 | 0 |
+| A21+A22 draft | ready 13:10 | its slot 13:30 | 20 min |
+| A24+A25 | ready 13:00 | its slot 13:40 | 40 min |
+| A10 | ready 13:30 | its slot 13:50 | 20 min |
+| A05, A13, A14, A09 (desk V) | 12:55 to 13:30 | their slots, and step 1 at 13:30 (A05, A13) | 0 to 10 min |
+| A03 | 12:10 | 12:20 slot; A06 merge at 12:50 | 10 to 40 min |
+| A04 deploy and secrets | 12:20 | B04 deploy and the Slack links at 14:00 | 1 h 40 min |
+| B02 Run console | 14:25 | A16 pass 1 at 15:25 (I1 starts runs through the API) | 1 h |
+| B03 Audit view | 14:45 | A16 pass 1 at 15:25 | 40 min |
+| B06 briefing | 14:35 | the 14:45 cut rule (cut 4) | 10 min |
+| B08 avatar | 15:05 | the 15:15 cut rule, then S2 before pass 1 | 10 min; render time (OD7) is separate and may be hours |
+| B07 README, script | 14:55 | R1 at 16:30 | 1 h 35 min |
 
 Read honestly:
 
-- **Float fell from 50 to 40 minutes.** From 13:45 to the 17:00 deadline the chain holds 30 minutes before I2, 5 before the freeze and 5 after R1. A slip of more than 35 minutes in A06, A08 or A09 pushes the video reset into the freeze; more than 40 misses the submission deadline. Before these fixes the limit was 45.
-- **The I1 loop itself lost 15 minutes.** D38 put the seed, the selected-set load and the snapshot in I1's first 15 minutes, so the loop now has 30 minutes instead of 45 to reach the 14:30 milestone. If the loop needs the 45 minutes it had before, I1 ends at 14:45 and the 30 minutes before I2 shrink to 15. The 30 minutes before I2 are also when the screens are wired to the loop, so real float is smaller still.
-- **A06 is bigger.** D26 moved `ledger/apply.py` (claim, guarded update, edges, event, recovery) from A14 into A06. Its 13:45 forecast holds only because a third builder writes `apply.py` in parallel from 11:45, the same builder-time A14 had; review of A06 takes longer. A06 is still the riskiest PR: it gates the merges of A14 and A18 and the start of I1, and through A14 and A18 it gates B04 after 15 minutes. A slip in A06 delays I1 one for one.
-- **A09 is likely slightly simpler with Slack, but the path does not change.** The Slack notifier has no read-back, no issue listing or pagination to reconcile, and one webhook call whose observed outcome is recorded as is (S7); it adds the Block Kit layout, the single 429 retry and the resolve route (S8). That probably frees some of A09's builder time, but A06 and A08 still finish at 13:45, so the critical path, its 40 minutes of float and every forecast stay as they were. A09 keeps its forecast and its second builder; if it finishes early, that builder moves to A06's tests.
-- **The alert's links need B04 deployed.** I1 checks that both links in the real alert resolve on the deployed web app (S6). B04 merges after A14 and A18 (about 13:45) and is forecast at 14:00, so the check normally fits inside I1; the loop does not wait for it, and if B04 is late the check moves to I2. This adds nothing to the path.
-- **A13 left the no-slack list.** It merges on fake-gate tests at about 13:30 and no longer waits for A06 (D38), so three PRs, not four, reach I1 with no slack. Its real risk moved into I1's first 15 minutes: if the FDA seed fails on the sandbox, the loop cannot start. A fetch or parse problem still shows at 13:15 (A13's fallback in its card).
-- **The reset slots took the last float.** The 15 minutes after the rehearsal are now the video reset (D34); 5 minutes remain if it takes 10. The second reset (16:55 to 17:10) has 5 minutes before the live demo. If `mongodump` or `mongorestore` does not work against the sandbox, the reset reruns the four seed commands instead, which may take the full 15 minutes; this is checked in I1's step 1 (open items).
-- **A reset before every take (D41) moves no milestone, but tightens I2 and the rehearsal.** I2 now starts with a reset, so its 30 minutes hold about 10 of reset and 20 of acceptance; if the reset is slow or acceptance needs the full 30 minutes, I2 ends late and the slip comes out of A16's rehearsal time, not the freeze. A16 already rehearsed each pass from a reset: two resets of about 10 minutes plus two passes of about 5 minutes (the 3-minute demo and the 60-second script) fit its 45 minutes with about 5 to spare for notes. A13 gains `scripts/reset_demo.py` and the snapshot procedure from A16; a second builder writes them, so A13 keeps its 13:30 forecast and 15 minutes of slack. The integrator's smoke test runs in `DXP_DB=dxp_smoke`, so it never dirties the demo database between resets.
-- **Supporting and stretch work is off the path.** Removing A12 from I1, limiting I2 to core plus Record and Review, and gating every Impact and Listen link behind flags means none of A12, A15, B05, B06 or A17 can delay I1, I2, A16 or R1 (D37).
-
-What keeps the path this short:
-
-1. A01, A02, A03 and B01 start together at 10:45. A03 drafts against the A01 shapes and merges after A01.
-2. Every builder after 11:45 codes against the frozen signatures, so A06, A07, A08, A09, A10, A11, A14 and A18 run side by side instead of one after another.
-3. A13 merges on fake-gate tests, so it never waits for A06; the real seed runs once, in I1's first step (D38).
-4. A06 gets a third builder for `ledger/apply.py`, so moving apply out of A14 (D26) does not lengthen A06's forecast.
-5. The batch is the 20 selected trials (D30, stored with `window: "selected"`, D54), not 443 items, so the run itself is short.
-6. The 30 minutes between I1 and I2 are kept for wiring the screens and the S1 check, not for new features.
+- **Hard float is 5 minutes**, the same as the proposal's section 6. The section 7 claim of 35 to 40 minutes holds only as soft float: 15 minutes of fix time inside the I1 loop slot and 25 minutes from dropping A16 pass 2. Nothing else is free.
+- **The merge queue is the real critical path.** Seven back-to-back merges on Luis's desk and the B04 deploy both feed I1 step 2 at 14:00 with no slack.
+- **M1 puts Vlad's lane on the critical path.** M1 must come from Sam's correction through the real report page (V15), so B04 deployed is a start requirement of I1 step 2, not only of I3.
+- **The 14:30 milestone is the first green pass, not the end of I1.** The I1 slot ends at 14:45 (as in the proposal's section 6); 14:30 leaves 15 minutes for one round of fixes.
+- **L1 has a cost.** Four PRs drafted before the freeze may need rework if A01 departs from AD-14 and Epic 10; 15 minutes of rebase are in their forecasts. If the contract changes more than that, those PRs slip and the queue slips with them.
+- **L2 has a cost.** Vlad spends about 40 minutes looking at back-end diffs, which is why only leaf PRs go to his desk and only after Luis's review agent passes them.
 
 ## Who does what
 
-Luis owns the critical path: the contract, the registry and aliases, grants and policies, the ledger, gate and apply, runs and stop, extraction, the Slack notifier, the FDA fetch and seed, the read model, proposals and review, the audit API, both integrations, the rehearsal and resets, and `docs/clearance.md`. Vlad owns the screens, the web skeleton, the stretch audio and the submission package. Both record and submit (R1). The PR-by-PR assignment, with start and merge requirements and owned files, is in `development-plan.md`.
+**Luis (up to 44 agents, the product's keys):** A01 to A10 with the bundles, A13, A14, A16, A19+A20, A21+A22, A24+A25, I1 and I3; merges the 11 critical PRs on desk L; R1 with Vlad; the live-demo reset; `docs/clearance.md`; runs the review agent on Vlad's lane.
 
-**Luis (up to 44 agents, the product's API key):** A01 to A18, I1 and I2, R1 with Vlad, and the live-demo reset at 16:55. Luis coordinates merges on Luis's lane and runs the review agent on Vlad's lane.
+**Vlad (up to 22 agents, Sonnet 5.5 at high effort):** B01, B02, B03, B04 (two builders), B06, B07, B08; merges his lane and four of Luis's leaf PRs on desk V (L2); R1 with Luis.
 
-**Vlad (Claude Pro plus $300 of API credit, Sonnet 5.5 at high effort, ten subagents):** B01 to B07, and R1 with Luis. Vlad coordinates merges on Vlad's lane after Luis's review agent passes each PR.
+- Vlad's PRs need the Atlas Sandbox connection string; Luis shares it through `.env`, never in the repository. Vlad's lane needs no Slack, ElevenLabs or HeyGen key: those calls run in the back end on Modal.
+- If B04 is late, Luis's agents add a third builder to it at 13:15; it is on the critical path. B02 and B03 are core for the rehearsal: if either is not merged by 14:45, Luis's agents take it over.
+- **Review of Vlad's lane.** One review agent run by Luis checks each of Vlad's PRs against its acceptance criteria, D1 and for secrets, at about 15 minutes a PR; B04 is reviewed first. If a PR waits more than 20 minutes, Luis starts a second review agent.
+- **Vlad's credit.** Seven PRs and up to 22 agents. [ASSUMPTION: about $5 an agent-hour on the API.] Roughly 25 to 30 agent-hours is about $125 to $150, inside the $300. Check the spend at 11:45: above $50 an hour, cap the builders and stop B08 first.
+- **Product keys (Luis's).** Anthropic: set a spend alert at $50 (the prior collection's extraction, the setup run, tuning, I1, I3 and two rehearsal passes). ElevenLabs: one short briefing per report (OD3). HeyGen: one render per report, on a paid plan or funded API wallet (OD7).
 
-- Vlad's PRs need the Atlas Sandbox connection string; Luis shares it through `.env`, never in the repository. Vlad's lane does not need `SLACK_WEBHOOK_URL`: no screen posts to Slack, and the screens read notification status from the API.
-- If Vlad's lane falls behind, B06 is cut first. B02, B03 and B04 are core: if any is not merged by 14:15, Luis's agents take it over.
+## Schedule by PR
 
-**Review of Vlad's lane.** One review agent run by Luis checks each of Vlad's PRs against its acceptance criteria, D1 (no prepared code) and for secrets, `.env` values, tokens and PubMed text, at about 15 minutes a PR. Most of Vlad's PRs arrive between 14:00 and 14:30; if a PR waits more than 20 minutes, Luis starts a second review agent.
+| PR | Owner | What | Start | Ready | Merged | Path |
+|---|---|---|---|---|---|---|
+| A01 | Luis | Contract, stubs only | 10:45 | 11:35 | 11:45 (L) | critical |
+| A02 | Luis | Registry, identity, aliases | 10:45 | 11:45 | 11:55 (L) | feeds A06 |
+| A03 | Luis | Grants, policies including claim policies, the research scope, validators | 10:45 | 12:10 | 12:30 (L) | 20 min to A06's slot |
+| B01 | Vlad | Web skeleton, shell, flags, player stubs | 10:45 | 12:00 | 12:10 (V) | feeds B04 |
+| A04 | Luis | Deploy and secrets, including ElevenLabs and HeyGen | 11:00 | 12:00 | 12:20 (L) | 1 h 40 min |
+| A06 | Luis | Ledger, gate, apply, claim checks (draft, L1) | 10:45 | 12:50 | 13:00 (L) | critical (queue head) |
+| A05 | Luis | Discovery scan, prior collection, setup item | 11:45 | 12:55 | 13:05 (V) | feeds I1 step 1 |
+| A19+A20 | Luis | Retrieval, relationships, report (draft, L1) | 10:45 | 13:00 | 13:10 (L) | critical |
+| A07+A11 | Luis | Runs, stop, audit API with V14 | 11:45 | 13:00 | 13:20 (L) | critical (queue) |
+| A13 | Luis | FDA seed, snapshot and reset | 11:45 | 13:15 | 13:25 (V) | feeds I1 step 1 |
+| A08 | Luis | Extraction (draft, L1) | 10:45 | 13:05 | 13:30 (L) | critical (queue) |
+| A14 | Luis | Read model, accepted knowledge, value review | 11:45 | 13:15 | 13:35 (V) | feeds the accepted knowledge link (I1) |
+| A21+A22 | Luis | Reviewer memory (draft, L1) | 10:45 | 13:10 | 13:40 (L) | critical (queue) |
+| A09 | Luis | Slack notifier, one alert per report | 11:45 | 13:30 | 13:45 (V) | feeds I1 step 2 |
+| A24+A25 | Luis | Approval, promotion, task | 11:45 | 13:00 | 13:50 (L) | critical (queue; the reject path makes M1) |
+| B04 | Vlad | Report page, reports list, accepted knowledge view | 12:10 | 13:45 | 13:55 (V) | critical (0 to 5 min) |
+| A10 | Luis | The run | 11:45 | 13:30 | 14:00 (L) | critical (last merge) |
+| I1 | Luis | Setup (data 13:30 to 13:50; M1 and snapshot 14:00 to 14:15), loop 14:15 to 14:45 | 13:30 | | 14:45 | critical |
+| B07 | Vlad | README, submission text, video script | 12:45 | 14:00 | 14:55 (V) | 1 h 35 min |
+| B02 | Vlad | Run console | 12:10 | 14:15 | 14:25 (V) | 1 h to A16 pass 1 |
+| B06 | Vlad | ElevenLabs briefing (`briefing` flag) | 12:30 | 14:25 | 14:35 (V) | supporting; out if not merged by 14:45 |
+| B03 | Vlad | Audit view with V14 | 12:10 | 14:35 | 14:45 (V) | 40 min to A16 pass 1 |
+| B08 | Vlad | HeyGen avatar video (`avatar` flag) | 12:30 | 14:45 | 15:05 (V) | supporting, off the critical path; out if not merged by 15:15; render time OD7 |
+| I3 | Luis | Approval, promotion, follow-up task | 14:45 | | 15:15 | critical |
+| A16 | Luis | Rehearsal: pass 1 core acceptance, pass 2, video reset | 15:15 | | 16:25 | critical |
+| R1 | Luis and Vlad | Record and submit | 16:30 | | 16:55 | critical |
+| Reset | Luis | Reset for the live demo | 16:55 | | 17:10 | critical |
 
-**Forecast for Vlad's credit.** Vlad's lane is seven PRs. [ASSUMPTION: a Sonnet 5.5 subagent costs about $5 an agent-hour on the API, mostly cache reads, including the main agent's coordination.] Roughly 15 to 20 agent-hours is about $100, well inside the $300. Check the spend at 11:45: if it is running above $40 an hour, cap the subagents at six and drop B06.
-
-**Product API budget (Luis's key).** The selected set is 20 trials, run a few times during tuning, I1, I2 and the rehearsal, plus the stretch policy draft. Set a spend alert at $50.
-
-## Schedule
-
-Start requirements and merge requirements for each PR are in `development-plan.md`.
-
-| PR | Owner | What | Start | Finish | Path |
-|---|---|---|---|---|---|
-| A01 | Luis | Contract: routes, shapes, error shape, frozen signatures; stubs only | 10:45 | 11:45 | critical |
-| A02 | Luis | Registry, identity and the hand-written aliases | 10:45 | 11:45 | critical |
-| A03 | Luis | Agent, `sam@v1` and `seed@v1` grants with `startable_by`, policies, policy sets, validators, server-side actor resolution | 10:45 | 12:30 | 60 min slack |
-| B01 | Vlad | Web skeleton, minimal shell, text wordmark, feature flags; builds locally, deploys once A04 lands | 10:45 | 12:00 | core |
-| A04 | Luis | CI, Vercel and Modal deploy on the Atlas Sandbox; change streams checked; `DXP_BASE_URL` and the `SLACK_WEBHOOK_URL` Modal secret set; merges after B01 | 11:00 | 12:00 | 105 min slack |
-| A05 | Luis | Fetch the 20 selected trials by NCT ID from ClinicalTrials.gov and load them | 11:45 | 12:30 | 75 min slack |
-| A06 | Luis | Ledger with the policy gate before every write; decisions; pending proposals; apply and recovery | 11:45 | 13:45 | critical (no slack) |
-| A07 | Luis | Runs: two identities, admissions, stop, sweep, settle and finish | 11:45 | 13:30 | 15 min slack |
-| A08 | Luis | Extraction with quote and support checks, alias-constrained | 11:45 | 13:45 | critical (no slack) |
-| A09 | Luis | Slack notifier (`story/9.4-slack-notify`): action ID first, atomic claim, Block Kit alert with links back to DxP, observed outcome, `unknown` never retried, manual resolution | 11:45 | 13:45 | critical (no slack) |
-| A10 | Luis | The run: LangGraph over the selected set, with `DXP_DEMO_PACE` | 11:45 | 13:30 | 15 min slack |
-| A11 | Luis | Audit API, decisions and "who authorised" | 11:45 | 13:30 | 15 min slack |
-| A18 | Luis | Read model and `GET /diagnostics/<dx_id>` (merged after A06) | 11:45 | 12:45 | core (15 min after A06) |
-| A14 | Luis | Proposals, Reviewer decisions and value review API, calling A06's apply (merged after A06) | 11:45 | 13:15 | core (15 min after A06) |
-| A12 | Luis | Change-stream feed with polling fallback | 12:00 | 13:00 | supporting (S1) |
-| A15 | Luis | Graph API by run: changed elements, context on request | 12:00 | 13:30 | supporting (S2) |
-| B02 | Vlad | Run console | 12:00 | 14:15 | core (45 min slack) |
-| B03 | Vlad | Audit view | 12:00 | 14:00 | core (1 h slack) |
-| B04 | Vlad | Record and Review screen, minimal | 12:00 | 14:00 | core (1 h slack) |
-| B05 | Vlad | Run impact view | 12:00 | 14:30 | supporting (S2) |
-| A13 | Luis | Fetch the FDA companion diagnostics list; seed lung rows and synthetic Teams through the ledger; snapshot procedure and `scripts/reset_demo.py` (D41); merged on fake-gate tests | 12:45 | 13:30 | 15 min slack |
-| B06 | Vlad | Stretch: spoken audit briefing, behind a flag; merged only after the 14:30 loop is green | 13:00 | 14:30 | stretch (S3) |
-| B07 | Vlad | README, submission text, video script | 13:00 | 14:00 | core (2.5 h slack) |
-| I1 | Luis | Integration: seed and snapshot (13:45 to 14:00), then the loop on the sandbox (core PRs only, A04 among them, D51) | 13:45 | 14:30 | critical |
-| A17 | Luis | Stretch: rejection drafts a policy for approval | 14:30 | 15:30 | stretch (S4), only if I1 is green |
-| I2 | Luis | Reset, then core acceptance on the sandbox | 15:00 | 15:30 | critical |
-| A16 | Luis | Live-demo rehearsal, each pass from a reset with A13's script, then the reset for the video (16:15 to 16:30) | 15:30 | 16:15 (reset done 16:30) | critical |
-| R1 | Luis and Vlad | Record the 60-second video and submit | 16:30 | 16:55 | critical |
-| Reset | Luis | Reset the sandbox for the live demo (A13's `scripts/reset_demo.py`) | 16:55 | 17:10 | critical |
+Cut and not scheduled: A12, A15, B05, A17. Folded: A18 into A14, A23 into A06, I2 into A16 pass 1.
 
 ## Dependencies for the integrations
 
 | Step | Depends on | Does not depend on |
 |---|---|---|
-| I1 | A03, A04, A05, A06, A07, A08, A09, A10, A11, A13 (A04 directly: the deploy, `DXP_BASE_URL` and the Modal secret, D51; through them A01, A02) | A12 (no feed in I1), A14 (apply is A06's, D26), A15, A18, any screen. Only the alert-link check uses B04's deployed pages; the loop does not wait for it, and it moves to I2 if B04 is late |
-| I2 | I1, A14, A18, B02, B03, B04; its first reset uses A13's script and I1's snapshot | A12, A15, B05, B06, A17 |
-| A16 | I2 only as a start requirement (D41); it uses A13's script and I1's seeded snapshot, and creates neither | any supporting or stretch item |
-| R1 | A16 (including the reset for the video), B07 | any supporting or stretch item |
+| I1 step 1 (data) | A03, A04, A05, A06, A08, A13, A19+A20 | any screen; A09, A10, A21+A22, A24+A25 |
+| I1 step 2 (M1, snapshot) | step 1, A07+A11, A09, A10, A21+A22, A24+A25 (its reject path creates the memory), B04 deployed | B02, B03, B06, B08 |
+| I1 loop | step 2's snapshot | B02, B03 (runs are started through the API), B06, B08 |
+| I3 | I1 green; A24+A25, B04 (already in) | B02, B03, B06, B08 |
+| A16 | I3; B02 and B03 for pass 1; A13's reset and I1's snapshot | B06 and B08 (they join only if S1 and S2 passed) |
+| R1 | A16 (including the video reset), B07 | any supporting item |
 | Live-demo reset | A13's script, I1's snapshot | anything else |
-| S1 live feed | A12, B02, I1 green | |
-| S2 impact view | A15, B05, I1 green | |
-| S3 spoken briefing | B06 merged after the loop is green, A11 | |
-| S4 policy draft | A17, A14 | |
-
-Supporting and stretch items may be built before 14:30 by agents not needed on the core. They never block a core PR. If the loop is not green at 14:30, they pause. Each joins the rehearsal only if its own check passed (S1 to S4 in `development-plan.md`); a failed or late check turns its feature flag off and needs no code change.
+| S1 briefing | B06 merged by 14:45, a filed report | |
+| S2 avatar | B08 merged by 15:15, B06, a filed report, a HeyGen render that finished (OD7) | |
+| S3 memory correct and revoke | A21+A22, B04's memory panel, I3 | |
 
 ## Milestones and fallback triggers
 
@@ -176,102 +250,121 @@ Cuts are triggered by a missed milestone, not decided in advance. No core PR is 
 
 | By | Check | If missed |
 |---|---|---|
-| 11:45 | Contracts frozen (A01, A02) | Hold other merges until they land; everything slips one for one |
-| 11:45 | Vlad's spend rate checked | Above $40 an hour: cap subagents at six, drop B06 |
-| 12:00 | B01 merged, then A04: deployed on the Atlas Sandbox; change streams confirmed or polling chosen; `DXP_BASE_URL` set to the production URL and `SLACK_WEBHOOK_URL` in the Modal secret | One agent fixes the deploy; the build continues locally against the sandbox. Without `DXP_BASE_URL` the notifier refuses to start, so it must be set before I1 |
-| 13:15 | FDA list fetched and parsed (A13) | A13 seeds only the Diagnostics the selected set names, typed from the FDA page during the event; Luis tells B07, which says so in the README |
-| 13:45 | Gate, ledger and apply (A06), runs (A07), extraction (A08), the Slack notifier (A09) merged; A13 merged on fake-gate tests | Nothing core is stubbed (D37). The late PR gets more builders. I1 starts its seed step on time with what has merged, and the loop waits for the late PR. Supporting and stretch work (A12, A15, B05, B06, A17) stops to free builders and attention. Every minute late comes out of the 30 minutes before I2 |
-| 14:00 | Sandbox seeded and snapshot taken (I1 step 1) | The seed's owners (A03, A05, A13, A06) fix it in small PRs before the loop starts; without a snapshot there is no fast reset, so the reset falls back to rerunning the seeds |
-| 14:00 | B07 merged | Vlad finishes it before any supporting work; R1 needs the script |
-| 14:15 | B02, B03, B04 merged | Luis's agents take over the late screen |
-| **14:30** | **Loop green (I1): at least the NCT04712877 proposal for FoundationOne Liquid CDx pending and its Slack alert delivered to `#all-mango-db-hackathon`, the FoundationOne CDx change blocked with no Slack message, audit of them (D46)** | Stop all supporting and stretch work; everyone fixes the loop. B06 stays unmerged |
-| 15:00 | S1 live feed passed | Flag `feed` off; the console polls `GET /runs/<run_id>` and the audit |
-| 15:30 | I2 core acceptance passed (it starts with a reset, D41) | Rehearse only what passed. If Sam's approval fails, the demo drops it; the scripted question is still answered from the filing decision, which I1 proved |
-| 15:30 | S2 and S3 passed | Flags `impact` and `audio` off |
-| 15:45 | S4 passed | A17 is left out of the demo |
-| 16:15 | Rehearsal done (A16) | Use the reset slot only for the reset; do not fix during it |
-| 16:30 | Sandbox reset for the video; code freeze | R1 records what works on the reset sandbox; the video names only behaviour shown |
+| 10:45 | Cursor chosen and NCT04712877 confirmed by a manual query (OD2); one HeyGen render started by hand (OD7); sandbox Vector Search and Automated Embedding checked (OD1) | OD2: use any in-scope trial updated since the cursor and tell B07. OD7: see 12:00. OD1: set `DXP_EMBEDDING` to `voyage` (if cleared) or `none` before A19+A20 freezes its config |
+| 11:45 | A01 merged, contracts frozen; draft PRs rebased; Vlad's spend checked | Hold other merges; everything slips one for one. A draft PR needing more than 15 minutes of rework loses its slot and joins the end of the queue. Spend above $50 an hour: cap Vlad's builders, stop B08 |
+| 12:00 | The 10:45 HeyGen render finished, and its time recorded (OD7) | Not finished, or watermarked or refused (no paid plan): B08 is not built (cut 1); Vlad's B08 builders move to B04 |
+| 12:20 | A04: deployed on the sandbox; every secret set (`DXP_BASE_URL`, `SLACK_WEBHOOK_URL`, `ELEVENLABS_API_KEY`, `HEYGEN_API_KEY`); OD1 and OD6 results recorded | One agent fixes the deploy; the build continues locally against the sandbox. Without `DXP_BASE_URL` the notifier refuses to start |
+| 13:00 | A06 merged (head of the late queue) | Every later slot on desk L slips one for one. The late PR gets more builders; B08 stops to free attention |
+| 13:15 | FDA list fetched and parsed (A13) | Seed only the Diagnostics the scope and the prior collection name, typed from the FDA page; Luis tells B07 |
+| 13:30 | I1 step 1's PRs merged (A03, A05, A06, A08, A13, A19+A20) | Step 1 starts with what has merged; the index build (about 10 minutes) starts first, as soon as A19+A20 is in |
+| 13:50 | Indexes queryable (OD1) | Switch to `DXP_EMBEDDING=none`; every screen and the video say "related by text search" |
+| 14:00 | Every core PR merged (A10 last) and B04 deployed | Stop B06 and B08 work; everyone on the late PR. Step 2 starts when it lands; each minute late comes out of the I1 loop's 15-minute fix buffer, then out of A16 pass 2 |
+| 14:15 | M1 created by Sam through the UI and the snapshot taken (OD6) | If `mongodump` fails, record it: every reset reruns the setup, about 30 minutes with Sam's correction, so A16 drops pass 2 and its reset |
+| **14:30** | **Loop first green pass (I1): discovery → FoundationOne CDx team-scope block (the "showed" claim block recorded if draft 1 writes it, V21) → report with M1's effect from the two gated drafts → Slack alert whose link opens the report** | Stop all supporting work; everyone fixes the loop. Cut B08 (flag `avatar` off) |
+| 14:45 | I1 slot ends green; B06 merged | Not green: cut B06 (flag `briefing` off) and, if the second discovery item is what fails, demo the first only. B06 not merged: it drops out (cut 4) |
+| **15:15** | **Approval, promotion and the follow-up task (I3); S1 and S3 checked; B08 merged** | If memory correct or revoke fails: cut the memory correction and revoke UI (flag `memory_edit` off; creation and use stay). If the task's filing fails: the task still runs and is gated, its results are shown in the audit only. B08 not merged: it drops out |
+| 15:25 | S2: a HeyGen render reached `ready` on the sandbox | Flag `avatar` off |
+| 15:50 | A16 pass 1, core acceptance, passed | Rehearse and record only what passed; drop pass 2 and use its 25 minutes for one fix and a rerun |
+| **16:25** | **Rehearsal ended and the sandbox reset for the video** | Use the remaining minutes only for the reset; never fix during it |
+| 16:30 | Code freeze | R1 records what works on the reset sandbox; the video names only behaviour shown |
 | 16:55 | Submitted (R1) | Submit what exists |
-| 17:10 | Sandbox reset for the live demo | Start the live demo with a new run: a new `run_id` gives new action IDs, so the new alert is told apart from the earlier ones in `#all-mango-db-hackathon`. Old alerts stay in the channel; nothing is deleted or posted there by hand |
+| 17:10 | Sandbox reset for the live demo | Start the live demo with a new run; old Slack alerts stay in the channel and are told apart by action ID |
 
-If a fallback is triggered, cut in this order. Only A12, A15, B05, B06 and A17 may be cut (D37):
+### Slip cut order (proposal section 7)
 
-1. **Stretch first:** B06 spoken briefing (never merged unless the loop is green; flag `audio` off; B03's "Listen" link hidden), then A17 policy draft (not started unless I1 is green; the approve route stays 501). Reversal of a run is stretch outside Story 9.5 and has no PR, so there is nothing to cut.
-2. **Then supporting:** B05 impact view (flag `impact` off; every Impact link hidden), A15 graph API (only B05 calls it), then A12 change feed (B02 polls `GET /runs/<run_id>` and `GET /runs/<run_id>/audit`, which are A07's and A11's and core).
-3. **Never cut, never stubbed:** A01 to A11, A13, A14, A16, A18, B01, B02, B03, B04, B07, I1, I2, R1 and both resets. A14, A18 and B04 are core because the live demo uses Sam's review (D35).
+If a milestone slips, cut in this order. Nothing else may be cut.
+
+1. **B08, the HeyGen avatar video.** Flag `avatar` off; the player is hidden; `briefing.render_avatar` stays a no-op if B08 never merged.
+2. **B06, the ElevenLabs briefing.** Flag `briefing` off; the player is hidden; `briefing.generate` stays a no-op if B06 never merged. Also out if not merged by 14:45 (cut 4).
+3. **The memory correction and revoke UI.** Flag `memory_edit` off. Memory creation (M1) and use (its effect in the report) stay: they are core.
+4. **The follow-up task's related-evidence filing.** The task still runs under its own grant and gate; its results are shown in the audit only.
+5. **The second discovery item.** The demo shows NCT04712877 only; stop is shown on the follow-up task's run.
 
 Each cut leaves every core dependency intact:
 
 | Cut | What refers to it | Why core still works |
 |---|---|---|
-| B06 | B03's "Listen" link | Shown only when `audio` is on; the audio route stays 501 and nothing core calls it |
-| A17 | A14's `rule_draft`; `POST /policies/<policy_id>/approve` | `rule_draft` is always null in A14; the approve route stays 501; no screen calls it |
-| B05 | The shell's Impact nav item; Impact links in B02 and B03 | All hidden when `impact` is off; the Record page is reached from Review and Audit |
-| A15 | B05 only | Cut together with B05, or B05 is flagged off |
-| A12 | B02's feed when `feed` is on | `feed` is off unless S1 passed; B02 and B04 poll A07, A11 and A14 routes, all core; B02 is done with `feed` off |
+| B08 | The report page's avatar player; A10's `briefing.render_avatar` call | Player hidden by flag; the call is A01's no-op stub or returns `unavailable`; the loop never waits for HeyGen |
+| B06 | The briefing player; A10's `briefing.generate` call; B08's script | Hidden by flag; no-op stub; B08 is cut before B06, so nothing needs the script |
+| Memory correct and revoke UI | B04's memory panel controls | Hidden by flag; the routes exist and are supporting; M1 creation and retrieval are untouched |
+| Task related-evidence filing | `reports.add_related` from the task | The task's run, grant, gate and audit stay; only the filing step is skipped |
+| Second discovery item | The scan's later results | The first item carries every V16 step; stop moves to the task's run |
 
 ## Who owns which files
 
-Extra agents only help if two of them never edit the same file. A01 creates the stub files listed in its card and hands each to the PR that finishes it when A01 merges; after that, each file below has exactly one owner (D15, D36). A change to another PR's file, including a fix found during I1 or I2, goes in a small PR reviewed by that file's owner.
+Extra agents only help if two of them never edit the same file. A01 creates the stub files listed in its card and hands each to the PR that finishes it; after that, each file has exactly one owner (D15, D36), as listed in each card of `development-plan.md` and in the spine's source tree. A bundle owns its files as one PR. Cut PRs (A12, A15, B05, A17) own nothing. A change to another PR's file, including a fix found in I1, I3 or A16, goes in a small PR reviewed by that file's owner.
 
-| Files | Owner | Others call it, never edit it |
-|---|---|---|
-| `backend/pyproject.toml` and `backend/uv.lock` (every dependency declared up front), `backend/tests/conftest.py`, `.env.example` (names every D48 variable, never a value), `backend/dxp/api/app.py` (`create_app()`, every route registered, origins from `DXP_ALLOWED_ORIGINS`, the startup hook calling `ledger.recover_applying()`), `backend/dxp/api/models.py`, `backend/dxp/store/` except `store/schemas/`, the package `__init__.py` files no one else owns (`backend/dxp/`, `api/`, `search/`, `sources/`, `schema/`), `tools/gen_types.sh`, generated `web/lib/types.ts`; `GET /schema` | A01 | Every PR; a change goes through the contract keeper in its own PR and regenerates the types |
-| `backend/dxp/schema/registry.py`, `backend/dxp/identity/` (including `identity/aliases.py`, the hand-written alias map) | A02 | A03, A06, A08, A10, A13 |
-| `backend/dxp/store/schemas/` (validators for `grants`, `policies`, `policy_sets`, `runs`, `admissions`, `decisions`, `actions`), `backend/dxp/gate/policy_sets.py`, `backend/dxp/gate/seed.py`, `backend/dxp/gate/seed_data/`, `backend/dxp/api/auth.py`, `backend/dxp/api/routes_grants.py` | A03 | A01's `ensure_indexes()` applies the validators; A06 and A07 call `policy_sets`; every route calls `resolve_actor`; A17 adds draft policies through its API only |
-| `backend/modal_app.py`, `.github/workflows/`, `web/vercel.json`, `docs/deploy.md`; the Vercel variables `DXP_API_KEY` and `NEXT_PUBLIC_API_URL`, and the Modal secret's `DXP_AGENT_KEY`, `SLACK_WEBHOOK_URL`, `ANTHROPIC_API_KEY`, `MONGODB_URI` and `DXP_BASE_URL` (D48; set by hand, never in a file) | A04 | none; A04 edits no API file and not the README |
-| `backend/dxp/sources/load.py`, `backend/dxp/sources/selected.json` | A05 | A08, A10 |
-| `backend/dxp/gate/` (`__init__.py`, the checks, `decisions.py`; not `policy_sets.py`, `seed.py`, `seed_data/` or `drafts.py`), `backend/dxp/ledger/__init__.py`, `ledger/file.py`, `ledger/types.py`, `ledger/apply.py` (apply and `recover_applying`, D26) | A06 | A01's startup hook, A09, A10, A13, A14 |
-| `backend/dxp/runs/` (including `runs/__init__.py` and `runs/admissions.py`: `runs.admit`, `release`, `sweep`, `settle`, `finish`; imports nothing from `actions`, D43), `backend/dxp/api/routes_runs.py` (including the sweep's background task) | A07 | A06 reads admissions; A10 calls admit, release and finish; A11 reads runs |
-| `backend/dxp/llm/` (not `prompts/policy_draft.*`), `backend/dxp/evidence/` (including `evidence/__init__.py`) | A08 | A10, A17 |
-| `backend/dxp/actions/` (`__init__.py`, `dispatch`, `slack.py`, `resolve`, `mark_unknown`, `mark_failed`, the fake Slack sender), `backend/dxp/api/routes_resolve.py` (`POST /actions/<action_id>/resolve`) | A09 | A07 (the sweep's background task in `routes_runs.py` calls `mark_unknown` and `mark_failed`, D43), A10 (`dispatch`), B02 and B03 (the resolve route, D53) |
-| `backend/dxp/pipeline/` (and the meaning of `DXP_DEMO_PACE`) | A10 | A04 wraps the run function; A07 spawns it |
-| `backend/dxp/search/audit.py`, `backend/dxp/api/routes_audit.py`, `backend/dxp/api/routes_actions.py` (the two `GET /actions` routes only; the resolve route is A09's `routes_resolve.py`) | A11 | B02 (polling), B03; B06 reads the audit response |
-| `backend/dxp/search/changes.py`, `backend/dxp/api/routes_changes.py` | A12 | B02 |
-| `backend/dxp/sources/fda_cdx.py`, `backend/dxp/ledger/seed.py`, `backend/dxp/api/routes_teams.py`, `scripts/reset_demo.py` and the snapshot procedure (D41) | A13 | I1 runs the commands and takes the snapshot; I2, A16 and R1 run the reset; B02 reads `GET /teams` |
-| `backend/dxp/ledger/decide.py`, `ledger/review.py`, `backend/dxp/api/routes_proposals.py`, `backend/dxp/api/routes_review.py` | A14 | B04, A17 |
-| `backend/dxp/search/graph.py`, `backend/dxp/api/routes_graph.py` | A15 | B05 |
-| `docs/demo-and-reset.md` | A16 | none; it documents A13's reset command |
-| `backend/dxp/gate/drafts.py`, `backend/dxp/llm/prompts/policy_draft.*`, `backend/dxp/api/routes_policy_drafts.py` (stretch) | A17 | none |
-| `backend/dxp/search/readmodel.py`, `backend/dxp/api/routes_diagnostics.py` | A18 | B04 |
-| `backend/tests/<id>/` (for example `backend/tests/a06/`, `backend/tests/i1/`) | the PR with that ID | none |
-| `docs/clearance.md` (the organisers' answer on `data/` and the logo) | Luis | B07's README cites it |
-| `web/` including `web/package.json` (every screen dependency installed up front; `gen:types` calls `tools/gen_types.sh`), `web/lib/api.ts`, `web/lib/features.ts`, `web/lib/format.ts` (D40 display formats), `web/components/shell/`; not `web/lib/types.ts`, `web/vercel.json` or the screen paths below | B01 | every screen |
-| `web/app/runs/page.tsx`, `web/app/runs/[run_id]/page.tsx`, `web/components/run-console/` | B02 | none |
-| `web/app/runs/[run_id]/audit/`, `web/components/audit/` | B03 | none; it links to B06's page behind the `audio` flag |
-| `web/app/diagnostics/` (the Record page only, no list), `web/app/review/` (including the `?proposal=<p_id>` focus and "Proposal not found") | B04 | B02, B03 and B05 link to the Record page; A09's Slack alert links to both pages |
-| `web/app/runs/[run_id]/impact/`, `web/components/graph/` | B05 | none |
-| `backend/dxp/api/briefing.py`, `backend/dxp/api/routes_audio.py`, `web/app/runs/[run_id]/briefing/`, `web/components/briefing/` (stretch) | B06 | none |
-| `README.md`, `docs/video-script.md`, `docs/submission.md` | B07 | R1 uses the script; the README links to A04's, A16's and Luis's docs. R1 adds one line, the video link, after B07 has merged and the freeze has passed (D36); no one else edits the README |
+| Files | Owner |
+|---|---|
+| `backend/pyproject.toml`, `uv.lock`, `tests/conftest.py`, `.env.example`, `api/app.py`, `api/models.py`, `store/` (not `store/schemas/`), package `__init__.py` files no one else owns (including `discovery/`, `retrieval/`, `reports/`, `memory/`, `tasks/`, `briefing/`), `tools/gen_types.sh`, `web/lib/types.ts` | A01 |
+| `schema/registry.py`, `identity/` | A02 |
+| `store/schemas/`, `gate/policy_sets.py`, `gate/seed.py`, `gate/seed_data/` (grants, policies, the research scope), `api/auth.py`, `api/routes_grants.py` | A03 |
+| `backend/modal_app.py`, `.github/workflows/`, `web/vercel.json`, `docs/deploy.md` | A04 |
+| `discovery/scan.py`, `sources/ctgov.py`, `sources/load.py`, `sources/selected.json`, `pipeline/prior.py`, `api/routes_scopes.py` | A05 |
+| `gate/__init__.py`, `gate/checks.py`, `gate/claims.py`, `gate/decisions.py`, `ledger/__init__.py`, `ledger/file.py`, `ledger/types.py`, `ledger/apply.py` | A06 |
+| `runs/`, `api/routes_runs.py`, `search/audit.py`, `api/routes_audit.py`, `api/routes_actions.py` | A07+A11 |
+| `llm/` (not `llm/prompts/relate.*`, `llm/prompts/report.*`), `evidence/` | A08 |
+| `actions/`, `api/routes_resolve.py` | A09 |
+| `pipeline/` (not `prior.py`) | A10 |
+| `sources/fda_cdx.py`, `ledger/seed.py`, `api/routes_teams.py`, `scripts/reset_demo.py` | A13 |
+| `search/readmodel.py`, `ledger/review.py`, `api/routes_diagnostics.py`, `api/routes_proposals.py`, `api/routes_review.py` | A14 |
+| `retrieval/embed.py`, `retrieval/indexes.py`, `retrieval/related.py`, `reports/relate.py`, `reports/draft.py`, `reports/file.py`, `llm/prompts/relate.*`, `llm/prompts/report.*`, `api/routes_reports.py` | A19+A20 |
+| `memory/store.py`, `memory/retrieve.py`, `api/routes_memories.py` | A21+A22 |
+| `reports/decide.py`, `tasks/authorise.py`, `tasks/run.py`, `gate/grants.py`, `api/routes_report_decision.py` | A24+A25 |
+| `docs/demo-and-reset.md` | A16 |
+| `backend/tests/<id>/` | the PR with that ID (I1: `tests/i1/`, I3: `tests/i3/`) |
+| `docs/clearance.md` | Luis |
+| `web/` including `package.json`, `lib/api.ts`, `lib/features.ts`, `lib/format.ts`, `components/shell/`; not the paths below | B01 |
+| `web/app/runs/page.tsx`, `web/app/runs/[run_id]/page.tsx`, `web/components/run-console/` | B02 |
+| `web/app/runs/[run_id]/audit/`, `web/components/audit/` | B03 |
+| `web/app/reports/` (not the `briefing/` and `avatar/` folders), `web/app/diagnostics/`, `web/components/report/`, `web/components/report-decision/`, `web/components/memory-panel/` | B04 |
+| `briefing/script.py`, `briefing/audio.py`, `api/routes_briefing.py`, `web/app/reports/[report_id]/briefing/` | B06 |
+| `briefing/avatar.py`, `api/routes_avatar.py`, `web/app/reports/[report_id]/avatar/` | B08 |
+| `README.md`, `docs/video-script.md`, `docs/submission.md` | B07 (R1 adds only the video link) |
 
-Overlaps found and removed: `backend/modal_app.py` (A01 and A04, now A04), `backend/dxp/api/app.py` (A01 and A04, now A01), `web/package.json` (A01 and B01, now B01), `README.md` (A04, A13, A16, the clearance record and B07, now B07 alone, with A04, A16 and Luis writing their own docs), `web/components/audit/audio.tsx` inside B03's directory (now B06's own briefing page), the policy-set selection and validators (now A03), `GET /schema` (A01 and A18, now A01), `evidence/__init__.py` (A01 and A08, now A08), `gate/seed.py` beside a `gate/seed/` package (A03's data is now `gate/seed_data/`), `ledger/apply.py` (now A06, D26), `scripts/reset_demo.py` (A16 and A13, now A13 alone, D41; A16 keeps only `docs/demo-and-reset.md`), and B07's duplicate NOTICE files (dropped: `data/README.md` and `scripts/data/README.md` already carry the notice). After the Slack change, `routes_reconcile.py` and `github.py` are gone; the resolve route is A09's own file `routes_resolve.py`, separate from A11's `routes_actions.py`. Files that had no owner (`backend/tests/conftest.py`, `backend/uv.lock`, the package `__init__.py` files, `.env.example`) are A01's. Checked again after these fixes and after D41: no file has two owners.
+Checked for this change: no file has two owners. Removed with the cuts: `search/changes.py`, `routes_changes.py` (A12), `search/graph.py`, `routes_graph.py` (A15), the impact pages and graph components (B05), `gate/drafts.py`, `routes_policy_drafts.py` (A17), `ledger/decide.py` (superseded, V8), the old `api/briefing.py` and `routes_audio.py` (9.10), `web/app/review/` (replaced by the report page). B06 and B08 share no file: B06's script is called by B08 through `briefing.script_for`.
 
 ## Agent roles
 
-- **Builders:** one per PR in the schedule. A06, A08 and A09 have no slack, so each gets a second builder for tests; A06 gets a third for `ledger/apply.py`.
-- **Reviewers:** one agent per open pull request. It checks the acceptance criteria, the six required behaviours where they apply, D1 (nothing copied from `scripts/data/` or `dxp-*` skills), that the PR edits only its own files, and looks for secrets, `.env` values, tokens and PubMed text before Luis or Vlad merges.
-- **Contract keeper:** watches `models.py`, the signature stubs and the generated types, and rejects a pull request that changes a contract without regenerating them.
-- **Integrator:** runs I1 (including the seed and the snapshot), I2 and the S1 to S4 checks and keeps an end-to-end smoke test (one pending proposal with its notification through the fake Slack sender, one blocked action, audit read) passing on every merge after 14:00, so merges post nothing to `#all-mango-db-hackathon`. The smoke test runs in its own database, `DXP_DB=dxp_smoke`, never in the demo database `dxp` (D41).
+- **Builders:** one or more per PR as in `development-plan.md`. A06 and A19+A20 have three each; B04 has two.
+- **Reviewers:** one agent per open PR: acceptance criteria, the six required behaviours, D1, owned files only, secrets (Slack webhook, Anthropic, ElevenLabs, HeyGen, Voyage keys), `.env` values, tokens and PubMed text.
+- **Contract keeper:** watches `models.py`, the signature stubs and the generated types; at 11:45 posts the A01 diff for the draft PRs.
+- **Integrator:** runs I1, I3 and S1 to S3, and from 13:30 keeps the smoke test green in `DXP_DB=dxp_smoke` with the fake Slack, ElevenLabs and HeyGen senders, so merges post nothing and render nothing.
 
 ## Done rule
 
-A story is done only when its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox. A merged PR that has not passed I1, I2 or its own S check is not done.
+A story is done only when its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox. A merged PR that has not passed I1, I3, A16 pass 1 or its own S check is not done.
 
 ## Not modelled
 
-- Claude API, Slack webhook, ClinicalTrials.gov and FDA site rate limits or outages (a Slack 429 is retried once, then `failed`, S7). The run uses low concurrency over 20 trials; agents share the same accounts' limits.
-- The time Luis and Vlad spend reading and merging pull requests: 27 merges between 11:45 and 16:15, 20 on Luis's lane and 7 on Vlad's, plus the small fix PRs from I1 and I2.
-- Account and third-party key setup, assumed done before 10:45. The three DxP keys (`DXP_AGENT_KEY`, `DXP_API_KEY`, `DXP_SEED_KEY`) are generated by A03 at 10:45 into `.env`, never committed (D48).
-- The reset's duration: forecast 10 minutes for the video reset and 10 to 15 for the live-demo reset; not yet measured.
+- Rate limits or outages of the Claude API, ClinicalTrials.gov, the FDA site, Slack, ElevenLabs, HeyGen or Voyage AI.
+- HeyGen's render queue beyond the 10:45 measurement (OD7): the API documentation says 1 to 5 minutes for most videos; HeyGen's help centre says the regular queue can average just under 24 hours on weekdays.
+- The time to build the Vector Search indexes on the sandbox (forecast about 10 minutes, OD1).
+- The reset's duration (forecast 10 minutes, OD6).
+- Fix PRs from I1, I3 and A16: each takes a slot on its owner's desk.
+- Whether the model's first draft actually writes the "showed" claim (V21: not required; the team-scope block is the guaranteed block).
 
 ## Open items
 
+### Open dependencies (proposal section 8)
+
+| # | Dependency | Owner | Due | Until it is resolved |
+|---|---|---|---|---|
+| OD1 | The Atlas Sandbox supports Vector Search indexes and Automated Embedding; or a Voyage AI key is cleared | Luis | Checked 9:00 to 10:45 when access arrives; `DXP_EMBEDDING` set by 11:45; index queryable by 13:50 | Plan for `auto`. Fallback: `voyage` if cleared, else `none` and text search, labelled "related by text search" everywhere (V3) |
+| OD2 | On Saturday the live API still returns NCT04712877 as updated after the cursor, RECRUITING, without results | Luis | 10:45, by a manual query; the cursor goes into A03's `gate/seed_data/` by 11:45 | Any in-scope trial updated since the cursor works; the claim policy applies the same way. Luis tells B07 and A16 which trial |
+| OD3 | ElevenLabs key and quota | Luis | Key in `.env` before 10:45; in the Modal secret by 12:20 (A04) | B06 builds against a fake; without the key the briefing player is hidden (flag `briefing` off) |
+| OD4 | Organiser clearance (D1, D57): the submission deadline, coding before 10:45, prepared `data/` and the logo, and the Slack channel's volume (one alert per report in `#all-mango-db-hackathon` across setup, tuning, I1, I3, rehearsals, the video and the live demo) | Luis | 9:00 to 10:45 | Plan for a 17:00 deadline, no coding before 10:45, live fetches, the text wordmark and `#all-mango-db-hackathon`. Luis records the answers in `docs/clearance.md`. If the channel is not acceptable, the webhook points at a team channel and A03 renames the grant's destination before the seed |
+| OD5 | Change streams on the sandbox | — | — | **Closed:** no longer needed (A12 cut); screens poll |
+| OD6 | `mongodump` and `mongorestore` work against the sandbox | Luis | Checked by A04 by 12:20; proven at the I1 snapshot, 14:10 to 14:15 | Each reset reruns the setup, about 30 minutes including Sam's correction, so A16 drops pass 2 and R1's reset may not fit before 17:15 |
+| OD7 | HeyGen needs a paid plan or a funded API wallet (from US$5; the free plan is watermarked and non-commercial); render time is 1 to 5 minutes per the API docs, but the regular queue can average just under 24 hours on weekdays | Luis (account and key), Vlad (B08) | One render started by hand at 10:45 and timed by 12:00; key in the Modal secret by 12:20 | If the 10:45 render is not back by 12:00, B08 is not built. On the day, the render is triggered when the report is filed and the report is opened last on camera; if it is not ready, the page shows "Rendering" or "Avatar unavailable" and the loop is unaffected |
+
+### Other open items
+
 | Item | Owner | Due | Until it is resolved |
 |---|---|---|---|
-| Atlas Sandbox access: confirm change streams (Vector Search, Automated Embedding and Agent Memory are not used on Saturday) | Luis | As soon as access arrives | A04 checks change streams at 12:00; if absent, A12 ships polling only |
-| Confirm with organisers: the submission deadline, whether coding may start before 10:45, and how to present prepared material | Luis | 9:00 to 10:45 Saturday | Plan for 17:00 submission, no coding before 10:45, and the README's prepared vs built-today table |
-| Ask organisers to clear, in writing, the prepared `data/` files and the prepared logo | Luis | 9:00 to 10:45 Saturday | Not cleared: A05 and A13 fetch live, B01 uses the text wordmark "DxP". Either way Luis records the answer in `docs/clearance.md`, which B07's README cites. Cleared: A05 and A13 may load the files |
-| Set `DXP_BASE_URL` to the production URL and confirm the alert links resolve (S12) | Luis | During A04 (11:00 to 12:00); links rechecked in I1 once B04 is deployed | The notifier refuses to start without it, so I1 cannot send the alert |
-| Keep `SLACK_WEBHOOK_URL` only in `.env` and the Modal secret; never committed, logged or shown on screen (S3, S12) | Luis | Before 10:45, and on every PR review | A09 builds and tests against the fake Slack sender; I1 cannot pass without the real webhook |
-| Confirm `mongodump` and `mongorestore` run against the sandbox from Luis's laptop | Luis | I1 step 1, 13:45 to 14:00 | The reset reruns the four seed commands instead of restoring the snapshot, which may take the full 15-minute slot |
-| The Slack channel is used often (D57): every run posts one alert per filed proposal to `#all-mango-db-hackathon` (tuning, I1, I2, rehearsals, the video and the live demo). Confirm this is acceptable for that channel, or point the webhook at a team channel | Luis | Before 10:45 Saturday | Plan for `#all-mango-db-hackathon`. The smoke test already uses the fake Slack sender and posts nothing. If the channel is not acceptable, the webhook points at a team channel, and the grant's Slack destination is renamed to match before A03 seeds it |
+| Confirm levers L1 (four draft PRs from 10:45) and L2 (Vlad merges A05, A13, A14, A09) | Luis | Before 10:45 | Without both, the 14:30 and 15:15 milestones are not reachable (see "The merge queue") |
+| Draft order: settled by V21 (two gated drafts, without then with memories) | — | — | Closed |
+| One name for the report-level filing kind: settled by V24 (report-level `file_proposal`) | — | — | Closed |
+| M1's retrieval filter: NCT05715229 names Guardant360, NCT04712877 names FoundationOne Liquid CDx, so memory retrieval must match on `claim_kind`, not on the assay tag (A21+A22 card) | Luis | 11:45 | Settled by V22 (Team + active + `claim_kind`). Closed |
+| Set `DXP_BASE_URL` to the production URL; confirm `/reports/<report_id>` and `/diagnostics/<dx_id>` resolve (S12, V11) | Luis | During A04; rechecked in I1 | The notifier refuses to start without it |
+| Keep `SLACK_WEBHOOK_URL`, `ELEVENLABS_API_KEY`, `HEYGEN_API_KEY` and `VOYAGE_API_KEY` only in `.env` and the Modal secret; never committed, logged or shown | Luis | Before 10:45, and on every PR review | Tests use fakes; I1 cannot pass without the real webhook |
