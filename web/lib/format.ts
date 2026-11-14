@@ -35,7 +35,11 @@ export function formatPolicySetParts(
   };
 }
 
-/** Shorten a long derived ID for display, keeping its prefix: `run_ab12cd34…`. */
+/**
+ * Shorten a long derived ID for display, keeping its prefix: `run_ab12cd34…`.
+ * Not for D40 IDs (reports, decisions, memories, runs and the like): those are shown
+ * exactly as stored, so a reviewer can copy and search for them.
+ */
 export function shortId(id: string, keep = 8): string {
   const at = id.indexOf("_");
   if (at < 0 || id.length - at - 1 <= keep) return id;

@@ -89,6 +89,9 @@ async def run_pipeline(run_id: str) -> None:
     # One warm container: the startup hook (recovery, dispatch_next) runs once, and the demo
     # never waits on a cold start.
     min_containers=1,
+    # One API container: the start hook (recovery, dispatch_next) and the per-run progress lock
+    # (runs.record_progress) live in one process.
+    max_containers=1,
     scaledown_window=900,
     timeout=900,
 )

@@ -5,7 +5,8 @@
     "scope.diagnostic_trade_names are the exact FDA trade-name strings (D45); the seed turns each into derive('dx_', normalise_name(name)).",
     "team_name is turned into team_id by the seed (derive('team_', team_name)), and acting_for is that team_id; A13 must give the Team the same ID.",
     "Task grants (task-<hex>@v1) are never seeded: A24 inserts each one at approval.",
-    "Never edit a seeded version in place: a change is a new version (bump version and _id)."
+    "Never edit a seeded version in place: a change is a new version (bump version and _id).",
+    "sam@v2 (V70, Luis 14 Nov): sam@v1 plus answer_question for the interview page; sam@v1 stays as it was."
   ],
   "grants": [
     {
@@ -67,6 +68,45 @@
         "revert_report",
         "generate_briefing",
         "generate_avatar_video"
+      ],
+      "limits": null,
+      "task_id": null,
+      "expires_at": "2026-11-16T05:00:00Z",
+      "status": "active"
+    },
+    {
+      "_id": "sam@v2",
+      "grant_id": "sam",
+      "version": 2,
+      "principal": "sam",
+      "principal_name": "Sam",
+      "kind": "person",
+      "key_env": "DXP_API_KEY",
+      "granted_by": "luis",
+      "startable_by": [],
+      "team_name": "Team Liquid Biopsy Dx",
+      "scope": {
+        "scope_id": "scope_plasma_ctdna_nsclc",
+        "diagnostic_trade_names": [
+          "FoundationOne Liquid CDx",
+          "Guardant360 CDx",
+          "Guardant360® Liquid CDx",
+          "Agilent Resolution ctDx FIRST assay"
+        ]
+      },
+      "destinations": ["ledger", "tts:elevenlabs", "video:heygen"],
+      "actions": [
+        "decide_report",
+        "authorise_task",
+        "create_memory",
+        "correct_memory",
+        "revoke_memory",
+        "review_value",
+        "resolve_notification",
+        "revert_report",
+        "generate_briefing",
+        "generate_avatar_video",
+        "answer_question"
       ],
       "limits": null,
       "task_id": null,

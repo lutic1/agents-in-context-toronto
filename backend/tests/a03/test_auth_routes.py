@@ -85,6 +85,7 @@ def test_whoami(client, keys):
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == "sam" and body["kind"] == "person" and "resolve_notification" in body["actions"]
+    assert "answer_question" in body["actions"]  # sam@v2 (V70): the interview page's gated action
 
 
 def test_whoami_unknown_key_uses_the_error_shape(client):
@@ -110,7 +111,7 @@ def test_list_grants(client, keys):
     response = get(client, "/grants", keys["DXP_API_KEY"])
     assert response.status_code == 200
     items = {g["id"]: g for g in response.json()["items"]}
-    assert set(items) == {"lbdx@v1", "sam@v1", "seed@v1"}
+    assert set(items) == {"lbdx@v1", "sam@v2", "seed@v1"}  # the latest version of each grant (sam@v2, V70)
     lbdx = items["lbdx@v1"]
     assert lbdx["team_name"] == "Team Liquid Biopsy Dx"
     assert lbdx["scope_name"] == "Plasma ctDNA genotyping assays in NSCLC"

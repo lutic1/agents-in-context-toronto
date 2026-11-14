@@ -1,30 +1,38 @@
-"""External actions (AD-20). Stub from A01 (contract); finished by A09. Frozen signature: change only through the contract keeper.
+"""External actions (AD-20): the Slack notifier (A09, Story 9.4).
+
+Frozen signatures (A01): `dispatch(action, ctx)`, `mark_unknown(action_id, error)`,
+`mark_failed(action_id, error)`, `resolve(action_id, outcome, note, ctx)`.
+
+- `dispatcher.py`: gate first, save the action ID, claim it once, post once, record exactly
+  what was observed (S7).
+- `slack.py`: the only module that posts to Slack; configuration, the message, the sender.
+- `marks.py`: `mark_unknown` and `mark_failed`, for the sweep (D24, D43).
+- `source.py`: `record_source_result`, the `search_source` action's claim and observed result,
+  for A05's scan (nothing outside runs, gate and actions writes `actions`).
+- `resolution.py`: the Reviewer's manual resolution of an `unknown` alert (S8).
+- `records.py`: the conditional updates on `actions`; A09 writes nothing else.
 
 actions imports nothing from memory, retrieval or reports (AD-28).
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from dxp.actions.dispatcher import dispatch
+from dxp.actions.errors import ActionBlocked, ActionNotFound, NotResolvable, NoteRequired, ReportNotFound, SenderNotConfigured
+from dxp.actions.marks import mark_failed, mark_unknown
+from dxp.actions.resolution import resolve
+from dxp.actions.source import record_source_result
 
-from dxp.api.models import Action, Decision, ProposedAction, RunContext
-
-
-async def dispatch(action: ProposedAction, ctx: RunContext) -> Action:
-    """Gate, persist, claim queued -> dispatching, send, record exactly what was observed."""
-    raise NotImplementedError("actions.dispatch (A09)")
-
-
-async def mark_unknown(action_id: str, error: Literal["abandoned_in_flight"]) -> bool:
-    """dispatching -> unknown, conditional; never re-sent (D43)."""
-    raise NotImplementedError("actions.mark_unknown (A09)")
-
-
-async def mark_failed(action_id: str, error: Literal["abandoned_before_send"]) -> bool:
-    """queued -> failed, conditional; it was never sent (D24)."""
-    raise NotImplementedError("actions.mark_failed (A09)")
-
-
-async def resolve(action_id: str, outcome: Literal["delivered", "failed"], note: str, ctx: RunContext) -> tuple[Action, Decision]:
-    """Gated resolve_notification: settle an unknown notification by hand; never posts (S8)."""
-    raise NotImplementedError("actions.resolve (A09)")
+__all__ = [
+    "ActionBlocked",
+    "ActionNotFound",
+    "NotResolvable",
+    "NoteRequired",
+    "ReportNotFound",
+    "SenderNotConfigured",
+    "dispatch",
+    "mark_failed",
+    "mark_unknown",
+    "record_source_result",
+    "resolve",
+]

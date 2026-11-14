@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import {
   Check,
   CircleCheck,
@@ -91,12 +91,21 @@ export function CopyId({ value, label }: { value: string; label?: string }) {
   );
 }
 
-/** A person's name. The demo's people are synthetic and say so (DESIGN "Synthetic badge"). */
+/**
+ * Which people are synthetic. The API has no per-person flag, so the Audit view
+ * answers from what it does have: the people of a run act for its Team, and when
+ * that Team is synthetic so are they. Without an answer, nobody is badged.
+ */
+const SyntheticPeopleContext = createContext<(id: string) => boolean>(() => false);
+export const SyntheticPeopleProvider = SyntheticPeopleContext.Provider;
+
+/** A person's name. The demo's people are synthetic and say so; an agent or a real person does not (DESIGN "Synthetic badge"). */
 export function PersonName({ id, className }: { id: string; className?: string }) {
+  const isSynthetic = useContext(SyntheticPeopleContext);
   return (
     <span className={cn("inline-flex flex-wrap items-center gap-1.5", className)}>
       <span className="font-semibold">{displayName(id)}</span>
-      <SyntheticBadge />
+      {isSynthetic(id) ? <SyntheticBadge /> : null}
     </span>
   );
 }

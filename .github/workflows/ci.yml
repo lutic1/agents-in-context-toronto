@@ -96,6 +96,22 @@ jobs:
             uv sync --all-groups
           fi
 
+      # A13's reset round trip (tests/a13/test_a13_atlas.py) needs mongodump and mongorestore
+      # (OD6). The test skips with a stated reason only when they or MONGODB_URI are missing.
+      - name: Install MongoDB Database Tools
+        if: steps.detect.outputs.present == 'true'
+        working-directory: .
+        run: |
+          curl -fsSL https://pgp.mongodb.com/server-8.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update -o Dir::Etc::sourcelist=sources.list.d/mongodb-org-8.0.list \
+            -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y --no-install-recommends mongodb-database-tools
+          mongodump --version
+          mongorestore --version
+
       - name: Atlas tests
         if: steps.detect.outputs.present == 'true'
         run: |
