@@ -95,6 +95,8 @@ This journey is the one most likely to be used from a phone, in a convention cen
 
 ## 3. The wow moment and the MongoDB mapping
 
+*Superseded on 13 Nov by §5: the wow moment is now the governed run. Rows for FR-9, FR-19, FR-21, FR-27 and FR-28 are deferred with their requirements. Kept for reference.*
+
 Decided 12 Nov: the wow moment is the agentic work with memory, shown in the video connecting to the Graph view, with MongoDB's capabilities presented as the competitive advantage. Judges score creativity, originality and novelty equally.
 
 Which MongoDB capability powers which behaviour, taken from the team's plan. Architecture confirms or changes each row.
@@ -142,4 +144,39 @@ Ten skills under `.claude/skills/dxp-*` hold the detail, each written from offic
 - Render the HeyGen clips on Saturday morning; queues can be long. Only HeyGen API v3 works.
 - Give judges the production URL. Vercel preview URLs ask for a login.
 - The event page publishes no criteria for the ElevenLabs prize.
+
+## 5. The pivot to Problem Statement 1 (13 Nov)
+
+The full change, with the Saturday timeline and the PR plan, is in `../../sprint-change-proposal-2026-11-13.md`. This section records only why, and the design notes for the GitHub action.
+
+### Why Statement 1
+
+The participant guide arrived on 13 Nov. It requires every project to fit one of three problem statements, bans a dashboard as the main feature and bans AI that gives medical advice. It also cuts the build to 10:45 to 17:00 and requires the Atlas Sandbox.
+
+After a party-mode session, Luis chose Statement 1, "Agents You Can Audit", for four reasons:
+
+- **DxP already had the hard part.** Evidence with a checked quote, field history and a Reviewer decision on every change are the raw material of an audit trail. Most of the ledger and extraction work carries over unchanged.
+- **It answers the bans.** The governed agent is the product and the screens only inspect it, so DxP is not a dashboard. It serves a pharma team's evidence work and gives no patient advice.
+- **It fits the hours.** The core loop (identity, Grant, Policy gate, one external action, stop, audit) is small enough to be green by 14:30 and leave time for the demo.
+- **MongoDB does real work in it.** Schema validation on Grants and Policies, atomic conditional updates for the claim and the stop, change streams for the live feed, and the action history for the audit.
+
+### Alternatives rejected
+
+- **Statement 2, "Memory You Can Govern", and Statement 3, "Finish the Job".** Statement 2 leans on Agent Memory, a public preview that may not run on the Atlas Sandbox, and would need memory correction, expiry and cross-Team isolation built from scratch. Statement 3 asks for adapting when a system's layout changes and resuming after crashes; DxP's sources are static files, so it was the weakest fit. Pitching either would have kept the old tracker as the product. In that form, the broad screens (Find, Categories, the Home dashboard) risked reading as a dashboard-led project, and the governance story would have been a side note rather than the point.
+- **Keeping the old plan and renaming screens.** Rejected in the session: a renamed graph is "a dashboard in a costume" unless it is fed by `run_id`. That is why the graph survives only as the run-scoped impact view (FR-43).
+
+### What changed in the wow moment
+
+Before: agents working with memory, a Learned rule from a rejection, and the change landing in the Graph view (§3). After: a real Review issue in GitHub, an out-of-scope Action blocked before it runs, a stop mid-run, and an audit that answers "who authorised this, and under what authority?" The MongoDB capability is named at each step.
+
+### Design notes for the GitHub action (FR-35 to FR-37)
+
+- **Destination.** One repository, `dxp-review-sandbox`, created for the demo. The token is fine-grained, limited to that repository and to issues only, and kept in `.env` (NFR14). No other external action is in scope.
+- **Order of operations.** Pass the Policy gate (FR-33). Write the Action to Atlas with its action ID and status `queued`. Claim it with one conditional update from `queued` to `dispatching` (FR-37). Create the issue. Read it back and store the issue number and URL. Mark the Action done.
+- **Action ID in the issue.** The action ID goes in the issue body (and may go in the title) so the repository can be searched for it. This is what makes reconciliation possible.
+- **Ambiguous results.** A timeout or a 5xx error does not mean the issue was not created. The system searches the repository for the action ID first. If it finds the issue, it records it. If it does not, and the answer is still unclear, the Action is marked `unknown` and a person reconciles it. The system never retries creation blindly (FR-36).
+- **Issue content.** The Diagnostic, the Proposed change, a short Evidence quote with its source link, the `run_id` and the action ID. Never PubMed abstract text beyond a short quote, and never a secret or a personal email address.
+- **Stop.** A stop prevents new admissions only. An Action already in `dispatching` may finish; the Run stays `stopping` until it does (FR-38).
+- **Audit.** Each Action keeps four timestamps (proposed, decided, sent, observed) and the external result, so the audit can show the gap between "sent" and "observed" when a result was ambiguous (FR-39).
+- **Test without GitHub.** Simulate a timeout after creation, and two workers claiming the same Action, before relying on the live repository.
 

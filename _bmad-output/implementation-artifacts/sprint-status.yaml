@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-13-2026 23:40
-last_updated: 11-13-2026 23:40
+last_updated: 11-14-2026 00:30
 project: DxProvida (DxP)
 project_key: NOKEY
 tracking_system: file-system
@@ -103,196 +103,259 @@ development_status:
   8-4-three-minute-demo-video: backlog
   epic-8-retrospective: optional
 
-# Who builds each story, and its PR IDs (cards in _bmad-output/planning-artifacts/development-plan.md)
+  epic-9: backlog
+  9-1-runs-and-identity: backlog
+  9-2-grants-and-versioned-policies-in-atlas: backlog
+  9-3-policy-gate-before-every-action: backlog
+  9-4-external-action-an-evidence-review-issue-in-github: backlog
+  9-5-stop-control: backlog
+  9-6-audit-reconstruction: backlog
+  9-7-run-console: backlog
+  9-8-audit-view: backlog
+  9-9-live-action-feed-through-change-streams: backlog
+  9-10-spoken-audit-briefing: backlog
+  9-11-rejection-drafts-a-policy-for-explicit-approval: backlog
+  epic-9-retrospective: optional
+
+# Who builds each story, its PR IDs and its scope after the 13 Nov pivot
+# (cards in _bmad-output/planning-artifacts/development-plan.md; deferred stories are not built on Saturday)
 owners:
   1-1-api-contract-stub-read-model-and-change-feed:
     owner: "Luis"
-    prs: "P01, P05"
-    demo_path: true
+    prs: "A01"
+    scope: core
   1-2-fda-authorised-lung-diagnostics-and-synthetic-teams-seeded-t:
     owner: "Luis"
-    prs: "P02, P11"
-    demo_path: true
+    prs: "A02, A13"
+    scope: core
   1-3-browse-diagnostics-and-open-a-record-with-its-evidence:
-    owner: "Luis"
-    prs: "P03, P26, P41"
-    demo_path: true
+    owner: "Vlad"
+    prs: "B01, B04"
+    scope: supporting
   1-4-load-the-downloaded-source-items-into-mongodb:
     owner: "Luis"
-    prs: "P07"
-    demo_path: true
+    prs: "A05"
+    scope: core
   1-5-extract-a-finding-from-one-source-item-with-a-quote-for-ever:
     owner: "Luis"
-    prs: "P08, P09, P14"
-    demo_path: true
+    prs: "A08"
+    scope: core
   1-6-the-ledger-files-findings-without-duplicates-and-keeps-the-s:
     owner: "Luis"
-    prs: "P04, P10, P13"
-    demo_path: true
+    prs: "A06"
+    scope: core
   1-7-run-a-batch-of-source-items-in-parallel-as-one-job:
     owner: "Luis"
-    prs: "P12, P15, P42"
-    demo_path: true
+    prs: "A10"
+    scope: core
   1-8-watch-the-agents-work-through-a-batch:
     owner: "Vlad"
-    prs: "V17"
-    demo_path: true
+    prs: ""
+    scope: deferred
   1-9-run-the-saturday-baseline-load-and-save-a-retake-snapshot:
     owner: "Luis"
-    prs: "P16"
-    demo_path: true
+    prs: ""
+    scope: deferred
   1-10-scheduled-scan-with-nobody-logged-in:
     owner: "Vlad"
-    prs: "V12"
-    demo_path: false
+    prs: ""
+    scope: deferred
   1-11-scan-allow-listed-provider-websites-through-tavily:
     owner: "Vlad"
-    prs: "V04"
-    demo_path: false
+    prs: ""
+    scope: deferred
   1-12-app-shell-in-the-dxp-design:
-    owner: "Luis"
-    prs: "P27"
-    demo_path: true
+    owner: "Vlad"
+    prs: "B01"
+    scope: core
   2-1-dry-run-the-held-back-set-against-the-baseline:
     owner: "Luis"
-    prs: "P17"
-    demo_path: true
+    prs: ""
+    scope: deferred
   2-2-reviewer-queue-of-proposed-changes:
     owner: "Luis"
-    prs: "P18"
-    demo_path: true
+    prs: "A14"
+    scope: supporting
   2-3-accept-edit-or-reject-a-proposed-change-keeping-the-history:
     owner: "Luis"
-    prs: "P19"
-    demo_path: true
+    prs: "A14"
+    scope: supporting
   2-4-review-screen:
-    owner: "Luis"
-    prs: "P29"
-    demo_path: true
+    owner: "Vlad"
+    prs: "B04"
+    scope: supporting
   2-5-value-history-on-the-record-page:
     owner: "Vlad"
-    prs: "V16"
-    demo_path: false
+    prs: ""
+    scope: deferred
   2-6-draft-activate-and-switch-off-a-learned-rule:
     owner: "Luis"
-    prs: "P20"
-    demo_path: true
+    prs: ""
+    scope: deferred
   2-7-confirm-and-manage-learned-rules-on-screen:
     owner: "Vlad"
-    prs: "V19"
-    demo_path: true
+    prs: ""
+    scope: deferred
   3-1-raise-first-and-update-alerts-for-matching-teams:
     owner: "Luis"
-    prs: "P21"
-    demo_path: true
+    prs: ""
+    scope: deferred
   3-2-alerts-inbox-for-a-team:
     owner: "Luis"
-    prs: "P31"
-    demo_path: true
+    prs: ""
+    scope: deferred
   3-3-digest-of-proposed-changes-and-alerts:
     owner: "Vlad"
-    prs: "V18"
-    demo_path: true
+    prs: ""
+    scope: deferred
   3-4-audio-briefing-for-an-alert:
     owner: "Vlad"
-    prs: "V13"
-    demo_path: false
+    prs: ""
+    scope: deferred
   3-5-play-button-on-an-alert:
     owner: "Vlad"
-    prs: "V15"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-1-search-indexes-and-synonym-expansion:
     owner: "Vlad"
-    prs: "V08, V09"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-2-plain-language-query-with-a-correctable-parsed-query:
     owner: "Vlad"
-    prs: "V11"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-3-comparison-table-with-evidence-inline:
     owner: "Vlad"
-    prs: "V02, V06"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-4-save-a-shortlist-against-an-intended-use:
     owner: "Vlad"
-    prs: "V14"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-5-export-the-comparison-or-shortlist-with-references:
     owner: "Vlad"
-    prs: "V10"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-6-category-landscape-with-thin-records-marked:
     owner: "Vlad"
-    prs: "V07"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-7-add-a-value-by-hand:
     owner: "Vlad"
-    prs: "V03"
-    demo_path: false
+    prs: ""
+    scope: deferred
   4-8-unmatched-terms-list-for-the-reviewer:
     owner: "Vlad"
-    prs: "V01"
-    demo_path: false
+    prs: ""
+    scope: deferred
   5-1-graph-api-built-from-the-ledger-s-edges:
     owner: "Luis"
-    prs: "P22"
-    demo_path: true
+    prs: "A15"
+    scope: supporting
   5-2-graph-view-with-click-through:
-    owner: "Luis"
-    prs: "P33, P35"
-    demo_path: true
+    owner: "Vlad"
+    prs: "B05"
+    scope: supporting
   5-3-highlight-what-changed-since-the-last-visit:
     owner: "Luis"
-    prs: "P36"
-    demo_path: true
+    prs: ""
+    scope: deferred
   6-1-memory-adapter-with-two-backends:
     owner: "Luis"
-    prs: "P23"
-    demo_path: true
+    prs: ""
+    scope: deferred
   6-2-seed-a-synthetic-past-for-each-team:
     owner: "Luis"
-    prs: "P24"
-    demo_path: true
+    prs: ""
+    scope: deferred
   6-3-resume-summary-on-return:
     owner: "Luis"
-    prs: "P25"
-    demo_path: true
+    prs: ""
+    scope: deferred
   6-4-home-page-with-the-team-s-network-and-the-welcome-back-panel:
     owner: "Luis"
-    prs: "P34, P37"
-    demo_path: true
+    prs: ""
+    scope: deferred
   7-1-quick-capture-of-a-name-or-note:
     owner: "Vlad"
-    prs: "V05"
-    demo_path: false
+    prs: ""
+    scope: deferred
   8-1-deploy-a-walking-skeleton-to-production:
     owner: "Luis"
-    prs: "P06"
-    demo_path: true
+    prs: "A04"
+    scope: core
   8-2-rehearse-the-live-run:
     owner: "Luis"
-    prs: "P38, P39"
-    demo_path: true
+    prs: "I2, A16"
+    scope: core
   8-3-submission-package:
-    owner: "Luis"
-    prs: "P40"
-    demo_path: true
+    owner: "Vlad"
+    prs: "B07"
+    scope: core
   8-4-three-minute-demo-video:
-    owner: "Luis and Vlad (after 18:00)"
-    prs: ""
-    demo_path: true
+    owner: "Luis and Vlad"
+    prs: "B07"
+    scope: core
+  9-1-runs-and-identity:
+    owner: "Luis"
+    prs: "A01, A07"
+    scope: core
+  9-2-grants-and-versioned-policies-in-atlas:
+    owner: "Luis"
+    prs: "A03"
+    scope: core
+  9-3-policy-gate-before-every-action:
+    owner: "Luis"
+    prs: "A06, I1"
+    scope: core
+  9-4-external-action-an-evidence-review-issue-in-github:
+    owner: "Luis"
+    prs: "A09, I1"
+    scope: core
+  9-5-stop-control:
+    owner: "Luis"
+    prs: "A07"
+    scope: core
+  9-6-audit-reconstruction:
+    owner: "Luis"
+    prs: "A11"
+    scope: core
+  9-7-run-console:
+    owner: "Vlad"
+    prs: "B02"
+    scope: core
+  9-8-audit-view:
+    owner: "Vlad"
+    prs: "B03"
+    scope: core
+  9-9-live-action-feed-through-change-streams:
+    owner: "Luis"
+    prs: "A12"
+    scope: supporting
+  9-10-spoken-audit-briefing:
+    owner: "Vlad"
+    prs: "B06"
+    scope: stretch
+  9-11-rejection-drafts-a-policy-for-explicit-approval:
+    owner: "Luis"
+    prs: "A17"
+    scope: stretch
 
-# Open items before and during Saturday's build
+# Open items
 action_items:
-  - epic: 1
-    action: "Update the architecture spine AD-14 with the routes and fields epics.md adds (Departures section) before P01 merges, about 10:39"
+  - epic: 9
+    action: "Confirm the Atlas Sandbox features as soon as access arrives: change streams, Vector Search, Agent Memory preview, Automated Embedding"
     owner: "Luis"
     status: open
   - epic: 8
-    action: "Confirm the submission deadline and whether it includes the video by 9:39; until then plan code freeze 17:15, record 17:15 to 17:45, submit by 17:55"
+    action: "Confirm with organisers 9:00 to 10:45: the 17:00 deadline, whether any coding may start before 10:45, how to present prepared material"
+    owner: "Luis"
+    status: open
+  - epic: 9
+    action: "Create repo dxp-review-sandbox and a fine-grained token restricted to it (issues only), stored in .env, before 10:45"
     owner: "Luis"
     status: open
   - epic: 8
-    action: "A story is done only when all its PRs have merged and its acceptance criteria pass on the integrated build (P41, P42, or P38 for Demo path stories); until then it stays review"
+    action: "A story is done only when all its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox (I1, then I2); until then it stays review"
     owner: "Luis and Vlad"
     status: open

@@ -1,10 +1,11 @@
 ---
 name: DxProvida (DxP)
 description: Lung cancer diagnostics tracked by agents, every value backed by a quote. shadcn/ui on Next.js 16 with Tailwind; this file specifies the brand layer only.
-status: final
+status: final  # revised for the pivot, 13 Nov (sprint-change-proposal-2026-11-13.md)
 created: 2026-11-13
 updated: 2026-11-13
 sources:
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
   - _bmad-output/planning-artifacts/epics.md
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md
@@ -103,7 +104,7 @@ components:
     shadow: '0 1px 0 {colors.glass-edge} inset, 0 12px 32px -12px {colors.glass-shadow}'
     radius: '{rounded.lg}'
   logo:
-    source: 'imports/dxp-logo-original.png (Luis), vector logo.svg'
+    source: 'imports/dxp-logo-original.png (Luis)'
     colors: '{colors.brand-lavender} D and P, {colors.brand-violet} x'
     height: '28px in the top bar'
   icon:
@@ -144,9 +145,44 @@ components:
     foreground: '{colors.muted-foreground}'
     border: '1px dotted {colors.muted-foreground}'
     radius: '{rounded.full}'
+  # Governed agent (pivot, 13 Nov). Existing tokens only; no new colours.
+  identity-card:
+    background: '{colors.card}'
+    radius: '{rounded.lg}'
+    label: '{typography.caption} {colors.muted-foreground}'
+    value: '{typography.body} {colors.foreground}'
+    identifiers: '{typography.identifier}'
+  action-row:
+    background: '{colors.card}'
+    radius: '{rounded.md}'
+    font: '{typography.table}'
+    time: '{typography.identifier}, tabular figures'
+    selected: '{colors.ink-tint}'
+  action-state-pending:
+    # allowed (queued), dispatching, in flight (sent)
+    foreground: '{colors.muted-foreground}'
+    icon: 'lucide shield-check, send, clock'
+  action-state-took-effect:
+    foreground: '{colors.accepted}'
+    icon: 'lucide circle-check'
+  action-state-blocked:
+    foreground: 'shadcn destructive (inherited)'
+    rule: '3px left rule, shadcn destructive'
+    icon: 'lucide shield-x'
+  action-state-unknown:
+    foreground: '{colors.low-confidence}'
+    icon: 'lucide circle-help'
+  stop-control:
+    running: 'button-primary, lucide square icon, label "Stop run"'
+    stopping: 'disabled, {colors.muted-foreground}, lucide circle-pause'
+    stopped: 'text only, {colors.foreground}, lucide octagon-x'
+  audit-entry:
+    timeline-rule: '1px {colors.border}'
+    timestamps: '{typography.identifier}'
+    quote: '{components.evidence-quote}'
 ---
 
-Key-screen mockups for all eleven surfaces are in [`mockups/`](mockups/index.html), each with a screenshot in `mockups/shots/`. This file and `EXPERIENCE.md` win over any mockup where they disagree.
+There are no mockups in this repository. The earlier key-screen mockups were removed on 13 November with the pivot, because the hackathon rules allow only work built during the event to be shown. Every screen is built on Saturday from `EXPERIENCE.md` and this file.
 
 ## Brand & Style
 
@@ -156,7 +192,9 @@ The product's argument is that every value has a source. So the evidence is visi
 
 The single bold element is the **stage track**: the nine Lifecycle stages drawn as a short strip that fills with ink up to the current stage, with the two Early research stages washed pale. It appears on every Diagnostic, in tables, on the Record and in the graph tooltip, so the lifecycle is always visible without reading a word. Everything around it stays quiet.
 
-**Graph-led hero (v3, Luis's pick after v2 read as lacklustre).** Home opens on a hero band: a dark haematoxylin field (`{colors.ink-deep}` deepening from `{colors.primary}`) with a defocused micrograph behind it, and on it a live mini network of the Team's own Diagnostics, biomarkers, trials and drugs. Nodes glow softly in their stain colours; whatever changed since the last visit glows eosin and pulses once. The welcome-back panel is a white glass panel docked over the right of the hero. Below the hero the page returns to light, solid panels. The hero is the one bold moment of the whole product; every other page stays calm.
+**Governed agent (pivot, 13 November).** DxP is now pitched for "Agents You Can Audit": the governed agent is the product and the screens only inspect it. The visual identity is unchanged. The new surfaces (Run console, Audit view) use the same ink, glass and type; the stage track and the evidence quote stay the content, now joined by the identity card and the action row. The bold moment moves from the Home hero to the blocked action and its "Who authorised this?" answer, carried by words and icons, not by colour or motion.
+
+**Graph-led hero: Deferred (pivot, 13 Nov).** Kept here for after the hackathon; do not build it on Saturday. Original note (v3, Luis's pick after v2 read as lacklustre): Home opens on a hero band: a dark haematoxylin field (`{colors.ink-deep}` deepening from `{colors.primary}`) with a defocused micrograph behind it, and on it a live mini network of the Team's own Diagnostics, biomarkers, trials and drugs. Nodes glow softly in their stain colours; whatever changed since the last visit glows eosin and pulses once. The welcome-back panel is a white glass panel docked over the right of the hero. Below the hero the page returns to light, solid panels. The hero is the one bold moment of the whole product; every other page stays calm.
 
 **Glass layer (v2, after Luis asked for a more polished, pharmaceutical look).** The page sits on a defocused field of stained tissue: large, heavily blurred haematoxylin, eosin and counterstain cells, as if the slide were out of focus behind the work. Panels are frosted coverslips on top of it: translucent white, a fine highlight edge, an ink-tinted shadow. The look should sit beside a pharmaceutical company's own medical-affairs tools: confident, clean and premium, with real iconography and a proper logo, never playful. The glass is the setting; the quotes, the stage track and the changed marks stay the content.
 
@@ -169,7 +207,8 @@ DxP inherits shadcn/ui defaults wholesale. This file specifies the brand layer: 
 - **Haematoxylin wash (`{colors.ink-tint}`)** marks a selected row, hover, the rule beside a quote, and the Early research part of the stage track.
 - **Eosin** is reserved for change. `{colors.eosin}` fills dots, rings and graph highlights; `{colors.eosin-text}` is the text-safe shade; `{colors.eosin-tint}` backs a new row or chip. Never used for errors, brand decoration, buttons or hover.
 - **Ochre (`{colors.low-confidence}`)** marks a low-confidence value, always with a text label.
-- **Methyl green (`{colors.accepted}`)** marks an accepted decision. Rejection uses shadcn's `destructive`.
+- **Methyl green (`{colors.accepted}`)** marks an accepted decision and an action that took effect. Rejection, errors and a blocked action use shadcn's `destructive`, always with an icon and a word.
+- **Action states** reuse these tokens and add no colour: pending states (allowed, dispatching, in flight) in faded ink; took effect in methyl green; blocked and failed in `destructive`; unknown in ochre, since ochre already means "not certain". Eosin is not an action state: it stays reserved for new or changed.
 - **Graph node colours** each come from a stain used in pathology: methyl green for biomarkers, DAB brown for trials, toluidine blue for drugs, Giemsa violet for tumour types, unstained grey for providers, and haematoxylin for Diagnostics. Colour is never the only cue: each type also has its own node shape (see Components).
 
 Avoid: gradients, a second accent, eosin used for anything except change, red used for anything except rejection and errors.
@@ -184,8 +223,9 @@ Avoid: gradients, a second accent, eosin used for anything except change, red us
 ## Layout & Spacing
 
 - Desktop first. The demo is recorded at 1440 × 900 [ASSUMPTION]; content sits inside `{spacing.content-max}` with `{spacing.page-gutter}` on each side.
-- A single top bar holds navigation, the capture box, the Team picker and the "your name" picker. No sidebar: tables and the graph need the width.
-- Pages are one main column with an optional right-hand panel of 360px (Evidence, history, rule draft). The graph page is full width under the top bar.
+- A single top bar holds navigation (Run console, Audit, Review, Impact) and the read-only "Signed in as" chip. The capture box, Team picker and "your name" picker are deferred (pivot, 13 Nov). No sidebar: tables and the graph need the width.
+- Pages are one main column with an optional right-hand panel of 360px (Evidence, "Who authorised this?"). The Run impact view is full width under the top bar.
+- Run console: the identity card spans the top of the column, with Stop run at its right; the action feed fills the column below, newest at the top. Audit view: the identity card, then the audit entries in time order, oldest first.
 - Left-aligned throughout. Numbers in tables right-aligned with tabular figures.
 - The footer carries the data credits line in `{typography.caption}`.
 
@@ -193,7 +233,7 @@ Avoid: gradients, a second accent, eosin used for anything except change, red us
 
 Three layers, back to front:
 
-1. **Tissue field.** Inside the hero band and behind the Graph page: a defocused micrograph, 40 to 70 haematoxylin nuclei 14 to 36px across at 35 to 55% opacity, blurred 4 to 8px, over soft eosin patches, so it reads as cells, not a pastel blur. Elsewhere the page is `{colors.field-base}` with five to seven very large circles in `{colors.field-haematoxylin}`, `{colors.field-eosin}` and `{colors.field-green}`, blurred 80–120px, fixed behind the page. It never moves except one slow drift when the page loads (skipped under reduced motion). Behind the Graph the field is fainter, at half these opacities, so links stay legible.
+1. **Tissue field.** Inside the hero band (deferred with the hero) and behind the Run impact view: a defocused micrograph, 40 to 70 haematoxylin nuclei 14 to 36px across at 35 to 55% opacity, blurred 4 to 8px, over soft eosin patches, so it reads as cells, not a pastel blur. Elsewhere the page is `{colors.field-base}` with five to seven very large circles in `{colors.field-haematoxylin}`, `{colors.field-eosin}` and `{colors.field-green}`, blurred 80–120px, fixed behind the page. It never moves except one slow drift when the page loads (skipped under reduced motion). Behind the Graph the field is fainter, at half these opacities, so links stay legible.
 2. **Glass panels.** Glass is used only for the top bar and for panels docked over the hero or the Graph; every other panel is solid white (`{colors.card}`) with the same radius and shadow. The `glass-panel` component: `{colors.glass}` fill with `blur(20px) saturate(150%)`, a 1px `{colors.glass-edge}` edge, an inset top highlight and an ink-tinted shadow. The top bar and dense tables use `{colors.glass-strong}` so text contrast stays at AA over any part of the field.
 3. **Popovers and dialogs.** shadcn defaults on white, above the glass.
 
@@ -204,7 +244,7 @@ Text never sits directly on the tissue field; it always sits on glass at 72% whi
 - `{rounded.sm}` (4px) for the stage track segments and chips.
 - `{rounded.md}` (10px) for buttons, inputs and rows inside a panel.
 - `{rounded.lg}` (18px) for glass panels and the graph's card.
-- `{rounded.xl}` (24px) for the welcome-back panel only.
+- `{rounded.xl}` (24px) for the welcome-back panel only (deferred, pivot 13 Nov).
 - `{rounded.full}` only for badges (Early research, synthetic) and round graph nodes.
 
 ## Components
@@ -213,12 +253,12 @@ shadcn components used as they ship: `Button` (secondary, outline, ghost, destru
 
 Brand-layer components:
 
-- **Logo.** Luis's own DxP logo (`imports/dxp-logo-original.png`, vector at `logo.svg`): a heavy rounded "D" and "P" in `{colors.brand-lavender}` with an "x" of two twisting strands, like a DNA double helix, in `{colors.brand-violet}`. Use it as supplied: no recolouring, outlines or effects. In the top bar it sits at 28px tall on glass; on the dark hero it can appear as is, since the lavender reads well on ink. The favicon and app icon are the twisted "x" alone. The two logo purples are used only in the logo, never for UI states, so eosin keeps its meaning.
-- **Icons.** lucide-react, the set shadcn/ui ships with, at 1.75px stroke. One icon per navigation item and per primary action: Home `house`, Diagnostics `microscope`, Find `search`, Categories `layout-grid`, Graph `waypoints`, Review `clipboard-check`, Alerts `bell`, Jobs `cpu`; Play `play`, Dismiss `x`, Flag `flag`, Evidence source `file-text`, Trial `flask-conical`, Drug `pill`, Biomarker `dna`, Memory `brain`, Export `download`. Icons sit beside words; never an icon alone without a label or tooltip.
+- **Logo.** Luis's own DxP logo (`imports/dxp-logo-original.png`): a heavy rounded "D" and "P" in `{colors.brand-lavender}` with an "x" of two twisting strands, like a DNA double helix, in `{colors.brand-violet}`. Use it as supplied: no recolouring, outlines or effects. In the top bar it sits at 28px tall on glass; on the dark hero it can appear as is, since the lavender reads well on ink. The favicon and app icon are the twisted "x" alone. The two logo purples are used only in the logo, never for UI states, so eosin keeps its meaning.
+- **Icons.** lucide-react, the set shadcn/ui ships with, at 1.75px stroke. One icon per navigation item and per primary action: Run console `square-terminal`, Audit `scroll-text`, Review `clipboard-check`, Impact `waypoints`; Start run `play`, Stop run `square`, Who authorised this `shield-question`, Open in GitHub `square-arrow-out-up-right`, Evidence source `file-text`, Trial `flask-conical`, Drug `pill`, Biomarker `dna`, Issue `circle-dot`. Action states: allowed `shield-check`, dispatching `send`, in flight `clock`, took effect `circle-check`, blocked `shield-x`, failed `circle-x`, unknown `circle-help`; run stopping `circle-pause`, stopped `octagon-x`. Deferred with their surfaces: Home `house`, Diagnostics `microscope`, Find `search`, Categories `layout-grid`, Alerts `bell`, Jobs `cpu`, Dismiss `x`, Flag `flag`, Memory `brain`, Export `download`. Icons sit beside words; never an icon alone without a label or tooltip.
 - **Glass panel.** See Elevation & Depth. Panel headings carry their icon inline at 18px before the heading text, on the same left edge as the body; no icon circles.
-- **Hero network.** The Team's neighbourhood from `GET /graph?focus=` (Story 5.1), drawn with the Graph view's node shapes on the dark hero: nodes in lightened stain colours with a 6px soft glow, links at 30% white, changed nodes and links eosin with the one-time pulse. Labels only on the changed nodes and the Team's biomarkers. Clicking a node opens the Graph page focused on it.
+- **Hero network (deferred, pivot 13 Nov).** The Team's neighbourhood from `GET /graph?focus=` (Story 5.1), drawn with the Graph view's node shapes on the dark hero: nodes in lightened stain colours with a 6px soft glow, links at 30% white, changed nodes and links eosin with the one-time pulse. Labels only on the changed nodes and the Team's biomarkers. Clicking a node opens the Graph page focused on it.
 - **Navigation pill.** The active item is `{colors.ink-tint}` with ink text, not a solid ink pill.
-- **Avatar.** The "your name" picker shows initials in a 28px circle in `{colors.ink-deep}`.
+- **Avatar.** The read-only "Signed in as" chip shows initials in a 28px circle in `{colors.ink-deep}`.
 
 - **Button, primary.** `{colors.primary}` fill, `{colors.primary-foreground}` text, `{rounded.md}`. At most one primary button visible per panel.
 - **Reject button.** Outline variant in ink; turns `destructive` on hover and focus only, so red never sits on screen at rest.
@@ -228,7 +268,11 @@ Brand-layer components:
 - **Early research badge.** Pill with a dashed haematoxylin border, `{colors.ink-tint}` fill, text "Early research".
 - **Low-confidence marker.** The text "Low confidence" in `{colors.low-confidence}` with a small open circle; never colour alone.
 - **Capability tag.** A quiet outlined tag in `{typography.caption}` naming the MongoDB capability that powers a panel, such as "Atlas Vector Search" or "Agent Memory". At most one per panel.
-- **Synthetic badge.** Dotted-outline pill reading "Synthetic", on every synthetic Team, rule, correction and recalled memory.
+- **Synthetic badge.** Dotted-outline pill reading "Synthetic", on every synthetic Team, person acted for, rule, correction and recalled memory.
+- **Identity card.** A solid `{colors.card}` panel at `{rounded.lg}` with the standard shadow. A two-column list of label and value: labels in `{typography.caption}` and `{colors.muted-foreground}`, values in `{typography.body}`. Run ID, grant ID and versions, policy-set version and model in `{typography.identifier}`, each with a copy button. The run status sits beside the heading as a word with its icon ("Running", "Stopping", "Stopped"). Stop run is the panel's one primary button.
+- **Action row.** A row inside the feed panel at `{rounded.md}`, `{typography.table}`. Left to right: state icon and state word, kind ("Update record", "Open review issue"), Diagnostic and field or destination, then the time in `{typography.identifier}` with tabular figures, right-aligned. Every state shows its icon and its word; colour only reinforces. Pending states in `{colors.muted-foreground}`. Took effect in `{colors.accepted}` with the issue number as a link. **Blocked** in shadcn `destructive`: `shield-x`, the word "Blocked" and, on a second line in `{typography.caption}`, "Blocked before it ran: {check} failed under policy v{n}"; a 3px `destructive` left rule marks the row, with no red fill. **Unknown** in `{colors.low-confidence}`: `circle-help`, the words "Result unknown" and the copyable action ID. Eosin never marks an action state.
+- **Stop control.** Running: primary button "Stop run" with `square`. Stopping: the button disables and the card shows `circle-pause`, "Stopping" and the in-flight count in `{typography.identifier}`. Stopped: the button is replaced by `octagon-x`, "Stopped" and the totals. Never red: stopping is the safe action, not an error.
+- **Audit entry.** A vertical timeline in a solid panel: a 1px `{colors.border}` rule on the left joins the entries, each marked by its state icon. Each entry: the action sentence in `{typography.heading}`, the four timestamps in `{typography.identifier}`, the Evidence quote, then grant and policy-set versions in `{typography.caption}`. "Who authorised this?" is an outline button with `shield-question`; the answer opens in the right-hand panel as plain sentences, identifiers in mono. Blocked and unknown entries use the same marks as the action row.
 - **Graph nodes.** Diagnostic: circle, 10px, `{colors.node-diagnostic}`, sized up to 16px by number of links, with a dashed outline when Early research. Biomarker: rounded square, `{colors.node-biomarker}`. Trial: diamond, `{colors.node-trial}`. Drug: triangle, `{colors.node-drug}`. Tumour type: hexagon, `{colors.node-tumour}`. Provider: small hollow square, 1.5px `{colors.node-provider}` outline. Links in `{colors.border}`, 1px; links that cross Categories in `{colors.muted-foreground}`, 1.5px. Changed nodes and links get a 3px `{colors.eosin}` ring or stroke. Labels in `{typography.caption}` appear on hover and at zoom levels where they do not overlap.
 
 ## Do's and Don'ts
@@ -238,7 +282,8 @@ Brand-layer components:
 | Use eosin only for new or changed, as a dot and a word | Use eosin for buttons, errors, decoration or row fills |
 | Set every source quote in Source Serif 4 | Set anything DxP writes in the serif |
 | Show the stage track wherever a Diagnostic appears | Show the stage as text alone in tables |
-| Pair every colour signal with a word or shape | Rely on colour alone for confidence, change or node type |
+| Pair every colour signal with a word or shape | Rely on colour alone for confidence, change, node type or action state |
+| Mark a blocked action with `destructive`, `shield-x` and "Blocked" | Use eosin for blocked, or fill a blocked row red |
 | Float content on frosted glass over the tissue field | Put text straight on the field, or use glass without the field behind it |
 | Use lucide icons beside labels | Use emoji, icon-only buttons without labels, or a second icon set |
 | Keep one capability tag per panel, quiet | Add MongoDB logos or badges to every element |

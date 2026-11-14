@@ -1,5 +1,6 @@
 ---
 status: final
+updated: 2026-11-13
 stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
@@ -9,13 +10,16 @@ inputDocuments:
   - data/README.md
   - _bmad-output/planning-artifacts/ux-designs/ux-agents-in-context-toronto-2026-11-13/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-agents-in-context-toronto-2026-11-13/EXPERIENCE.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
 ---
 
 # DxProvida (DxP) - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Build day is Saturday 14 November 2026: two developers driving AI coding agents, about 7 hours 36 minutes of coding each, from about 9:39 to 17:15; the video is recorded 17:15 to 17:45 and submitted by 17:55, unless the organisers confirm a later deadline. Every story carries story points so the team can set the cut line afterwards.
+This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Every story carries story points so the team can set the cut line afterwards.
+
+**Pivot, 13 November 2026 (approved course correction, `sprint-change-proposal-2026-11-13.md`).** DxP is now a governed agent built for Problem Statement 1, "Agents You Can Audit". The governed agent is the product: it keeps a pharma team's diagnostic evidence current, and it cannot change a record or act in another system without a named identity, a scoped grant, a policy check before the action, and an audit trail a reviewer can replay. The screens only inspect it. Build day is Saturday 14 November 2026: hacking runs 10:45 to 17:00 on the provided Atlas Sandbox, with no coding before 10:45. Contracts freeze at 11:45, the first allowed-and-blocked loop is green by 14:30, code freezes at 16:30, the 60-second video is recorded 16:30 to 16:50 and submitted by 16:55, and the 3-minute live demo for judging is at 17:15. Epic 9 holds the new core work. Stories the pivot defers keep their text and carry **Deferred (pivot, 13 Nov)** so no agent builds them on Saturday; kept stories carry a **Pivot change** line, which wins over their acceptance criteria wherever the two disagree.
 
 ## Requirements Inventory
 
@@ -51,21 +55,39 @@ In scope for Saturday:
 - FR29: A user selects a Category and sees every Diagnostic's full field set with thin, stale or incomplete Records marked; a value added by hand is saved for everyone, marked manually sourced.
 - FR30: The first ingest is a Baseline load that sends no Alerts and leaves out the last four weeks; the Held-back set is ingested afterwards and produces real Proposed changes and Alerts.
 
+Governed agent actions, added by the pivot on 13 November (PRD §4.10):
+
+- FR31: Every run has a `run_id`, agent name, model, prompt version, policy-set version and the person it acts for, resolved server-side and stamped on every write, event and external action.
+- FR32: Grants (agent, team, destination, allowed actions, expiry) are stored in Atlas with a version; the actor and grant are resolved server-side from the API key, and a client-supplied name never confers permission.
+- FR33: Hand-written, versioned policies with schema validation; before every action the gate runs five checks (active unexpired grant; Diagnostic in the authorised team scope; destination and action match the grant; required evidence checks passed; run still authorised).
+- FR34: A blocked action changes no business record, makes no external call and writes exactly one audit event with the policy and grant versions and the failed check.
+- FR35: An allowed action opens an evidence-review issue in GitHub `dxp-review-sandbox`, read back and stored on the action.
+- FR36: An action ID is saved before sending and put in the issue; an uncertain result is reconciled by searching for it, never by retrying creation blindly, and otherwise marked `unknown`.
+- FR37: An action is claimed atomically (`queued` to `dispatching`) so two workers never both dispatch it.
+- FR38: Stop: admission is an atomic, conditional update while the run is `running`; after stop nothing new is admitted; the run shows `stopping` until in-flight reaches zero, then `stopped`.
+- FR39: Audit reconstruction of every action in order, answering "who authorised this action, and under what authority?"
+- FR40: Run console. FR41: Audit view. FR42 (supporting): live action feed through change streams, `/changes` polling as fallback. FR43 (supporting): run-scoped impact view.
+- FR44 (stretch): spoken audit briefing. FR45 (stretch): rejection drafts a policy for explicit approval. FR46 (stretch): scoped reversal of a run.
+
 Later development, not built on Saturday: FR6 (performance by tumour type and stage), FR10 (operational fields), FR23 (operational filters). Capture on the go (PRD §4.9, UJ-4) has no numbered requirement and is P3.
 
 ### NonFunctional Requirements
 
 - NFR1: Provenance. No value is shown without Evidence; a quote must appear word for word in its Source item.
 - NFR2: Human decision. Every agent change to an existing Record is a logged Reviewer decision.
-- NFR3: Unattended operation. Scans, the Maturity gate and Proposed changes run with nobody logged in.
-- NFR4: Open data only. Every Source item is openly available; provider websites only from an allow-list; PubMed abstract text is never returned by the API, committed to the repository or shown in a shared trace.
-- NFR5: Real behaviour on camera. One memory write and read and one Learned rule are made live in the video.
-- NFR6: Synthetic data. Synthetic Team profiles, history, corrections and rules are labelled synthetic wherever they appear.
-- NFR7: Event rules. Pre-made data and code are disclosed; the demo says what was built on the day.
-- NFR8: Time. Six hours of coding by two people; submission of description, public repository and a three-minute video at 18:00.
-- NFR9: Model limits. The batch stays within the Claude API rate limit: at most 16 concurrent calls in an ingest job.
-- NFR10: MongoDB as the advantage. The video and description name which MongoDB capability powers which behaviour.
+- NFR3: Unattended operation. Scans, the Maturity gate and Proposed changes run with nobody logged in. Trimmed (pivot, 13 Nov): on Saturday a person starts each run; once started, it runs without a person in the loop until a Reviewer decision or a stop.
+- NFR4: Open data only. Every Source item is openly available; provider websites only from an allow-list; PubMed abstract text is never returned by the API, committed to the repository, shown in a shared trace or written into a review issue.
+- NFR5: Real behaviour on camera. Updated 13 Nov: the video and the live demo show a real review issue created in GitHub, a real blocked action and a real stop, each made live. Synthetic history may set the scene; it does not stand in for these.
+- NFR6: Synthetic data. Synthetic Teams, grants, profiles, history, corrections and rules are labelled synthetic wherever they appear.
+- NFR7: Event rules. Updated 13 Nov: only work built during the event may be highlighted. The README separates prepared material from what was built on 14 November, in a table; the demo shows only what was built that day. No coding before 10:45 unless an organiser permits it in writing.
+- NFR8: Time. Updated 13 Nov: hacking runs 10:45 to 17:00 on the Atlas Sandbox, two people, including recording and submitting; code freeze 16:30; the 60-second video is recorded 16:30 to 16:50; submission (description, public repository, video, team members) by 16:55, due at 17:00; the 3-minute live demo for judging at 17:15.
+- NFR9: Model limits. Before a run, the team confirms that the Claude API key works and that its rate limits allow the selected trial set at the chosen concurrency (at most 16 concurrent calls in a run).
+- NFR10: MongoDB as the advantage. The video and description name which MongoDB capability powers which behaviour: grants and policies with schema validation, atomic conditional updates for claim and stop, change streams for the live feed, and the audit history.
 - NFR11: Attribution. Every Evidence shows its source and that source's data date; the app footer carries the credits line.
+- NFR12: Atlas Sandbox. New 13 Nov: DxP is built and validated on the organisers' Atlas Sandbox from the start; change streams are confirmed on the sandbox tier before the live feed depends on them.
+- NFR13: Problem statement fit. New 13 Nov: built for Problem Statement 1, "Agents You Can Audit"; no dashboard as the main feature and no medical advice.
+- NFR14: Least privilege for external actions. New 13 Nov: the GitHub token is fine-grained, restricted to `dxp-review-sandbox` and to issues only, kept in `.env` and never committed, logged or shown on screen.
+- NFR15: Policies are written by people. New 13 Nov: grants and policies are hand-written and versioned; a model may draft a policy (FR45, stretch) but it takes effect only after a person approves it.
 
 ### Additional Requirements
 
@@ -90,10 +112,11 @@ From the architecture spine (AD-1 to AD-16). No starter template is mandated; th
 - Friday setup (before the build, not story work): M10 cluster with storage auto-scaling, temporary open network entry, Agent Memory `apply --wait` test, Claude tier check, LangSmith workspace variables, paid HeyGen and ElevenLabs plans.
 - Demo retake: `mongodump` after the Baseline jobs and restore by `delete_many` plus `mongorestore`.
 - Saturday data: seed 76 FDA lung rows; Baseline jobs over 293 trials and 150 abstracts; live jobs over 40 trials (traced) and 24 abstracts (untraced).
+- Pivot, 13 Nov: the environment is the provided Atlas Sandbox. New collections `runs`, `grants`, `policies` and `actions`; `events` gains run and action stamps. One new external dependency: the GitHub REST API with a fine-grained token restricted to `dxp-review-sandbox` (issues only), kept in `.env`. Runs work over a selected set of 10 to 20 held-back trials at lower concurrency, not 443 items. Change streams are confirmed on the sandbox tier before the live feed depends on them.
 
 ### UX Design Requirements
 
-No UX design document exists. UI behaviour comes from the PRD journeys and the architecture's API contract.
+The UX is `DESIGN.md` and `EXPERIENCE.md` in `ux-designs/ux-agents-in-context-toronto-2026-11-13/`, revised for the pivot. There are no mockups: every screen is built during the event from those two files and the architecture's API contract.
 
 ### FR Coverage Map
 
@@ -125,11 +148,30 @@ FR28: Epic 6 - Team profile across sessions; what changed; last Intended use and
 FR29: Epic 4 - Category gap view; manual values saved for everyone, marked manually sourced
 FR30: Epic 1 - Baseline load with no Alerts and the last four weeks held back; live mode for the Held-back set
 
+FR31: Epic 9 - Run identity stamped on every write, event and external action
+FR32: Epic 9 - Grants in Atlas; actor and grant resolved server-side from the API key
+FR33: Epic 9 - Versioned, hand-written policies; five checks before every action
+FR34: Epic 9 - A blocked action changes nothing and writes one audit event
+FR35: Epic 9 - Evidence-review issue in GitHub `dxp-review-sandbox`, read back
+FR36: Epic 9 - Ambiguous external result reconciled by action ID, never retried blindly; otherwise `unknown`
+FR37: Epic 9 - Atomic claim, `queued` to `dispatching`
+FR38: Epic 9 - Stop control: atomic admission; stopping, then stopped
+FR39: Epic 9 - Audit reconstruction; "who authorised this action"
+FR40: Epic 9 - Run console
+FR41: Epic 9 - Audit view
+FR42: Epic 9 - Live action feed through change streams, polling fallback (supporting)
+FR43: Epic 5 - Run-scoped impact view (supporting; Stories 5.1 and 5.2 trimmed)
+FR44: Epic 9 - Spoken audit briefing (stretch)
+FR45: Epic 9 - Rejection drafts a policy for explicit approval (stretch)
+FR46: Epic 9 - Scoped reversal of a run (stretch, a follow-up inside Story 9.5)
+
 Later development, not mapped: FR6, FR10, FR23. Capture on the go (PRD section 4.9) maps to Epic 7.
+
+Deferred (pivot, 13 Nov): FR1's schedule (on-demand runs stay), FR9, FR12, FR13, FR14 (its audio returns as stretch Story 9.10), FR19 (returns as stretch Story 9.11, limited to supported policy checks), FR20, FR21, FR22, FR24, FR25, FR27's "since last visit", FR28, FR29 and FR30's comprehensive Baseline load.
 
 ## Epic List
 
-Eight epics. Epic 1 is the foundation; Epics 2, 3, 4 and 5 depend only on Epic 1 and can run in parallel; Epic 6 also needs Epics 3 (team profiles in use) and 4 (Shortlist); Epic 7 needs Epic 1; Epic 8's deploy skeleton starts in hour one and is redeployed throughout. Every story is tagged **[API]** (backend and pipeline developer) or **[WEB]** (web developer). Ledger changes are confined to named [API] stories so two agents never edit `ledger.py` at once.
+Nine epics. Since the pivot on 13 November, Epic 9 (governed agent actions) is the core, built on a trimmed Epic 1 and with Epics 2, 5 and 8 kept in part; Epics 3, 4, 6 and 7 are deferred. The original dependency notes follow for history. Epic 1 is the foundation; Epics 2, 3, 4 and 5 depend only on Epic 1 and can run in parallel; Epic 6 also needs Epics 3 (team profiles in use) and 4 (Shortlist); Epic 7 needs Epic 1; Epic 8's deploy skeleton starts in hour one and is redeployed throughout. Every story is tagged **[API]** (backend and pipeline developer) or **[WEB]** (web developer). Ledger changes are confined to named [API] stories so two agents never edit `ledger.py` at once.
 
 Changes applied from Advanced Elicitation (pre-mortem, cascading failure, war room, persona focus group, assumption audit):
 
@@ -173,6 +215,10 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
 **FRs covered:** none; NFR5, NFR7, NFR8, NFR10, NFR11
 
+### Epic 9: Governed agent actions
+The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one audit event, one allowed action opens a real evidence-review issue in GitHub, a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". Core for Problem Statement 1, "Agents You Can Audit". Stories 9.1 to 9.8 are core, 9.9 is supporting, 9.10 and 9.11 are stretch.
+**FRs covered:** FR31 to FR42, FR44, FR45, FR46
+
 ### Build risks
 
 | Assumption | Confidence | Impact | Settled by |
@@ -183,10 +229,13 @@ A judge opens a working production URL at any point in the day, and at submissio
 | Vector index READY | High after Friday | Medium | Friday check 4; fallback text search |
 | Graph has cross-Category links | High | High | FDA rows share biomarkers across tissue and plasma tests |
 | Both developers productive from hour one | Medium | High | Story 1.1 contract stub and seed data |
+| Pivot: change streams work on the Atlas Sandbox tier | Medium | Medium | Checked in A04 by 12:00; otherwise the feed uses `/changes` polling (Story 9.9) |
+| Pivot: the GitHub token and `dxp-review-sandbox` are ready at 10:45 | Medium | High | Luis creates them before 10:45; Story 9.4 is stubbed for I1 and named in the demo if not |
+| Pivot: the allowed-and-blocked loop is green by 14:30 | Medium | High | If not, supporting and stretch work stops and everyone fixes the loop |
 
 ## Story points
 
-Points are relative size (1, 2, 3, 5) and stay as the tool for comparing stories. Planning time no longer uses "1 point is 30 minutes"; it uses the agent-time estimate below. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document.
+Points are relative size (1, 2, 3, 5) and stay as the tool for comparing stories. Planning time no longer uses "1 point is 30 minutes"; it uses the agent-time estimate below. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document. Since the pivot, Epic 9 stories are tagged **Core** (the allowed-and-blocked loop and its inspection), **Supporting** (built after the loop is green) or **Stretch** (built only if the loop is green by 14:30). **Deferred (pivot, 13 Nov)** marks a story that is not built on Saturday.
 
 ## Estimating with AI agents
 
@@ -209,20 +258,22 @@ The **Time** on each story follows the rules measured on the CVH pilot build (1�
 
 ## How every story lands: PR and merge
 
-Each story names its **Owner** (Luis or Vlad) and its **PRs**. A PR ID such as P08 or V06 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first.
+Each story names its **Owner** (Luis or Vlad) and its **PRs**. Since the pivot, a PR ID such as A06, B02 or I1 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first. Luis owns the A PRs and the integration PRs (the critical path: contract, ledger and gate, runs and stop, extraction, the GitHub action, integration); Vlad owns the B PRs (the screens, the web skeleton, the stretch audio and the submission package), with Luis's review agent on Vlad's lane. The earlier P and V IDs are retired. A deferred story has no PR.
 
-A story is done only when it is merged into `main` and working in production. Every story with points follows these steps:
+A story is done only when it is merged into `main` and working on the Atlas Sandbox deploy. Every story with points follows these steps:
 
-1. Branch from the latest `main` as `story/<n.n>-<short-name>` (for example `story/2.4-review-screen`).
+1. Branch from the latest `main` as `story/<n.n>-<short-name>` (for example `story/9.3-policy-gate`); integration PRs use `integration/<name>`.
 2. Open a pull request into `main` titled `Story <n.n>: <story title>`, listing the acceptance criteria as a checklist.
-3. The CI checks from Story 8.1 pass: the web app's type check and build, and the backend tests. Story 8.1 is built in the first two hours, right after Stories 1.1 and 1.3; until it is merged, the reviewer runs the same checks locally.
-4. The other developer (or their agent) reads the diff. They check that no secret, `.env` value or PubMed abstract text is in it, and that each acceptance criterion is met.
+3. The CI checks from Story 8.1 pass: the web app's type check and build, and the backend tests. Story 8.1 (A04) is built 11:00 to 12:00, right after the contract (A01); until it is merged, the reviewer runs the same checks locally.
+4. The other developer (or their agent) reads the diff. They check that no secret, `.env` value, GitHub token or PubMed abstract text is in it, and that each acceptance criterion is met.
 5. Squash-merge and delete the branch. If an API model changed, rebase first and regenerate `web/lib/types.ts`, so the two lanes never merge conflicting types.
-6. After the merge, check production. Vercel deploys `main` itself; the person named in the README runs `modal deploy` for API changes.
+6. After the merge, check the deploy on the Atlas Sandbox. Vercel deploys `main` itself; the person named in the README runs `modal deploy` for API changes.
 
 Each pull request costs about 10 minutes: opening it, waiting for checks, the review and the merge. This time is already inside each story's agent-time estimate, because the CVH actuals it comes from ran to the merge. Merge small and often; never hold a story back to merge at the end of the day.
 
-A story is **done** only when all of its PRs have merged and its acceptance criteria pass on the integrated build: on the dev database after the seed or the 50-item run (P41, P42) for most stories, and in production at final acceptance (P38) for Demo path stories. The last merge alone does not make a story done; until the criteria are checked it stays `review` in `sprint-status.yaml`.
+Saturday timing: hacking 10:45 to 17:00; contracts frozen by 11:45; deployed on the sandbox by 12:00; gate, runs, extraction and the GitHub action merged by 13:45; **the first allowed-and-blocked loop green on the sandbox by 14:30** (I1); final acceptance by 15:30 (I2); code freeze at 16:30. If the loop is not green by 14:30, supporting and stretch work stops and everyone fixes the loop.
+
+A story is **done** only when all of its PRs have merged and its acceptance criteria pass on the integrated build: on the sandbox after the allowed-and-blocked loop (I1) for most stories, and at final acceptance on the sandbox (I2) for Core and Demo path stories. The last merge alone does not make a story done; until the criteria are checked it stays `review` in `sprint-status.yaml`.
 
 ## Epic 1: Evidence-backed records from real data
 
@@ -231,7 +282,8 @@ The team loads real trials, abstracts and FDA rows into Diagnostic Records where
 ### Story 1.1: API contract stub, read model and change feed
 
 **Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path** · **Owner:** Luis
-**PRs:** P01 `story/1.1a-contract` (API contract stub and generated types, Luis); P05 `story/1.1b-readmodel-changes` (Read model and change feed, Luis). Cards in `development-plan.md`.
+**PRs:** A01 `story/1.1-contract` (Contract: every route and shape, including runs, grants, policies, actions and audit, one error shape and the frozen module signatures, Luis). Cards in `development-plan.md`.
+**Pivot change:** The contract in A01 adds the run, grant, policy, action and audit shapes exactly as AD-14 (`Run` replaces `Job`) and freezes the signatures of `gate.evaluate`, `actions.dispatch`, `runs.admit`, `runs.release`, `runs.stop`, `ledger.file`, `llm.extract` and `llm.check` by 11:45, as AD-19 to AD-21. The read model and `GET /changes` stay; the live feed is Story 9.9.
 
 As the web developer,
 I want the API's routes and response shapes running and published as generated TypeScript types in the first hour,
@@ -252,7 +304,8 @@ So that I can build pages against the real contract while the pipeline is still 
 ### Story 1.2: FDA-authorised lung diagnostics and synthetic Teams seeded through the ledger
 
 **Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path** · **Owner:** Luis
-**PRs:** P02 `story/1.2a-registry-identity` (Registry and identity, Luis); P11 `story/1.2b-seed` (Seed FDA rows, Teams and terms, Luis). Cards in `development-plan.md`.
+**PRs:** A02 `story/1.2a-registry-identity` (Registry and identity, Luis); A13 `story/1.2b-seed` (Seed FDA rows and synthetic Teams through the ledger, Luis). Cards in `development-plan.md`.
+**Pivot change:** Trimmed to a small FDA seed (the lung rows the selected trial set hits) and the synthetic Teams, which now define each grant's team scope. The seed runs after the gated ledger (A06), so it passes through the gate like every other write. The curated synonym goes with deferred Find.
 
 As a Director of Diagnostics,
 I want the FDA-authorised lung companion diagnostics already in DxP, each at regulatory approval with the FDA list as Evidence,
@@ -273,8 +326,9 @@ So that DxP starts from a trusted base and the other developer has real Records 
 
 ### Story 1.3: Browse diagnostics and open a Record with its Evidence
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path** · **Owner:** Luis
-**PRs:** P03 `story/1.3a-web-skeleton` (Web skeleton, Luis); P26 `story/1.3b-diagnostics-record` (Diagnostics and Record pages, Luis); P41 `integration/is-seeded` (Integration: screens on seeded records, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path** · **Owner:** Vlad
+**PRs:** B01 `story/1.12-web-shell` (Web skeleton and minimal shell, Vlad); B04 `story/2.4-record-review` (Record and Review screen, minimal, Vlad). Cards in `development-plan.md`.
+**Pivot change:** Trimmed: the diagnostics list and the Record page become the Record half of the minimal Record and Review screen. The "your name" picker is dropped: the shell shows a read-only "Signed in as" chip from `GET /whoami`, and no request sends `actor`, because the actor is resolved server-side from the API key (Story 9.2). The server-side route adds `X-DxP-Key` to every request (AD-14).
 
 As a Director of Diagnostics,
 I want to list the diagnostics DxP tracks and open one to see every value with its quote, source and data date,
@@ -290,13 +344,14 @@ So that I can trust each value without leaving the page.
 **And** an empty field shows "no data for this indication", visibly different from the loading state
 **And** the page renders only what the API's read model returns, applying no display rule of its own
 **And** the footer carries the credits line from `dxp-open-data-sources/references/terms.md`
-**And** the header has a "your name" picker, kept in the browser, whose value every later changing request sends as `actor`
+**And** the header shows the read-only "Signed in as" chip from `GET /whoami`; no request sends `actor`, because the actor is resolved server-side from the key
 **And** one server-side Next.js route forwards requests that need `X-DxP-Key` (jobs and every model-calling route), so the key never reaches the browser.
 
 ### Story 1.4: Load the downloaded Source items into MongoDB
 
 **Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path** · **Owner:** Luis
-**PRs:** P07 `story/1.4-load-sources` (Load Source items, Luis). Cards in `development-plan.md`.
+**PRs:** A05 `story/1.4-selected-trials` (Load the selected trial set, Luis). Cards in `development-plan.md`.
+**Pivot change:** Loads only the selected trial set: 10 to 20 held-back trials that hit FDA-seeded Diagnostics, chosen by ID list. No PubMed items and no comprehensive Baseline.
 
 As the team,
 I want the files under `data/` loaded into `source_items` with their window and subset names,
@@ -315,7 +370,8 @@ So that jobs on Modal can read them without the laptop.
 ### Story 1.5: Extract a Finding from one Source item with a quote for every field
 
 **Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path** · **Owner:** Luis
-**PRs:** P08 `story/1.5a-triage-extract` (Triage and extraction calls, Luis); P09 `story/1.5b-quote-check` (Quote and support checks, Luis); P14 `story/1.5c-tune-real-items` (Tune extraction on real items, Luis). Cards in `development-plan.md`.
+**PRs:** A08 `story/1.5-extraction` (Extraction with quote and support checks, tuned on the selected set, Luis). Cards in `development-plan.md`.
+**Pivot change:** Tuned on the selected trial set only. The quote and support checks stay, and their result is one of the gate's required evidence checks (Story 9.3).
 
 As a Director of Diagnostics,
 I want the agents to read a trial or abstract and pull out the ten fields, each with a word-for-word quote and a confidence,
@@ -338,7 +394,8 @@ So that nothing reaches a Record without evidence I can check.
 ### Story 1.6: The ledger files Findings without duplicates and keeps the stage moving forward
 
 **Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path** · **Owner:** Luis
-**PRs:** P04 `story/1.6a-finding-contract` (Finding contract and module interfaces, Luis); P10 `story/1.6b-ledger-baseline` (Ledger, Baseline mode, Luis); P13 `story/1.6c-ledger-live` (Ledger, live mode and stage rule, Luis). Cards in `development-plan.md`.
+**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, Luis). Cards in `development-plan.md`.
+**Pivot change:** Gains the gate: every `ledger.file` and apply calls `gate.evaluate` first (Story 9.3), and every write is stamped with the run identity (Story 9.1). A blocked write changes no business record and writes one audit event. Baseline mode is used only by the seed.
 
 As a Director of Diagnostics,
 I want each new piece of evidence attached to the right Diagnostic, a new Diagnostic created only when none matches, and the stage only ever advancing,
@@ -359,7 +416,8 @@ So that parallel agents never produce duplicates or move a diagnostic backwards.
 ### Story 1.7: Run a batch of Source items in parallel as one job
 
 **Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path** · **Owner:** Luis
-**PRs:** P12 `story/1.7-batch-job` (Batch job, Luis); P15 `integration/i1-pipeline` (Integration run: 50 items, Luis); P42 `integration/im-small-ingest` (Integration: screens on the small real ingest, Luis). Cards in `development-plan.md`.
+**PRs:** A10 `story/1.7-run` (The run: LangGraph over the selected set, Luis). Cards in `development-plan.md`.
+**Pivot change:** A job becomes a run with a `run_id`. It works over the selected set at lower concurrency and, for each proposed action, calls `runs.admit`, then `gate.evaluate`, then `ledger.file` or `actions.dispatch`. The routes are `POST /runs { source, set, limit, team_id }` and `GET /runs/<run_id>` (AD-14), the `jobs` collection and routes are superseded by `runs`, and no `actor` is sent: the run's identity is resolved server-side (Story 9.1). The 50-item integration run is replaced by the allowed-and-blocked loop (I1).
 
 As the team,
 I want to start a job over a named set and have the agents process it in parallel, unattended, resuming where it stopped,
@@ -380,8 +438,9 @@ So that 300 to 500 items are processed without anyone watching and without excee
 
 ### Story 1.8: Watch the agents work through a batch
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path** · **Owner:** Vlad
-**PRs:** V17 `story/1.8-jobs-page` (Jobs page, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR4, NFR5 · **Demo path** · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
+**Pivot change:** Replaced by Story 9.7 (Run console).
 
 As a judge watching the demo,
 I want a job page with a live count of processed, failed and Early research items,
@@ -399,8 +458,8 @@ So that I can see the agents working in parallel on real data.
 
 ### Story 1.9: Run the Saturday Baseline load and save a retake snapshot
 
-**Points:** 1 · **Time:** ~1.5 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path** · **Owner:** Luis
-**PRs:** P16 `story/1.9-baseline-load` (Baseline load and snapshot, Luis). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~1.5 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, AD-4, operations · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As the team,
 I want the Baseline loaded into production once, with no Alerts, and a snapshot taken right after,
@@ -416,8 +475,8 @@ So that the live demo can be retaken from the same starting point.
 
 ### Story 1.10: Scheduled scan with nobody logged in
 
-**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers · **Owner:** Vlad
-**PRs:** V12 `story/1.10-scheduled-scan` (Scheduled scan, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, NFR3, AD-16 · **Cut candidate:** the demo uses manual triggers · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want DxP to check the sources on a schedule without anyone logged in,
@@ -433,8 +492,8 @@ So that new evidence arrives without someone remembering to look.
 
 ### Story 1.11: Scan allow-listed provider websites through Tavily
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources · **Owner:** Vlad
-**PRs:** V04 `story/1.11-tavily` (Tavily provider scan, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR1, FR2, NFR4 · **Cut candidate:** the Saturday data has no web sources · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want DxP to pick up announcements from diagnostic providers' own websites,
@@ -450,8 +509,9 @@ So that a new assay or approval is noticed even before a paper or trial lists it
 
 ### Story 1.12: App shell in the DxP design
 
-**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path** · **Owner:** Luis
-**PRs:** P27 `story/1.12-app-shell` (App shell, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path** · **Owner:** Vlad
+**PRs:** B01 `story/1.12-web-shell` (Web skeleton and minimal shell: Run console, Audit, Review, Impact, Vlad). Cards in `development-plan.md`.
+**Pivot change:** Trimmed to a minimal shell with four destinations: Run console, Audit, Record and Review, Run impact. The Alerts count, the Team picker and the "your name" picker are dropped; the top bar ends with the read-only "Signed in as" chip from `GET /whoami`, and the Review count stays. The tokens, fonts, badges and state patterns stay.
 
 As a judge watching the demo,
 I want every page to share one finished look and one navigation,
@@ -462,7 +522,7 @@ So that DxP reads as a real product, not a set of pages.
 **Given** the Next.js app with shadcn/ui and Tailwind
 **When** any page loads
 **Then** the colour, radius and font tokens from `DESIGN.md` are set as CSS variables, and the three fonts load through `next/font/google`
-**And** the top bar shows the DxP logo from the UX workspace, the icon navigation in the `EXPERIENCE.md` order, the Review count from `GET /proposals?status=pending` and the Alerts count from `GET /alerts?team_id=` (each count is simply hidden while its route still returns 501, so this story does not wait for Stories 2.2 and 3.1), the Team picker and the "your name" picker
+**And** the top bar shows the DxP logo (`DESIGN.md` Logo), the icon navigation in the `EXPERIENCE.md` order, the Review count from `GET /proposals?status=pending` and the Alerts count from `GET /alerts?team_id=` (each count is simply hidden while its route still returns 501, so this story does not wait for Stories 2.2 and 3.1) and the read-only "Signed in as" chip from `GET /whoami`
 **And** the top bar is the glass panel, and the page background is the tissue field drawn in CSS, with no image file
 **And** a shared stage-track component draws nine segments: reached stages solid, Early research stages in the ink tint, future stages hollow, with a tooltip naming each stage
 **And** the shared Early research and Synthetic badges match `DESIGN.md`
@@ -475,8 +535,8 @@ When new evidence arrives about a tracked Diagnostic, the agents draft field-lev
 
 ### Story 2.1: Dry run the Held-back set against the Baseline
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path** · **Owner:** Luis
-**PRs:** P17 `story/2.1-dry-run` (Dry run of the Held-back set, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR30, build risk "Held-back items hit tracked Diagnostics" · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As the team,
 I want to know, before the demo, which held-back items will produce Proposed changes on which Diagnostics,
@@ -493,7 +553,8 @@ So that we find a matching problem while there is still time to fix it and pick 
 ### Story 2.2: Reviewer queue of Proposed changes
 
 **Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path** · **Owner:** Luis
-**PRs:** P18 `story/2.2-proposals-api` (Proposals queue API, Luis). Cards in `development-plan.md`.
+**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal, Luis). Cards in `development-plan.md`.
+**Pivot change:** Kept minimal: pending proposals for the current run, filterable by `run_id`. Ordering by Learned-rule flags is dropped with deferred Story 2.6.
 
 As a Reviewer,
 I want every pending Proposed change listed with the current value, the new value and its Evidence,
@@ -511,7 +572,8 @@ So that I can decide each one without opening the source.
 ### Story 2.3: Accept, edit or reject a Proposed change, keeping the history
 
 **Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path** · **Owner:** Luis
-**PRs:** P19 `story/2.3-decisions-api` (Decisions API, Luis). Cards in `development-plan.md`.
+**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal, Luis). Cards in `development-plan.md`.
+**Pivot change:** Kept minimal: the decider is resolved server-side from the API key, never from the client-supplied `actor`, and the decision passes `gate.evaluate` with the Reviewer's grant. Each decision is stamped per AD-17 (`run_id: null` and the Reviewer's principal); the Proposal keeps the `run_id` that filed it. The reason on a rejection is kept; drafting a rule from it is stretch Story 9.11.
 
 As a Reviewer,
 I want to accept, edit or reject each change with a reason, and to review unreviewed values on new Records,
@@ -530,8 +592,9 @@ So that no agent change reaches a tracked Record without a logged human decision
 
 ### Story 2.4: Review screen
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path** · **Owner:** Luis
-**PRs:** P29 `story/2.4-review-screen` (Review screen, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path** · **Owner:** Vlad
+**PRs:** B04 `story/2.4-record-review` (Record and Review screen, minimal, Vlad). Cards in `development-plan.md`.
+**Pivot change:** Trimmed into the minimal Record and Review screen: Accept and Reject with a reason, keyboard-reachable buttons with labels. Edit and the `j`, `k`, `a`, `e`, `r` shortcuts are optional; rule flags are dropped. No actor name is chosen or sent: the decider comes from the key (Story 2.3).
 
 As a Reviewer,
 I want one screen where I work through pending changes, see current against new with the quote, and decide each with a reason,
@@ -546,12 +609,12 @@ So that reviewing a batch takes minutes.
 **And** `j` and `k` move between rows, `a` accepts, `e` edits, `r` rejects and `Esc` cancels, and the page lists these keys
 **And** Edit and Reject require a reason before they submit
 **And** a decided row leaves the queue and the count updates
-**And** the actor name chosen in the app is sent with every decision.
+**And** no actor name is chosen or sent; the decider is resolved server-side from the key.
 
 ### Story 2.5: Value history on the Record page
 
-**Points:** 1 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR17 · **Owner:** Vlad
-**PRs:** V16 `story/2.5-value-history` (Value history, Vlad). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR17 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to see every earlier value of a field with its Evidence, who decided and when,
@@ -566,8 +629,9 @@ So that I can see how the picture of a diagnostic changed.
 
 ### Story 2.6: Draft, activate and switch off a Learned rule
 
-**Points:** 3 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path** · **Owner:** Luis
-**PRs:** P20 `story/2.6-rules-api` (Learned rules API, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR19, AD-7, AD-11 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
+**Pivot change:** Returns as stretch Story 9.11, limited to supported policy checks.
 
 As a Reviewer,
 I want DxP to turn my rejection reason into a plain-language rule, apply it once I confirm, and let me switch it off,
@@ -590,8 +654,8 @@ So that the agents stop repeating a mistake I have already corrected.
 
 ### Story 2.7: Confirm and manage Learned rules on screen
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path** · **Owner:** Vlad
-**PRs:** V19 `story/2.7-rules-screen` (Rules on screen, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR19, NFR5, NFR6 · **Demo path** · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Reviewer,
 I want to see the drafted rule straight after I reject, edit its wording, confirm it, and later switch it off,
@@ -613,8 +677,8 @@ Each Team gets a first Alert for a matching Diagnostic at any stage, then update
 
 ### Story 3.1: Raise first and update Alerts for matching Teams
 
-**Points:** 3 · **Time:** ~2.8 h (M, 7 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path** · **Owner:** Luis
-**PRs:** P21 `story/3.1-alerts-api` (Alerts API, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~2.8 h (M, 7 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR12, FR13, FR14, FR30, AD-10, AD-11 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want one Alert when a diagnostic relevant to my team first appears, at any stage, and another only when it meaningfully moves,
@@ -637,8 +701,8 @@ So that I hear about what matters and nothing else.
 
 ### Story 3.2: Alerts inbox for a Team
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path** · **Owner:** Luis
-**PRs:** P31 `story/3.2-alerts-inbox` (Alerts inbox, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR12, FR13, FR14, NFR6 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to pick my team and see its Alerts with why each matters,
@@ -654,8 +718,8 @@ So that I can act on them in one place.
 
 ### Story 3.3: Digest of Proposed changes and Alerts
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR20 · **Demo path** (the Home page in Story 6.4 shows it) · **Owner:** Vlad
-**PRs:** V18 `story/3.3-digest` (Digest, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR20 · **Demo path** (the Home page in Story 6.4 shows it) · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want a digest of what changed for my team and what is waiting for review,
@@ -670,8 +734,9 @@ So that I can catch up in one view.
 
 ### Story 3.4: Audio briefing for an Alert
 
-**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it · **Owner:** Vlad
-**PRs:** V13 `story/3.4-audio-briefing` (Audio briefing, Vlad). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR14 · **Cut candidate:** Alerts work without it · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
+**Pivot change:** Replaced by stretch Story 9.10 (spoken audit briefing).
 
 As a Director of Diagnostics,
 I want to hear an Alert read aloud,
@@ -687,8 +752,9 @@ So that I can catch up while away from a screen.
 
 ### Story 3.5: Play button on an Alert
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4 · **Owner:** Vlad
-**PRs:** V15 `story/3.5-play-button` (Play button, Vlad). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR14 · **Cut candidate:** goes with Story 3.4 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
+**Pivot change:** Replaced by stretch Story 9.10 (spoken audit briefing).
 
 As a Director of Diagnostics,
 I want a play button on each Alert,
@@ -706,8 +772,8 @@ A user describes an Intended use in plain words or filters, corrects the parsed 
 
 ### Story 4.1: Search indexes and synonym expansion
 
-**Points:** 2 · **Time:** ~4.8 h (M, 6 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15 · **Owner:** Vlad
-**PRs:** V08 `story/4.1b-synonyms` (Search index with synonyms, Vlad); V09 `story/4.1a-vector-index` (Vector Search index, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~4.8 h (M, 6 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR9, AD-8, AD-15 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want "liquid biopsy" to find ctDNA tests and searches to understand meaning, not just words,
@@ -724,8 +790,8 @@ So that I find the right diagnostics whatever I call them.
 
 ### Story 4.2: Plain-language query with a correctable parsed query
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15 · **Owner:** Vlad
-**PRs:** V11 `story/4.2-query-api` (Plain-language query API, Vlad). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, search) · **Lane:** [API] · **Covers:** FR21, FR22, AD-11, AD-15 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to type what I need in plain words and see how DxP understood it,
@@ -744,8 +810,8 @@ So that I can correct it before trusting the results.
 
 ### Story 4.3: Comparison table with Evidence inline
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention · **Owner:** Vlad
-**PRs:** V02 `story/4.3b-evidence-panel` (Comparison table: Evidence panel and keyboard, Vlad); V06 `story/4.3a-compare-table` (Comparison table and chips, Vlad). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR8, FR21, FR22, accessibility convention · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want one row per diagnostic and one column per criterion, with the quote one click away in each cell,
@@ -764,8 +830,8 @@ So that I can compare options side by side and check any cell.
 
 ### Story 4.4: Save a Shortlist against an Intended use
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14 · **Owner:** Vlad
-**PRs:** V14 `story/4.4-shortlist` (Shortlist, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR24, AD-8, AD-14 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to save chosen diagnostics as a Shortlist named after what I need them for,
@@ -780,8 +846,8 @@ So that I can come back to it and share it.
 
 ### Story 4.5: Export the comparison or Shortlist with references
 
-**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [WEB] · **Covers:** FR25, NFR11 · **Owner:** Vlad
-**PRs:** V10 `story/4.5-export` (Export, Vlad). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [WEB] · **Covers:** FR25, NFR11 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to download the table with every reference intact,
@@ -798,8 +864,8 @@ So that I can put it in a report.
 
 ### Story 4.6: Category landscape with thin Records marked
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes · **Owner:** Vlad
-**PRs:** V07 `story/4.6-categories` (Category landscape, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR29 · **Cut candidate:** judges barely notice it in three minutes · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to pick a category and see every diagnostic's full field set with the thin, stale or incomplete ones marked,
@@ -815,8 +881,8 @@ So that I know where the evidence is weak.
 
 ### Story 4.7: Add a value by hand
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6 · **Owner:** Vlad
-**PRs:** V03 `story/4.7-add-value-api` (Add a value API, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR29, AD-1, AD-6 · **Cut candidate:** goes with Story 4.6 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to add a value I know that the sources do not have,
@@ -832,8 +898,8 @@ So that everyone sees it, clearly marked as manually sourced.
 
 ### Story 4.8: Unmatched terms list for the Reviewer
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md` · **Owner:** Vlad
-**PRs:** V01 `story/4.8-terms-page` (Unmatched terms page, Vlad). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR9 · **Cut candidate:** listed in `triage-medium-low.md` · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Reviewer,
 I want to see the terms DxP could not map to a standard name,
@@ -852,7 +918,8 @@ A user explores Diagnostics, biomarkers, tumour types, trials, drugs and Provide
 ### Story 5.1: Graph API built from the ledger's edges
 
 **Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path** · **Owner:** Luis
-**PRs:** P22 `story/5.1-graph-api` (Graph API, Luis). Cards in `development-plan.md`.
+**PRs:** A15 `story/5.1-graph-api` (Graph API scoped by `run_id`, with GitHub issues as nodes, Luis). Cards in `development-plan.md`.
+**Pivot change:** Scoped by `run_id` (FR43): `GET /graph?run_id=` returns only what the run touched, with each GitHub review issue as a node (`issue:<number>`) linked to its Diagnostic. `team_id`, `POST /teams/<team_id>/seen` and the cross-Category check are deferred with Stories 5.3 and 6.4.
 
 As the web developer,
 I want nodes and links served from `edges`,
@@ -871,8 +938,9 @@ So that the Graph view never derives links itself.
 
 ### Story 5.2: Graph view with click-through
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path** · **Owner:** Luis
-**PRs:** P33 `story/5.2a-graph-component` (Graph component, Luis); P35 `story/5.2b-graph-page` (Graph page, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path** · **Owner:** Vlad
+**PRs:** B05 `story/5.2-impact-view` (Run impact view, graph by `run_id`, Vlad). Cards in `development-plan.md`.
+**Pivot change:** Becomes the run impact view (FR43): the graph for one `run_id`, with issue nodes opening the issue in GitHub. Reuse by the Home hero is deferred with Story 6.4.
 
 As a judge,
 I want to see diagnostics, biomarkers, tumour types, trials, drugs and providers as one connected graph,
@@ -891,8 +959,8 @@ So that I see how the evidence links up, not just a list.
 
 ### Story 5.3: Highlight what changed since the last visit
 
-**Points:** 2 · **Time:** ~3.2 h (S, 4 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path** · **Owner:** Luis
-**PRs:** P36 `story/5.3-changed-highlight` (Changed highlight, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~3.2 h (S, 4 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, AD-10 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want new and changed nodes and links highlighted since my last visit, and new ones to appear while I watch,
@@ -913,8 +981,8 @@ A returning Team sees what changed since its last visit, a resume summary from m
 
 ### Story 6.1: Memory adapter with two backends
 
-**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path** · **Owner:** Luis
-**PRs:** P23 `story/6.1-memory` (Memory adapter, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR19, FR28, NFR5, NFR10, AD-8 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As the team,
 I want one memory interface that runs on Atlas Agent Memory or on plain collections,
@@ -932,8 +1000,8 @@ So that the demo works whether or not the preview service behaves on the day.
 
 ### Story 6.2: Seed a synthetic past for each Team
 
-**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path** · **Owner:** Luis
-**PRs:** P24 `story/6.2-team-history` (Synthetic Team history, Luis). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR28, NFR6 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As the team,
 I want each synthetic Team to have a short history of past searches, opened Records and dismissals,
@@ -948,8 +1016,8 @@ So that the resume on camera has something real to recall.
 
 ### Story 6.3: Resume summary on return
 
-**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path** · **Owner:** Luis
-**PRs:** P25 `story/6.3-resume` (Resume summary, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR28, AD-8, AD-10 · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a returning Director of Diagnostics,
 I want DxP to tell me what changed since I was last here and what I was working on,
@@ -965,8 +1033,8 @@ So that I pick up where I left off.
 
 ### Story 6.4: Home page with the Team's network and the welcome-back panel
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path** · **Owner:** Luis
-**PRs:** P34 `story/6.4b-home-panels` (Home welcome panel, Alerts and Digest layout, Luis); P37 `story/6.4a-home-hero` (Home hero network, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR27, FR28, NFR5, `DESIGN.md` graph-led hero · **Demo path** · **Owner:** Luis · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a returning Director of Diagnostics,
 I want the home page to open on my team's network with what changed glowing, and a welcome-back panel beside it,
@@ -990,8 +1058,8 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 
 ### Story 7.1: Quick capture of a name or note
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3 · **Owner:** Vlad
-**PRs:** V05 `story/7.1-quick-capture` (Quick capture, Vlad). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** PRD section 4.9, UJ-4 · **Cut candidate:** P3 · **Owner:** Vlad · **Deferred (pivot, 13 Nov)**
+**PRs:** none — deferred.
 
 As a Director of Diagnostics,
 I want to type a diagnostic I heard about at a conference and have DxP start a Record,
@@ -1012,7 +1080,8 @@ A judge opens a working production URL at any point in the day, and at submissio
 ### Story 8.1: Deploy a walking skeleton to production
 
 **Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path** · **Owner:** Luis
-**PRs:** P06 `story/8.1-deploy-ci` (Deploy and CI, Luis). Cards in `development-plan.md`.
+**PRs:** A04 `story/8.1-deploy-sandbox` (CI, Vercel and Modal deploy against the Atlas Sandbox, Luis). Cards in `development-plan.md`.
+**Pivot change:** Deploys against the Atlas Sandbox, not our own cluster, from 11:00 to 12:00 after the contract (A01). It checks that change streams work on the sandbox tier and records the result, so Story 9.9 knows whether to use polling.
 
 As the team,
 I want the API on Modal and the web app on Vercel live in production from the first two hours, and every story merged through a checked pull request,
@@ -1032,7 +1101,8 @@ So that deploy and merge problems surface early, not at 17:00.
 ### Story 8.2: Rehearse the live run
 
 **Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path** · **Owner:** Luis
-**PRs:** P38 `integration/i2-acceptance` (Final acceptance on production data, Luis); P39 `story/8.2-rehearsal` (Rehearsal, Luis). Cards in `development-plan.md`.
+**PRs:** I2 `integration/i2-acceptance` (Final acceptance on the sandbox, every core and supporting piece, Luis); A16 `story/8.2-rehearsal` (Live-demo rehearsal and reset procedure, Luis). Cards in `development-plan.md`.
+**Pivot change:** Rehearses the 3-minute live demo on the sandbox: start a run over the selected trials, one allowed action opens a real issue, one action is blocked, Sam reviews a proposal, the run is stopped mid-flight, the audit view answers who authorised the change, the impact view shows what the run touched. Final acceptance 15:00 to 15:30, rehearsal and a written reset procedure 15:30 to 16:15. The Baseline snapshot, Learned rule and memory steps are dropped.
 
 As the team,
 I want to run the live demo end to end once before recording, then restore,
@@ -1048,8 +1118,9 @@ So that what we record works the first time.
 
 ### Story 8.3: Submission package
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path** · **Owner:** Luis
-**PRs:** P40 `story/8.3-submission` (Submission package, Luis). Cards in `development-plan.md`.
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path** · **Owner:** Vlad
+**PRs:** B07 `story/8.3-submission` (README with the prepared vs built-today table, submission text, 60-second video script, Vlad). Cards in `development-plan.md`.
+**Pivot change:** The README carries a table separating material prepared before the event from what was built on 14 November, and pitches DxP for Problem Statement 1, "Agents You Can Audit". The demo shows only what was built on the day. Submitted by 16:55: description, public repository, video, team members.
 
 As a judge,
 I want a README and description that say what was built on the day, what was prepared before, and which MongoDB capability does what,
@@ -1063,7 +1134,9 @@ So that I can judge the work fairly.
 
 ### Story 8.4: Three-minute demo video
 
-**Points:** 0 (about 30 minutes, both people; 17:15 to 17:45 unless a later deadline is confirmed) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad
+**Points:** 0 (about 30 minutes, both people; recorded 16:30 to 16:50, submitted by 16:55) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad
+**PRs:** B07 `story/8.3-submission` (60-second video script, Vlad). Recording itself has no PR. Cards in `development-plan.md`.
+**Pivot change:** Becomes the 60-second video, recorded 16:30 to 16:50 after code freeze and submitted by 16:55: 0 to 10 s the agent's scope (identity card, grant, policy set); 10 to 30 s an allowed action across two systems (the record with its quote, the issue open in GitHub); 30 to 45 s an out-of-scope action blocked before execution (no record change, no issue, one audit event); 45 to 60 s stop the run (stopping, then stopped) and show who authorised the completed action. Plus the 3-minute live demo for judging at 17:15, rehearsed in Story 8.2.
 
 As a judge,
 I want a three-minute video showing the agents, the review and learning loop, memory and the graph on real data,
@@ -1075,62 +1148,317 @@ So that I see real behaviour, not a mock-up.
 **When** the video is recorded
 **Then** it shows a live job, a Proposed change decided, a Learned rule created and flagging, a memory write and read, and the graph highlighting what changed
 **And** it names the MongoDB capability behind each behaviour, using the agreed memory wording for whichever backend ran
-**And** it is under three minutes, recorded from 17:15 to 17:45 and submitted by 17:55, unless the organisers confirm a later deadline.
+**And** the submission video is about one minute, recorded 16:30 to 16:50 and submitted by 16:55, and the separate live demo for judging at 17:15 fits in three minutes.
+
+## Epic 9: Governed agent actions
+
+Added by the pivot on 13 November for Problem Statement 1, "Agents You Can Audit". The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one audit event, one allowed action opens a real evidence-review issue in GitHub, a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". The first allowed-and-blocked loop must be green on the Atlas Sandbox by 14:30 (I1).
+
+### Story 9.1: Runs and identity
+
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR31 · **Core** · **Owner:** Luis
+**PRs:** A01 `story/1.1-contract` (Contract, including the run shapes and the frozen `runs.admit` and `runs.stop` signatures, Luis); A07 `story/9.5-runs-stop` (Runs: identity stamping, atomic admission, stop, Luis). Cards in `development-plan.md`.
+
+As a reviewer auditing the agent,
+I want every run to carry a named identity that the server sets, and every write, event and external action stamped with it,
+So that I can always tell which agent, model, prompt and policy set did something, and for whom.
+
+**Acceptance Criteria:**
+
+**Given** `POST /api/v1/runs { source, set, limit, team_id }` with the `X-DxP-Key` header
+**When** a run starts
+**Then** the server creates a `runs` document with `run_id`, agent name, model, prompt version, policy-set version, the person the agent acts for and `status: running`, all resolved server-side; none of them is taken from the request body
+**And** `GET /runs` and `GET /runs/<run_id>` return the run with its identity, status and action counts
+**And** every ledger write, every event and every action created during the run carries the `run_id` and the identity fields
+**And** a write or an action with no `run_id` is refused by `runs.admit` and never reaches the ledger or GitHub
+**And** `runs`, its index on `status` and its schema validation are created by `store.ensure_indexes()`.
+
+### Story 9.2: Grants and versioned policies in Atlas
+
+**Points:** 3 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR32, FR33 · **Core** · **Owner:** Luis
+**PRs:** A03 `story/9.2-grants-policies` (Grants and policies with schema validation, seeded; server-side actor resolution, Luis). Cards in `development-plan.md`.
+
+As a reviewer auditing the agent,
+I want the agent's authority written down in Atlas as grants and hand-written, versioned policies,
+So that what the agent may do is explicit, checkable and the same for every request.
+
+**Acceptance Criteria:**
+
+**Given** the collections `grants` (agent, team, destination, allowed actions, expiry, version) and `policies` (hand-written, versioned, the policy-set version they belong to), each with `$jsonSchema` validation
+**When** the seed runs
+**Then** the demo grant and the demo policy set are inserted, and running the seed twice changes nothing
+**And** a document that breaks the schema is rejected by Atlas, not only by application code
+**And** changing a policy creates a new version; earlier decisions keep the version they were made under
+**And** the actor and the grant are resolved server-side from the API key; a request that names a different actor in its body is still evaluated against the grant linked to its key, and a client-supplied name never confers permission
+**And** a grant past its expiry allows nothing
+**And** `GET /grants` and `GET /policies` return the current grant and policy set with their versions, for the Run console's identity card, and `GET /whoami` returns the principal resolved from the key, for the read-only "Signed in as" chip.
+
+### Story 9.3: Policy gate before every action
+
+**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR33, FR34 · **Core** · **Owner:** Luis
+**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
+
+As a reviewer auditing the agent,
+I want every proposed action checked against the grant and the policy set before anything happens,
+So that the agent cannot change a record or act in another system outside its authority.
+
+**Acceptance Criteria:**
+
+**Given** a proposed action (a ledger write or a GitHub review issue) admitted to a running run
+**When** `gate.evaluate(ctx, action)` runs
+**Then** it runs five checks in this order: the run has an active, unexpired grant; the Diagnostic is in the team scope the grant authorises; the destination and the action type match the grant; the required evidence checks passed (the quote is found and supports the value, Story 1.5); the run is still authorised to act (`running`, not stopping or stopped)
+**And** the action proceeds only if all five pass, and the decision records the policy-set version and the grant version applied
+**And** blocked action: an action that fails any check makes no business-record change and no external call; exactly one audit event is written with the run identity, the policy and grant versions and the failed check, and nothing else is written
+**And** authority: the actor and grant used by the gate are resolved server-side from the API key; a client-supplied name never confers permission
+**And** `ledger.file` and apply call `gate.evaluate` first, so no code path writes a Record without a gate decision
+**And** I1 proves it on the sandbox: one out-of-scope action is blocked before execution, leaving the Records and the GitHub repository unchanged and one audit event naming the failed check.
+
+### Story 9.4: External action: an evidence-review issue in GitHub
+
+**Points:** 5 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR35, FR36, FR37 · **Core** · **Owner:** Luis
+**PRs:** A09 `story/9.4-github-action` (GitHub review issue: action ID before send, atomic claim, read-back, reconcile, `unknown`, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
+
+As a reviewer,
+I want an allowed proposed change to open one evidence-review issue in GitHub, exactly once, even when the network fails,
+So that the agent's action in another system is real, traceable and never duplicated.
+
+**Acceptance Criteria:**
+
+**Given** an allowed action of kind `create_review_issue` and a fine-grained GitHub token restricted to `dxp-review-sandbox` (issues only), kept in `.env`
+**When** `actions.dispatch(action, ctx)` runs
+**Then** the action ID is saved in `actions` before anything is sent, and the issue body includes it with the Diagnostic, the proposed change, the Evidence quote and source link, and the `run_id`
+**And** concurrent retries: the action is claimed atomically in Atlas with one conditional update from `queued` to `dispatching`; only the worker whose update succeeds calls GitHub, so two workers retrying the same action at once produce one call and one issue
+**And** ambiguous GitHub result: if the outcome is uncertain (timeout or 5xx), the system reconciles by searching the repository for the action ID and never blindly retries creation; if the issue is found, its number and URL are stored; if it is still unresolved, the action is marked `unknown` for manual reconciliation
+**And** after a successful create, the issue is read back and its number and URL are stored on the action with the sent and observed timestamps
+**And** the token never appears in a log, a response, a trace or the repository
+**And** `POST /actions/<action_id>/reconcile` repeats the search for the action ID and never creates an issue
+**And** I1 proves it on the sandbox: one allowed action creates one real issue that opens in GitHub and links back to the run.
+
+### Story 9.5: Stop control
+
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR38 · **Core** · **Owner:** Luis
+**PRs:** A07 `story/9.5-runs-stop` (Runs: identity stamping, atomic admission, stop, Luis). Cards in `development-plan.md`.
+
+As the person the agent acts for,
+I want to stop a run at any moment and see exactly what is still finishing,
+So that I stay in control of the agent without losing track of actions already under way.
+
+**Acceptance Criteria:**
+
+**Given** a run with `status: running`
+**When** I `POST /runs/<run_id>/stop`
+**Then** stop semantics: admission is an atomic, conditional update on the run that succeeds only while it is `running`, so a stop and an admission cannot race
+**And** after the stop, `runs.admit` admits nothing new and the run shows `stopping`
+**And** actions already admitted may finish and show as in flight
+**And** the run moves to `stopped` once in-flight reaches zero, and each status change emits an event stamped with the `run_id`
+**And** stopping a run that is already stopping or stopped changes nothing and returns its current state
+**And** stretch, built only if the loop is green by 14:30: a narrowly scoped reversal of one run's Record changes, recorded as new audited actions (FR46).
+
+### Story 9.6: Audit reconstruction
+
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR39 · **Core** · **Owner:** Luis
+**PRs:** A11 `story/9.6-audit-api` (Audit API and "who authorised", Luis). Cards in `development-plan.md`.
+
+As a reviewer auditing the agent,
+I want to replay a run action by action from stored data alone,
+So that I can answer "who authorised this action, and under what authority?" without opening a log.
+
+**Acceptance Criteria:**
+
+**Given** a run with allowed, blocked and `unknown` actions
+**When** I call `GET /api/v1/runs/<run_id>/audit`
+**Then** it returns every action in order
+**And** audit reconstruction: each action keeps its inputs, Evidence reference, grant version, policy-set version, decision, timestamps (proposed, decided, sent, observed) and external result (issue number and URL, or `unknown`)
+**And** `GET /actions/<action_id>` answers "who authorised this action": the person the run acts for, the agent identity, the grant and policy-set versions and the Evidence behind it
+**And** a blocked action shows its failed check; an `unknown` action is listed, never hidden
+**And** the response carries quotes only, never PubMed `raw_text`
+**And** from the audit alone a reviewer can name the person, grant, policy version and Evidence behind one Lifecycle stage change.
+
+### Story 9.7: Run console
+
+**Points:** 3 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR40 · **Core** · **Owner:** Vlad
+**PRs:** B02 `story/9.7-run-console` (Run console, Vlad). Cards in `development-plan.md`.
+
+As the person the agent acts for,
+I want one screen showing who the agent is, what it may do, what it is doing and a stop button,
+So that I can watch the agent work and stop it.
+
+**Acceptance Criteria:**
+
+**Given** the Run console in the minimal shell (Story 1.12)
+**When** I start a run over the selected set
+**Then** the request goes through server-side Next.js code that adds `X-DxP-Key`, which never reaches the browser
+**And** an identity card shows the agent name, model, prompt version, policy-set version, the person it acts for and the grant scope
+**And** a live list of actions shows each as allowed, blocked (with the failed check named), in flight or `unknown`, with links to the GitHub issues
+**And** a stop button calls `POST /runs/<run_id>/stop`, and the run status shows `stopping`, then `stopped`
+**And** the list updates from the live feed (Story 9.9) without a page reload, and polls `GET /runs/<run_id>` until Story 9.9 lands
+**And** buttons are reachable by keyboard and labelled.
+
+### Story 9.8: Audit view
+
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR41 · **Core** · **Owner:** Vlad
+**PRs:** B03 `story/9.8-audit-view` (Audit view, Vlad). Cards in `development-plan.md`.
+
+As a reviewer auditing the agent,
+I want one run reconstructed on screen, action by action,
+So that I can answer "who authorised this" for any action in front of the judges.
+
+**Acceptance Criteria:**
+
+**Given** `GET /runs/<run_id>/audit` (Story 9.6)
+**When** I open the Audit view for a run
+**Then** each action shows in order with its decision, inputs, Evidence quote and source, grant and policy-set versions, the four timestamps and the external result (issue link, or `unknown`)
+**And** selecting an action shows "who authorised this": the person, the agent identity, the grant and the policy version
+**And** blocked actions show the failed check, and `unknown` actions are marked for manual reconciliation
+**And** the screen renders only what the API returns, applying no rule of its own.
+
+### Story 9.9: Live action feed through change streams
+
+**Points:** 2 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR42 · **Supporting** · **Owner:** Luis
+**PRs:** A12 `story/9.9-change-feed` (Change-stream feed endpoint with polling fallback, Luis). Cards in `development-plan.md`.
+
+As the person the agent acts for,
+I want actions to appear on the console as they are decided,
+So that I see the agent work in real time.
+
+**Acceptance Criteria:**
+
+**Given** the run's actions and events in Atlas
+**When** the Run console long-polls `GET /changes?after=<seq>&run_id=`
+**Then** with `DXP_FEED=change_stream` the request waits up to 25 seconds and is woken by an Atlas change stream on `events`, so new and changed actions appear within a few seconds
+**And** if change streams are not available on the Atlas Sandbox tier (checked in A04), `DXP_FEED=poll` returns at once and the console polls the same route every 2 seconds, with the same result shape
+**And** a dropped connection resumes from the last `seq` without missing or repeating an action.
+
+### Story 9.10: Spoken audit briefing
+
+**Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work and screen) · **Lane:** [API] and [WEB] · **Covers:** FR44 · **Stretch** · **Owner:** Vlad
+**PRs:** B06 `story/9.10-audio-briefing` (Stretch: spoken audit briefing with ElevenLabs, Vlad). Cards in `development-plan.md`.
+
+As a reviewer,
+I want to hear a short audit summary of a run,
+So that I can catch up on what the agent did without reading the log (and the team can enter the ElevenLabs prize).
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/v1/runs/<run_id>/audit/audio`
+**When** it is called
+**Then** ElevenLabs text to speech reads a short summary built from the run's audit (actions allowed, blocked and `unknown`, issues opened, who authorised them), with ctDNA, MRD, EGFR and NSCLC pronounced correctly
+**And** the audio is generated once per run state and cached
+**And** if ElevenLabs fails, the route returns `{ error }` with 503 and the Audit view still works
+**And** the Audit view has a play button with a loading state and an error message
+**And** built only if the loop is green by 14:30; it replaces Stories 3.4 and 3.5.
+
+### Story 9.11: Rejection drafts a policy for explicit approval
+
+**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] and [WEB] · **Covers:** FR45 · **Stretch** · **Owner:** Luis
+**PRs:** A17 `story/9.11-policy-draft` (Stretch: rejection drafts a policy for approval, Luis). Cards in `development-plan.md`.
+
+As a Reviewer,
+I want my rejection reason turned into a draft policy that I approve before it takes effect,
+So that a correction tightens the agent's authority without model prose ever becoming authority by itself.
+
+**Acceptance Criteria:**
+
+**Given** Sam rejects a proposed change with a reason
+**When** the decision is saved
+**Then** the model drafts a new policy version as structured data limited to what a policy supports (`applies_to` and a `requires` object with only `quote_found`, `supported` and `min_confidence`), returned with `status: draft`
+**And** a draft that needs a check the gate does not support is refused with a message, not stored as a policy
+**And** the draft takes effect only after explicit approval by a person principal through `POST /policies/<policy_id>/approve { version }`, which creates a new policy-set version; later gate decisions cite it
+**And** model text is never executed as authority: the gate reads only the structured policy fields
+**And** if drafting fails, the decision is still saved
+**And** built only if the loop is green by 14:30; it replaces deferred Stories 2.6 and 2.7.
 
 ## Route ownership
 
-Every route in the AD-14 table, plus the two Story 4.4 adds, is built by exactly one story.
+Every route in the AD-14 table, including the routes the pivot adds, is built by exactly one story. Route names match AD-14 exactly; if they ever differ, AD-14 wins and the owning story stays the same. Rows for deferred stories are kept for history and are not built on Saturday.
 
 | Route under `/api/v1` | Story |
 |---|---|
 | `GET /schema` | 1.1 |
 | `GET /diagnostics`, `GET /diagnostics/<dx_id>` | 1.1 |
-| `GET /changes` | 1.1 |
+| `GET /changes` (also the polling fallback for the live feed) | 1.1 |
 | `GET /teams` | 1.2 |
-| `POST /jobs`, `GET /jobs`, `GET /jobs/<job_id>` | 1.7 |
+| `POST /runs`, `GET /runs`, `GET /runs/<run_id>` | 9.1 |
+| `GET /whoami`, `GET /grants`, `GET /grants/<grant_id>`, `GET /policies` | 9.2 |
+| `POST /actions/<action_id>/reconcile` | 9.4 (supporting) |
+| `POST /runs/<run_id>/stop` | 9.5 |
+| `GET /runs/<run_id>/audit`, `GET /actions?run_id=&status=`, `GET /actions/<action_id>` (with `authorised_by`, "who authorised") | 9.6 |
+| `GET /changes?after=<seq>&run_id=` with the change-stream wake-up | 9.9 |
+| `GET /runs/<run_id>/audit/audio` | 9.10 (stretch) |
+| `POST /policies/<policy_id>/approve { version }` | 9.11 (stretch) |
+| `POST /jobs`, `GET /jobs`, `GET /jobs/<job_id>` | 1.7; superseded by the `/runs` routes since the pivot, not built |
 | `GET /proposals` | 2.2 |
 | `POST /proposals/<p_id>/decision`, `POST /diagnostics/<dx_id>/values/<value_id>/review` | 2.3 |
-| `GET /rules`, `POST /rules/<rule_id>/status` | 2.6 |
-| `GET /alerts`, `POST /alerts/<alert_id>/dismiss` | 3.1 |
-| `GET /digest` | 3.3 |
-| `GET /alerts/<alert_id>/audio` | 3.4 |
-| `GET /terms` | 4.1 |
-| `POST /query` | 4.2 |
-| `POST /shortlists`, `GET /shortlists` | 4.4 |
-| `POST /diagnostics/<dx_id>/values` | 4.7 |
-| `GET /graph` (with `focus` and `team_id`), `POST /teams/<team_id>/seen` | 5.1 |
-| `GET /teams/<team_id>` (with resume) | 6.3 |
+| `GET /rules`, `POST /rules/<rule_id>/status` | 2.6 (deferred) |
+| `GET /alerts`, `POST /alerts/<alert_id>/dismiss` | 3.1 (deferred) |
+| `GET /digest` | 3.3 (deferred) |
+| `GET /alerts/<alert_id>/audio` | 3.4 (deferred; replaced by 9.10) |
+| `GET /terms` | 4.1 (deferred) |
+| `POST /query` | 4.2 (deferred) |
+| `POST /shortlists`, `GET /shortlists` | 4.4 (deferred) |
+| `POST /diagnostics/<dx_id>/values` | 4.7 (deferred) |
+| `GET /graph` (with `run_id`) | 5.1 |
+| `GET /graph` with `focus` and `team_id`, `POST /teams/<team_id>/seen` | 5.1 (deferred parts) |
+| `GET /teams/<team_id>` (with resume) | 6.3 (deferred) |
 
 ## Points and time summary
 
-Time is the agent-time estimate from "Estimating with AI agents" above: each story's normal developer estimate times the factor for its kind of work.
+Time is the agent-time estimate from "Estimating with AI agents" above: each story's normal developer estimate times the factor for its kind of work. Kept-and-trimmed stories keep their original estimates, so the Saturday totals are an upper bound.
+
+Saturday scope after the pivot (kept, trimmed and new stories). For Epic 9, "Demo path" counts Core and Supporting stories and "Cut candidates" counts the Stretch stories.
 
 | Epic | Stories | Points | Developer estimate | Agent time | Demo path | Cut candidates |
 |---|---|---|---|---|---|---|
-| 1 Evidence-backed records from real data | 12 | 30 | 62.5 h | 26.2 h | 24.1 h | 2.1 h |
-| 2 Agents propose, the Reviewer decides, guardrails learn | 7 | 15 | 32 h | 13 h | 11.5 h | 0 h |
+| 1 Evidence-backed records from real data | 8 | 23 | 50 h | 20.6 h | 20.6 h | 0 h |
+| 2 Agents propose, the Reviewer decides, guardrails learn | 3 | 7 | 15 h | 5.9 h | 5.9 h | 0 h |
+| 3 Teams get told what matters | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| 4 Find, compare and fill gaps | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| 5 See the connections | 2 | 5 | 13 h | 8 h | 8 h | 0 h |
+| 6 Pick up where you left off | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| 7 Capture on the go | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| 8 Ship it to the judges | 4 | 5 | 8 h | 5 h | 5 h | 0 h |
+| 9 Governed agent actions | 11 | 29 | 51 h | 18.8 h | 15.2 h | 3.6 h |
+| **Total** | **28** | **69** | **137 h** | **58.3 h** | **54.7 h** | **3.6 h** |
+
+Deferred (pivot, 13 Nov), not built on Saturday:
+
+| Epic | Stories | Points | Developer estimate | Agent time | Demo path | Cut candidates |
+|---|---|---|---|---|---|---|
+| 1 Evidence-backed records from real data | 4 | 7 | 12.5 h | 5.6 h | 3.5 h | 2.1 h |
+| 2 Agents propose, the Reviewer decides, guardrails learn | 4 | 8 | 17 h | 7.1 h | 5.6 h | 0 h |
 | 3 Teams get told what matters | 5 | 9 | 20 h | 8.7 h | 6.8 h | 1.9 h |
 | 4 Find, compare and fill gaps | 8 | 16 | 37 h | 21 h | 0 h | 4.2 h |
-| 5 See the connections | 3 | 7 | 17 h | 11.2 h | 11.2 h | 0 h |
+| 5 See the connections | 1 | 2 | 4 h | 3.2 h | 3.2 h | 0 h |
 | 6 Pick up where you left off | 4 | 8 | 19 h | 10.8 h | 10.8 h | 0 h |
 | 7 Capture on the go | 1 | 2 | 4 h | 1.2 h | 0 h | 1.2 h |
-| 8 Ship it to the judges | 4 | 5 | 8 h | 5 h | 5 h | 0 h |
-| **Total** | **44** | **92** | **199.5 h** | **97.1 h** | **69.4 h** | **9.4 h** |
+| 8 Ship it to the judges | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| 9 Governed agent actions | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
+| **Total** | **27** | **52** | **113.5 h** | **57.6 h** | **29.9 h** | **9.4 h** |
 
-| Lane | Agent time |
+All 55 stories together: 121 points, 250.5 h developer estimate, 115.9 h agent time. Before the pivot the plan was 44 stories, 92 points and 97.1 h.
+
+| Lane (Saturday scope) | Agent time |
 |---|---|
-| [API] | 47.4 h |
-| [WEB] | 49.7 h |
+| [API] | 28.7 h |
+| [WEB] | 26 h |
+| [API] and [WEB] (Stories 9.10, 9.11) | 3.6 h |
+
+| Owner (Saturday scope) | Agent time |
+|---|---|
+| Luis | 35.1 h |
+| Vlad | 23.2 h |
 
 PR and merge: about 10 minutes per story, already inside the measured actuals the factors come from, so not added again.
 
-Capacity and timing for Saturday are in `build-schedule.md`: it models the team's agent capacity (44 agents, or 66 with Vlad's), the task-level dependency path, integration and review. The totals above are summed cycle times, useful for comparing parts of the plan, not for deciding what fits.
+Capacity and timing for Saturday are in `build-schedule.md` and the PR cards in `development-plan.md`, both rewritten for 10:45 to 17:00. The totals above are summed cycle times, useful for comparing parts of the plan, not for deciding what fits.
 
-Story 8.4, the video, is recorded 17:15 to 17:45 and submitted by 17:55, matching NFR8's 18:00 submission of description, repository and video, unless the organisers confirm a later deadline.
+Timing: hacking 10:45 to 17:00 on the Atlas Sandbox; contracts frozen 11:45; the first allowed-and-blocked loop green by 14:30; final acceptance by 15:30; code freeze 16:30; the 60-second video (Story 8.4) recorded 16:30 to 16:50 and submitted by 16:55 with the description, public repository and team members; the 3-minute live demo for judging at 17:15.
 
-Departures from the architecture spine introduced by these stories, to confirm or reverse when cutting:
+## Departures
 
-- Story 2.1 adds a `dry_run` job mode beside `baseline` and `live` (AD-4); it writes nothing.
-- Story 4.4 adds `POST /shortlists` and `GET /shortlists` to the AD-14 route table.
+These departures from the architecture spine were introduced by the stories before the pivot. They are now folded into the architecture spine's AD-14, which also carries the pivot's new routes and shapes; the list stays here for history.
+
+- Story 2.1 adds a `dry_run` job mode beside `baseline` and `live` (AD-4); it writes nothing. (Story 2.1 is deferred.)
+- Story 4.4 adds `POST /shortlists` and `GET /shortlists` to the AD-14 route table. (Story 4.4 is deferred.)
 - Fields added to AD-14 shapes so the screens in the UX can be built: `Job` gets `limit`, `actor`, `started_at`, `finished_at`, `counts.filed` and `active` (Story 1.7); `Alert` gets `diagnostic_name`, `lifecycle_stage`, `from_stage` and its Evidence (Story 3.1); graph nodes get `sample_type` (Story 5.1); `GET /graph` takes `team_id` (Story 5.1).
 - Story 1.1 serves `GET /changes` by plain polling; the long-poll in AD-10 is optional.
