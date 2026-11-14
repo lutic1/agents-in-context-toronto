@@ -13,7 +13,7 @@ from dxp.api.models import AvatarResponse, RunContext
 from dxp.briefing import avatar
 from dxp.briefing.avatar import HttpLiveAvatarClient, LiveAvatarError
 
-from dxp.briefing.avatar import SANDBOX_AVATAR_ID
+from dxp.briefing.avatar import DXP_AVATAR_ID, DXP_VOICE_ID, SANDBOX_AVATAR_ID, voice_id
 
 from .conftest import AVATAR_ID, FAKE_KEY, REPORT_ID, SECRET_TOKEN
 
@@ -102,14 +102,24 @@ def test_sandbox_and_duration_come_from_the_environment(api_client, reviewer, fa
     monkeypatch.setenv("LIVEAVATAR_MAX_SECONDS", "60")
     post(api_client)
     assert live.calls[0]["is_sandbox"] is True and live.calls[0]["max_session_duration"] == 60
+    # Sandbox sessions accept only the free sandbox avatar, whatever LIVEAVATAR_AVATAR_ID says.
+    assert live.calls[0]["avatar_id"] == SANDBOX_AVATAR_ID
 
 
-def test_an_unset_avatar_id_falls_back_to_the_sandbox_avatar_in_sandbox(api_client, reviewer, fake_gate, live, monkeypatch) -> None:
+def test_an_unset_avatar_id_uses_dxp_avatar_outside_sandbox(api_client, reviewer, fake_gate, live, monkeypatch) -> None:
     monkeypatch.delenv("LIVEAVATAR_AVATAR_ID")
     body = post(api_client).json()
     assert body["session_token"] == SECRET_TOKEN
-    assert live.calls == [{"avatar_id": SANDBOX_AVATAR_ID, "max_session_duration": 180, "is_sandbox": True}]
+    assert live.calls == [{"avatar_id": DXP_AVATAR_ID, "max_session_duration": 180, "is_sandbox": False}]
+    assert DXP_AVATAR_ID == "eb961787-3605-49e9-b703-3402c12ccdb4"
     assert SANDBOX_AVATAR_ID == "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a"
+
+
+def test_voice_id_defaults_to_dxp_voice_and_env_overrides(monkeypatch) -> None:
+    monkeypatch.delenv("ELEVENLABS_VOICE_ID", raising=False)
+    assert voice_id() == DXP_VOICE_ID == "4d175bd2-b678-46f6-bb01-38b2270147fa"
+    monkeypatch.setenv("ELEVENLABS_VOICE_ID", "voice-override")
+    assert voice_id() == "voice-override"
 
 
 # --- blocked -------------------------------------------------------------------

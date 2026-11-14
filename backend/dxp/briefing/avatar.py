@@ -54,11 +54,25 @@ log = logging.getLogger("dxp.briefing.avatar")
 LIVEAVATAR_API_URL = "https://api.liveavatar.com"
 TOKEN_PATH = "/v1/sessions/token"
 KEY_ENV = "LIVEAVATAR_API_KEY"  # the only secret; read here only, never logged or returned
-AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: which LiveAvatar avatar speaks (a UUID)
+AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: overrides which LiveAvatar avatar speaks (a UUID)
 SANDBOX_ENV = "LIVEAVATAR_SANDBOX"  # "true" asks for sandbox mode, which consumes no credits
 MAX_SECONDS_ENV = "LIVEAVATAR_MAX_SECONDS"
-# Verified against the sandbox on 14 Nov: used when LIVEAVATAR_AVATAR_ID is unset (always is_sandbox).
+VOICE_ID_ENV = "ELEVENLABS_VOICE_ID"  # not secret: overrides the voice for the LITE audio path
+
+# DxP's chosen stock avatar and voice (Vlad, 14 Nov). Identifiers, not secrets; env vars override them.
+DXP_AVATAR_ID = "eb961787-3605-49e9-b703-3402c12ccdb4"
+DXP_VOICE_ID = "4d175bd2-b678-46f6-bb01-38b2270147fa"
+# Verified against the sandbox on 14 Nov: sandbox sessions accept only this free avatar.
 SANDBOX_AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a"
+
+
+def voice_id() -> str:
+    """The voice the avatar speaks with (ELEVENLABS_VOICE_ID, else DxP's chosen voice).
+
+    Used by the LiveAvatar LITE audio path (proposed, pending Luis's V70 amendment); FULL mode
+    does not send it.
+    """
+    return os.environ.get(VOICE_ID_ENV, "").strip() or DXP_VOICE_ID
 
 # A short ceiling: FULL mode costs 2 credits a minute, so one session is capped at 6 credits.
 DEFAULT_MAX_SESSION_SECONDS = 180
@@ -303,10 +317,9 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
     expires_at: datetime | None = None
     reason: UnavailableReason | None = None
     api_key = os.environ.get(KEY_ENV, "").strip()
-    avatar_id = os.environ.get(AVATAR_ID_ENV, "").strip()
     is_sandbox = os.environ.get(SANDBOX_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
-    if not avatar_id:
-        avatar_id, is_sandbox = SANDBOX_AVATAR_ID, True
+    # Sandbox accepts only its own free avatar; otherwise DxP's avatar unless the env overrides it.
+    avatar_id = SANDBOX_AVATAR_ID if is_sandbox else (os.environ.get(AVATAR_ID_ENV, "").strip() or DXP_AVATAR_ID)
     max_seconds = _max_seconds()
     if not api_key:
         reason = "no_key"
