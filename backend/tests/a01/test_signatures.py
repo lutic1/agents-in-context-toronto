@@ -35,7 +35,7 @@ FROZEN = [
     ("dxp.retrieval", "memories", ["team_id", "text", "tags", "k"]),
     ("dxp.reports", "relate", ["new_item", "related_item"]),
     ("dxp.reports", "draft", ["item", "findings", "related", "memories"]),
-    ("dxp.reports", "file", ["draft", "ctx"]),
+    ("dxp.reports", "file", ["draft", "ctx", "final"]),
     ("dxp.reports", "add_related", ["report_id", "refs", "ctx"]),
     ("dxp.reports", "script_for", ["report"]),
     ("dxp.reports", "decide", ["report_id", "action", "note", "correction", "reviewer"]),

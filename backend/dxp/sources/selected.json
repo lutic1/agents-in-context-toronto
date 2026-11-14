@@ -1,0 +1,26 @@
+{
+  "//": "The selected set (D30, Story 1.4): twenty public ClinicalTrials.gov trials naming an FDA-listed lung assay, by NCT ID only. Fetched from the ClinicalTrials.gov API v2 during the event; nothing is read from data/ (D1). setup_item is fetched by python -m dxp.sources.load --nct and never loaded as prior.",
+  "setup_item": "NCT05715229",
+  "nct_ids": [
+    "NCT04712877",
+    "NCT06284317",
+    "NCT04591431",
+    "NCT05715229",
+    "NCT03248089",
+    "NCT03615443",
+    "NCT05361564",
+    "NCT04265534",
+    "NCT04698681",
+    "NCT03576937",
+    "NCT04624373",
+    "NCT04566614",
+    "NCT06918782",
+    "NCT05846594",
+    "NCT04223596",
+    "NCT04087473",
+    "NCT03199651",
+    "NCT03521154",
+    "NCT06146920",
+    "NCT05935384"
+  ]
+}
