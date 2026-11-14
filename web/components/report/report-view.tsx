@@ -112,7 +112,7 @@ export function ReportView({ reportId }: { reportId: string }) {
             <h2 id="guide-heading" className="text-heading">
               Ask the evidence guide
             </h2>
-            <InterviewWorkspace reportId={report.id} stacked allowVoice={false} />
+            <InterviewWorkspace reportId={report.id} stacked allowVoice={false} subtitle={report.headline} />
           </section>
         ) : null}
 

@@ -64,7 +64,7 @@ export function MemoriesUsed({ memories }: { memories: MemoryUse[] }) {
                   ) : null}
                   {score ? (
                     <span className="text-caption text-muted-foreground">
-                      Match <span className="text-identifier">{score}</span> (similarity, not evidence)
+                      Retrieval score <span className="text-identifier">{score}</span> (similarity, not evidence)
                     </span>
                   ) : null}
                 </div>
@@ -74,11 +74,11 @@ export function MemoriesUsed({ memories }: { memories: MemoryUse[] }) {
                     <p className="text-body m-0 font-semibold">
                       Wording changed because of {shortId(m.memory_id)} ({author})
                     </p>
-                    <p className="text-caption m-0 text-muted-foreground">{m.effect.target}</p>
+                    <p className="text-caption m-0 text-muted-foreground">{effectTarget(m.effect.target, m.effect.before)}</p>
                     <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
                       <dt className="text-caption font-semibold">Before</dt>
                       <dd className="text-body m-0 break-words text-muted-foreground line-through decoration-1">
-                        {m.effect.before}
+                        {m.effect.before?.trim() ? m.effect.before : NOTHING_BEFORE}
                       </dd>
                       <dt className="text-caption font-semibold">After</dt>
                       <dd className="text-body m-0 break-words">{m.effect.after}</dd>
@@ -94,4 +94,13 @@ export function MemoriesUsed({ memories }: { memories: MemoryUse[] }) {
       )}
     </Section>
   );
+}
+
+/** Shown when the memory added a sentence, so there was nothing before it. */
+export const NOTHING_BEFORE = "(nothing — sentence added)";
+
+/** The changed part in plain words: the raw "sentence" kind becomes "Sentence added" or "Sentence changed". */
+export function effectTarget(target: string, before: string | null | undefined): string {
+  if (target.trim().toLowerCase() === "sentence") return before?.trim() ? "Sentence changed" : "Sentence added";
+  return target;
 }
