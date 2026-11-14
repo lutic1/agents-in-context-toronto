@@ -90,11 +90,11 @@ export function displayName(raw: string): string {
     : trimmed;
 }
 
-/** Initials for the "Signed in as" avatar: up to two letters. */
+/** Initials for the "Signed in as" avatar: one letter for a single name, two for more. */
 export function initials(name: string): string {
   const parts = name.trim().split(/[\s._-]+/).filter(Boolean);
   if (parts.length === 0) return "?";
-  const letters = parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[1][0];
+  const letters = parts.length === 1 ? parts[0][0] : parts[0][0] + parts[1][0];
   return letters.toUpperCase();
 }
 

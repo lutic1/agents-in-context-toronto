@@ -39,10 +39,16 @@ export function Notice({
 }
 
 /** The inline state for an unreachable API. The toast says it once; the page says it where the data would be. */
-export function ApiUnreachableNotice({ className }: { className?: string }) {
+export function ApiUnreachableNotice({
+  className,
+  children = "The API did not answer. Nothing here is lost; reload this page once it is back.",
+}: {
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <Notice icon={CloudOff} title="Couldn't reach the API" role="alert" className={className}>
-      The page will fill in by itself when the API answers. Nothing here is lost.
+      {children}
     </Notice>
   );
 }
