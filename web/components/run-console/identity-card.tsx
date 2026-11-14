@@ -142,7 +142,7 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
         </Field>
 
         {!followUp ? (
-          <Field label="Scan cursor" className="sm:col-span-2 lg:col-span-3">
+          <Field label="Short-term memory: scan cursor (in Atlas)" className="sm:col-span-2 lg:col-span-3">
             {run.scan?.cursor_from ? (
               <>
                 Scanning trials updated since {formatDate(run.scan.cursor_from)}
@@ -162,15 +162,17 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
       {run.active.length > 0 && (run.status === "running" || run.status === "stopping") ? (
         <p className="mt-4 flex items-start gap-2 text-table text-muted-foreground">
           <ShieldCheck className="mt-0.5 size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
-          <span>
-            Working on{" "}
-            {run.active.map((a, i) => (
-              <span key={`${a.source_ref}:${a.step}`}>
-                {i > 0 ? ", " : ""}
-                <span className="text-identifier">{a.source_ref.replace(/^[^:]*:/, "")}</span> ({a.step.replace(/_/g, " ")})
+          <span className="flex flex-wrap items-center gap-2">
+            <span>Working on</span>
+            {run.active.map((a) => (
+              <span
+                key={`${a.source_ref}:${a.step}`}
+                className="inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-caption text-foreground"
+              >
+                Agent: {a.step.replace(/_/g, " ")} ·{" "}
+                <span className="text-identifier">{a.source_ref.replace(/^[^:]*:/, "")}</span>
               </span>
             ))}
-            .
           </span>
         </p>
       ) : null}

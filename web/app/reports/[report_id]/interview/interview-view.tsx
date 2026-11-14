@@ -18,6 +18,20 @@ import { askQuestion, QUESTION_LIMIT, VOICE_LABEL, type TurnOutcome } from "./in
 import { TurnView, type Turn } from "./turn";
 import { VoiceInput } from "./voice-input";
 
+/** Suggested questions: a click fills the box and asks. */
+const SUGGESTIONS = [
+  "What is this study designed to do?",
+  "What is the trial's recruitment status?",
+  "Has this trial posted any results?",
+];
+
+/** The answer text shown on the page for this outcome, which the avatar reads aloud; null when there is none to read. */
+function spokenText(outcome: TurnOutcome): string | null {
+  if (outcome.kind !== "answered" && outcome.kind !== "not_in_record" && outcome.kind !== "refused_medical") return null;
+  const text = outcome.response.answer;
+  return typeof text === "string" && text.trim().length > 0 ? text : null;
+}
+
 /** Announced to screen readers when a question finishes. */
 function announcement(outcome: TurnOutcome): string {
   switch (outcome.kind) {
@@ -77,8 +91,11 @@ export function InterviewWorkspace({
   reportId,
   stacked = false,
   allowVoice = false,
+  subtitle,
 }: {
   reportId: string;
+  /** Which report this is, shown in the avatar card header. */
+  subtitle?: string;
   stacked?: boolean;
   allowVoice?: boolean;
 }) {
@@ -98,7 +115,12 @@ export function InterviewWorkspace({
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fieldId = useId();
 
-  const onSpeaker = useCallback((fn: ((text: string) => void) | null) => setSpeak(() => fn), []);
+  // The current speaker, read when an answer lands (the answer may arrive after the closure that asked was made).
+  const speakRef = useRef<((text: string) => void) | null>(null);
+  const onSpeaker = useCallback((fn: ((text: string) => void) | null) => {
+    speakRef.current = fn;
+    setSpeak(() => fn);
+  }, []);
 
   // A transcript is only ever put in the box for the user to read and edit. It is never submitted from here.
   const onTranscript = useCallback((text: string) => {
@@ -114,8 +136,8 @@ export function InterviewWorkspace({
     field.setSelectionRange(field.value.length, field.value.length);
   }, [focusTick]);
 
-  async function submit() {
-    const text = question.trim();
+  async function submit(asked?: string) {
+    const text = (asked ?? question).trim();
     if (!text || pending) return;
     counter.current += 1;
     const id = `turn-${counter.current}`;
@@ -130,12 +152,15 @@ export function InterviewWorkspace({
     setTurns((current) => current.map((t) => (t.id === id ? { ...t, outcome } : t)));
     setAnnounce(announcement(outcome));
     setPending(false);
+    // When the avatar session is ready it reads the answer shown on the page aloud, the same as "Speak with avatar".
+    const spoken = spokenText(outcome);
+    if (spoken && speakRef.current) speakRef.current(spoken);
   }
 
   return (
     <div className={avatarOn && !stacked ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
       {/* Stacked: the avatar and its Engage button come first, the ask box and answers follow. */}
-      {avatarOn && stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
+      {avatarOn && stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} subtitle={subtitle} answering={pending} /> : null}
       <div className="flex min-w-0 flex-col gap-6">
         <form
           className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5 shadow-sm"
@@ -165,6 +190,23 @@ export function InterviewWorkspace({
           <p id={`${fieldId}-help`} className="text-caption text-muted-foreground">
             {voiceOn ? "Type or record your question, then read and edit it before you ask. " : "Typed questions only. "}Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
           </p>
+          <div className="flex flex-wrap gap-2" aria-label="Suggested questions">
+            {SUGGESTIONS.map((suggestion) => (
+              <Button
+                key={suggestion}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  setQuestion(suggestion);
+                  void submit(suggestion);
+                }}
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
           {voiceOn ? (
             <VoiceInput
               reportId={reportId}
@@ -202,7 +244,7 @@ export function InterviewWorkspace({
           </ol>
         )}
       </div>
-      {avatarOn && !stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
+      {avatarOn && !stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} subtitle={subtitle} answering={pending} /> : null}
     </div>
   );
 }

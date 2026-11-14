@@ -29,8 +29,14 @@ export function AvatarPanel({
   reportId,
   onSpeaker,
   onBusyChange,
+  subtitle,
+  answering = false,
 }: {
   reportId: string;
+  /** Which report this is, e.g. its headline, shown under the heading. */
+  subtitle?: string;
+  /** True while a question is being answered, so the status line can say so. */
+  answering?: boolean;
   /** Hands the page a `speak(text)` while a session is ready, and null otherwise. */
   onSpeaker: (speak: ((text: string) => void) | null) => void;
   /** True while the session is starting or speaking. The page turns off its own recorder then (V73). */
@@ -129,6 +135,7 @@ export function AvatarPanel({
         <Video className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
         DxP&apos;s evidence guide
       </h2>
+      {subtitle ? <p className="mt-1 text-body text-muted-foreground">{subtitle}</p> : null}
       <p className="mt-1 flex items-start gap-2 text-caption text-muted-foreground">
         <MicOff className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
         <span>
@@ -146,9 +153,9 @@ export function AvatarPanel({
           className={phase === "ready" ? "aspect-video w-full" : "hidden"}
         />
         {phase !== "ready" ? (
-          <div className="flex aspect-video items-center justify-center p-4 text-center text-caption text-muted-foreground">
+          <div className="flex h-[240px] items-center justify-center p-4 text-center text-caption text-muted-foreground">
             {phase === "starting" ? "Starting the avatar. The answers on this page are usable now." : null}
-            {phase === "idle" ? "Press Engage to start the avatar and hear an answer read aloud." : null}
+            {phase === "idle" ? "Press Engage to start the avatar. It reads each answer aloud." : null}
             {phase === "ended" ? "Avatar session ended. The answers are still here as text." : null}
             {phase === "unavailable" ? "Avatar unavailable. The answers are shown as text; nothing else is affected." : null}
           </div>
@@ -167,7 +174,13 @@ export function AvatarPanel({
           </Button>
         )}
         <p role="status" aria-live="polite" className="text-caption text-muted-foreground">
-          {phase === "ready" ? (speaking ? "The avatar is speaking." : "Ready. Use Speak with avatar under an answer.") : null}
+          {phase === "ready"
+            ? speaking
+              ? "The avatar is speaking."
+              : answering
+                ? "Finding the answer in the record…"
+                : "Ready. Ask a question and the avatar reads the answer aloud."
+            : null}
         </p>
       </div>
       {note ? (

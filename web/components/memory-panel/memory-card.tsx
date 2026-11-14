@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { errorText } from "@/components/report-decision/errors";
 import { useRefreshRelated } from "@/components/report-decision/refresh";
 import { useActions } from "@/components/report-decision/who";
+import { effectTarget, NOTHING_BEFORE } from "@/components/report/memories-used";
 
 type Memory = components["schemas"]["Memory"];
 type MemoryUse = components["schemas"]["MemoryUse"];
@@ -201,11 +202,13 @@ function Effect({ use }: { use: MemoryUse }) {
   return (
     <div className="flex flex-col gap-1 rounded-sm bg-muted p-2 text-caption">
       <p className="font-medium">
-        Wording changed because of {shortId(use.memory_id)} ({displayName(use.author)}): {use.effect.target}
+        Wording changed because of {shortId(use.memory_id)} ({displayName(use.author)}): {effectTarget(use.effect.target, use.effect.before)}
       </p>
       <p>
         <span className="font-medium">Before:</span>{" "}
-        <span className="text-muted-foreground line-through decoration-1">{use.effect.before}</span>
+        <span className="text-muted-foreground line-through decoration-1">
+          {use.effect.before?.trim() ? use.effect.before : NOTHING_BEFORE}
+        </span>
       </p>
       <p>
         <span className="font-medium">After:</span> <span>{use.effect.after}</span>
