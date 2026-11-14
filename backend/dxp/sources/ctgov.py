@@ -346,18 +346,18 @@ def parse_study(study: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def order_refs(records: Sequence[dict[str, Any]], anchor: str | None = None) -> list[str]:
-    """Source refs by `last_update_post_date`, newest first, ties by NCT ID; `anchor` (an NCT ID
-    or source ref) first when present (DXP_DEMO_PACE)."""
+def order_refs(records: Sequence[dict[str, Any]], priority: Sequence[str] = ()) -> list[str]:
+    """The scope's `priority_refs` (NCT IDs or source refs) that were found, in their listed order,
+    then the rest by `last_update_post_date`, newest first, ties by NCT ID."""
     ordered = sorted(records, key=lambda r: r.get("nct_id") or "")
     ordered = sorted(ordered, key=lambda r: r.get("last_update_post_date") or "", reverse=True)
     refs: list[str] = []
     for r in ordered:
         if r["source_ref"] not in refs:
             refs.append(r["source_ref"])
-    if anchor:
-        a = anchor if anchor.startswith(SOURCE + ":") else source_ref(anchor.strip().upper())
-        if a in refs:
-            refs.remove(a)
-            refs.insert(0, a)
-    return refs
+    first: list[str] = []
+    for p in priority:
+        ref = p if p.startswith(SOURCE + ":") else source_ref(p.strip().upper())
+        if ref in refs and ref not in first:
+            first.append(ref)
+    return first + [r for r in refs if r not in first]

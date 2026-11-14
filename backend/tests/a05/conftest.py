@@ -49,7 +49,7 @@ def study(
     }
 
 
-def scope_doc(cursor: str = "2026-11-11", **extra: Any) -> dict[str, Any]:
+def scope_doc(cursor: str = "2026-11-11", **extra: Any) -> dict[str, Any]:  # A03's seed shape
     doc = {
         "_id": SCOPE_ID,
         "name": "Plasma ctDNA genotyping assays in NSCLC",
@@ -57,6 +57,8 @@ def scope_doc(cursor: str = "2026-11-11", **extra: Any) -> dict[str, Any]:
         "assays": list(ASSAYS),
         "aliases": ["ctDNA", "cell-free DNA", "liquid biopsy"],
         "condition": "non-small cell lung cancer",
+        "condition_aliases": ["NSCLC"],
+        "priority_refs": ["NCT04712877"],
         "source": "clinicaltrials.gov",
         "cursor": {"last_update_post_date": cursor, "set_at": None, "set_by_run_id": None},
         "version": 1,
@@ -152,6 +154,10 @@ class FakeRuns:
     admitting: bool = True
     admitted: list[str] = field(default_factory=list)
     released: list[str] = field(default_factory=list)
+    scans: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    async def record_scan(self, run_id: str, scan: dict[str, Any]) -> None:
+        self.scans[run_id] = scan
 
     async def admit(self, run_id: str, item_key: str) -> Admission | None:
         if not self.admitting:
@@ -168,7 +174,29 @@ def fake_runs(monkeypatch: pytest.MonkeyPatch) -> FakeRuns:
     fake = FakeRuns()
     monkeypatch.setattr(scan_mod.runs, "admit", fake.admit)
     monkeypatch.setattr(scan_mod.runs, "release", fake.release)
+    monkeypatch.setattr(scan_mod.runs, "record_scan", fake.record_scan, raising=False)
     return fake
+
+
+_NEXT = {"dispatching": {"queued"}, "delivered": {"dispatching"}, "failed": {"dispatching"}}
+
+
+@dataclass
+class FakeActions:
+    """Stands in for actions.record_source_result (A09): a status change conditional on the
+    current status, as AD-20 requires; records every call."""
+
+    db: Any
+    calls: list[tuple[str, str, Any]] = field(default_factory=list)
+
+    async def record_source_result(self, action_id: str, *, status: str, result: dict[str, Any] | None) -> bool:
+        self.calls.append((action_id, status, result))
+        for prev in _NEXT[status]:
+            res = await self.db["actions"].update_one(
+                {"_id": action_id, "status": prev}, {"$set": {"status": status, "result": result}})
+            if res.matched_count:
+                return True
+        return False
 
 
 @dataclass
@@ -204,6 +232,13 @@ def scan_gate(monkeypatch: pytest.MonkeyPatch, fakedb: FakeDB) -> ScanGate:
     gate = ScanGate(fakedb)
     monkeypatch.setattr(scan_mod.gate, "evaluate", gate.evaluate)
     return gate
+
+
+@pytest.fixture
+def fake_actions(monkeypatch: pytest.MonkeyPatch, fakedb: FakeDB) -> FakeActions:
+    fake = FakeActions(fakedb)
+    monkeypatch.setattr(scan_mod.actions, "record_source_result", fake.record_source_result, raising=False)
+    return fake
 
 
 def run_ctx(run_id: str = RUN_ID) -> RunContext:

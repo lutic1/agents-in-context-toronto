@@ -11,20 +11,19 @@ from .conftest import RUN_ID, SCOPE_ID, scan_mod, scope_doc, study
 
 def setup_results(ctgov_fake) -> None:
     ctgov_fake.pages = [[
-        study("NCT00000002", "2026-11-13"),
+        study("NCT02498613", "2026-11-13"),
         study("NCT04712877", "2026-11-12", interventions=[
             {"type": "DIAGNOSTIC_TEST", "name": "ctDNA, tumor NGS", "otherNames": ["FoundationOne CDx", "FoundationOne Liquid"]}]),
         study("NCT00000003", "2026-11-11"),
     ]]
 
 
-async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
-    monkeypatch.setenv("DXP_DEMO_ANCHOR", "NCT04712877")
+async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     setup_results(ctgov_fake)
     refs = await discovery.scan(SCOPE_ID, discover_run)
 
-    # anchor first, then newest first
-    assert refs == ["clinicaltrials.gov:NCT04712877", "clinicaltrials.gov:NCT00000002", "clinicaltrials.gov:NCT00000003"]
+    # priority_refs first even though NCT02498613 is newer, then newest first
+    assert refs == ["clinicaltrials.gov:NCT04712877", "clinicaltrials.gov:NCT02498613", "clinicaltrials.gov:NCT00000003"]
     # one admission, item key with the scan target
     assert fake_runs.admitted == [f"{SCOPE_ID}|search_source|-|{SCOPE_ID}|2026-11-11"]
     assert fake_runs.released == ["adm_0001"]
@@ -38,7 +37,7 @@ async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_run
     # the query (V2)
     (req,) = ctgov_fake.searches
     assert req.url.params["filter.advanced"] == "AREA[LastUpdatePostDate]RANGE[2026-11-11,MAX]"
-    assert req.url.params["query.cond"] == "non-small cell lung cancer"
+    assert req.url.params["query.cond"] == '"non-small cell lung cancer" OR "NSCLC"'
     assert req.url.params["query.term"].startswith('"FoundationOne Liquid CDx" OR "Guardant360 CDx"')
     assert '"ctDNA"' in req.url.params["query.term"]
     # items: discovered, in scope, versioned, otherNames verbatim
@@ -56,14 +55,17 @@ async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_run
     assert action_doc["status"] == "delivered"
     assert action_doc["result"] == {"http_status": 200, "cursor_from": "2026-11-11", "cursor_to": "2026-11-13",
                                     "source_refs": refs, "count": 3}
-    scan = fakedb["runs"].docs[RUN_ID]["scan"]
+    scan = fake_runs.scans[RUN_ID]  # through runs.record_scan, never a direct runs write
     assert scan["cursor_from"] == "2026-11-11" and scan["cursor_to"] == "2026-11-13" and scan["source_refs"] == refs
+    assert scan["order"] == {"rule": "priority_refs first, then last_update_post_date descending",
+                             "priority_refs": ["NCT04712877"]}
+    assert "scan" not in fakedb["runs"].docs[RUN_ID]
+    assert [c[1] for c in fake_actions.calls] == ["dispatching", "delivered"]
     (fin,) = events.of("scan_finished")
     assert fin["cursor_from"] == "2026-11-11" and fin["cursor_to"] == "2026-11-13" and fin["cursor_advanced"]
-    assert [e["status"] for e in events.of("action_status_changed")] == ["dispatching", "delivered"]
 
 
-async def test_blocked_scan_makes_no_request(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_blocked_scan_makes_no_request(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     scan_gate.blocked = True
     setup_results(ctgov_fake)
     assert await discovery.scan(SCOPE_ID, discover_run) == []
@@ -75,13 +77,13 @@ async def test_blocked_scan_makes_no_request(fakedb, events, fake_runs, scan_gat
     assert fake_runs.released == ["adm_0001"]
 
 
-async def test_not_admitted_does_nothing(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_not_admitted_does_nothing(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     fake_runs.admitting = False
     assert await discovery.scan(SCOPE_ID, discover_run) == []
     assert scan_gate.calls == [] and ctgov_fake.requests == []
 
 
-async def test_failed_scan_leaves_cursor(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_failed_scan_leaves_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     ctgov_fake.status = 500
     with pytest.raises(scan_mod.ScanError):
         await discovery.scan(SCOPE_ID, discover_run)
@@ -91,7 +93,7 @@ async def test_failed_scan_leaves_cursor(fakedb, events, fake_runs, scan_gate, c
     assert fake_runs.released == ["adm_0001"]
 
 
-async def test_stopped_run_leaves_cursor(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_stopped_run_leaves_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     setup_results(ctgov_fake)
     fakedb["runs"].docs[RUN_ID]["status"] = "stopping"
     refs = await discovery.scan(SCOPE_ID, discover_run)
@@ -100,15 +102,15 @@ async def test_stopped_run_leaves_cursor(fakedb, events, fake_runs, scan_gate, c
     assert fakedb["actions"].docs["act_test000000000001"]["result"]["cursor_to"] == "2026-11-11"
 
 
-async def test_incomplete_scan_leaves_cursor(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
-    ctgov_fake.pages = [[study("NCT00000002", "2026-11-13")], [study("NCT00000003", "2026-11-11")]]
+async def test_incomplete_scan_leaves_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
+    ctgov_fake.pages = [[study("NCT02498613", "2026-11-13")], [study("NCT00000003", "2026-11-11")]]
     monkeypatch.setattr(scan_mod.ctgov, "MAX_PAGES", 1)
     outcome = await scan_mod.run_scan(SCOPE_ID, discover_run)
     assert not outcome.complete and not outcome.cursor_advanced
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
 
 
-async def test_cursor_update_is_conditional_on_version(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_cursor_update_is_conditional_on_version(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     fakedb["research_scopes"].docs[SCOPE_ID] = scope_doc(version=3)
     setup_results(ctgov_fake)
     real_find = fakedb["research_scopes"].find_one
@@ -124,7 +126,7 @@ async def test_cursor_update_is_conditional_on_version(fakedb, events, fake_runs
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
 
 
-async def test_changed_known_trial_is_a_new_version(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
+async def test_changed_known_trial_is_a_new_version(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
     from dxp.sources import ctgov, load
 
     first = await load.store_record(ctgov.parse_study(study("NCT04712877", "2026-10-01")), window="prior", set_name="prior")
@@ -137,7 +139,7 @@ async def test_changed_known_trial_is_a_new_version(fakedb, events, fake_runs, s
     assert fakedb["source_versions"].docs[first.version_id] == first_doc
 
 
-async def test_repeat_of_the_same_step_does_not_query_again(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
+async def test_repeat_of_the_same_step_does_not_query_again(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run, monkeypatch) -> None:
     setup_results(ctgov_fake)
     refs = await discovery.scan(SCOPE_ID, discover_run)
 
@@ -151,12 +153,28 @@ async def test_repeat_of_the_same_step_does_not_query_again(fakedb, events, fake
     assert len(ctgov_fake.requests) == before
 
 
-async def test_condition_aliases_widen_the_condition(fakedb, events, fake_runs, scan_gate, ctgov_fake, discover_run) -> None:
-    fakedb["research_scopes"].docs[SCOPE_ID] = scope_doc(condition_aliases=["NSCLC"])
+async def test_without_condition_aliases_the_condition_is_plain(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    doc = scope_doc()
+    doc.pop("condition_aliases")
+    fakedb["research_scopes"].docs[SCOPE_ID] = doc
     setup_results(ctgov_fake)
     await discovery.scan(SCOPE_ID, discover_run)
-    assert ctgov_fake.searches[0].url.params["query.cond"] == '"non-small cell lung cancer" OR "NSCLC"'
+    assert ctgov_fake.searches[0].url.params["query.cond"] == "non-small cell lung cancer"
+
+
+async def test_gate_judges_the_plain_condition(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    setup_results(ctgov_fake)
+    await discovery.scan(SCOPE_ID, discover_run)
     assert scan_gate.calls[0][1].inputs["query"]["condition"] == "non-small cell lung cancer"
+
+
+async def test_without_priority_refs_newest_first(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    doc = scope_doc()
+    doc.pop("priority_refs")
+    fakedb["research_scopes"].docs[SCOPE_ID] = doc
+    setup_results(ctgov_fake)
+    refs = await discovery.scan(SCOPE_ID, discover_run)
+    assert refs[0] == "clinicaltrials.gov:NCT02498613"
 
 
 async def test_scan_needs_a_run(fakedb, discover_run) -> None:

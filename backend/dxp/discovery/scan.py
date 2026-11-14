@@ -23,17 +23,21 @@
 
 `search_source` is a read: a timeout or error is `failed` and raises `ScanError`; the cursor is
 unchanged. The returned source refs are in last-update order, newest first, with the verified
-anchor first when `DXP_DEMO_ANCHOR` names it (DXP_DEMO_PACE).
+scope's `priority_refs` first (the anchor verified at 10:45, for DXP_DEMO_PACE); the order used is
+recorded in `Run.scan`.
+
+Writers: `runs.scan` only through `runs.record_scan()` (A07+A11) and the action's status and result
+only through `actions.record_source_result()` (A09); this module writes source items, source
+versions and the scope cursor, and emits `scan_finished`.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from dxp import gate, runs, store
+from dxp import actions, gate, runs, store
 from dxp.api.models import ProposedAction, RunContext, Target
 from dxp.sources import ctgov
 from dxp.sources import load as source_load
@@ -41,7 +45,7 @@ from dxp.sources import load as source_load
 DESTINATION = "source:clinicaltrials.gov"
 KIND = "search_source"
 SCOPES = "research_scopes"
-ANCHOR_ENV = "DXP_DEMO_ANCHOR"
+ORDER_RULE = "priority_refs first, then last_update_post_date descending"
 
 
 class ScanError(RuntimeError):
@@ -123,33 +127,18 @@ async def _emit(type_: str, dedupe_key: str, ctx: RunContext, **fields: Any) -> 
     )
 
 
-async def _claim(action_id: str, ctx: RunContext, decision_id: str) -> dict[str, Any] | None:
-    """`queued` -> `dispatching`. Returns None when claimed; otherwise the existing action."""
-    actions = _db()["actions"]
-    res = await actions.update_one(
-        {"_id": action_id, "status": "queued"}, {"$set": {"status": "dispatching", "claimed_at": _now()}}
-    )
-    if res.matched_count:
-        await _emit(
-            "action_status_changed", f"action_status_changed|{action_id}|dispatching", ctx,
-            decision_id=decision_id, action_id=action_id, status="dispatching",
-        )
+async def _claim(action_id: str) -> dict[str, Any] | None:
+    """`queued` -> `dispatching` through the actions module (A09, AD-20). Returns None when this
+    worker claimed it; otherwise the existing action (read only)."""
+    if await actions.record_source_result(action_id, status="dispatching", result=None):
         return None
-    return await actions.find_one({"_id": action_id}) or {"_id": action_id, "status": "missing"}
+    return await _db()["actions"].find_one({"_id": action_id}) or {"_id": action_id, "status": "missing"}
 
 
-async def _settle(action_id: str | None, status: str, result: dict[str, Any], ctx: RunContext, decision_id: str | None) -> None:
-    if not action_id:
-        return
-    res = await _db()["actions"].update_one(
-        {"_id": action_id, "status": "dispatching"},
-        {"$set": {"status": status, "result": result, "observed_at": _now()}},
-    )
-    if res.matched_count:
-        await _emit(
-            "action_status_changed", f"action_status_changed|{action_id}|{status}", ctx,
-            decision_id=decision_id, action_id=action_id, status=status,
-        )
+async def _settle(action_id: str | None, status: str, result: dict[str, Any]) -> None:
+    """`dispatching` -> `delivered` | `failed` with the observed result, through the actions module."""
+    if action_id:
+        await actions.record_source_result(action_id, status=status, result=result)
 
 
 async def _run_status(run_id: str | None) -> str | None:
@@ -176,7 +165,6 @@ async def run_scan(
     *,
     max_results: int | None = None,
     advance_cursor: bool = True,
-    anchor: str | None = None,
 ) -> ScanOutcome:
     """The scan with its outcome. `max_results` caps the records (a task's grant limit, A25, sent to
     the gate as the requested count); `advance_cursor=False` searches without moving the cursor."""
@@ -226,7 +214,7 @@ async def run_scan(
             return outcome  # the gate recorded the Decision and action_blocked; no request
 
         if outcome.action_id:
-            existing = await _claim(outcome.action_id, ctx, decision.id)
+            existing = await _claim(outcome.action_id)
             if existing is not None:
                 # A repeat of the same run step: never query twice.
                 result = existing.get("result") or {}
@@ -256,11 +244,11 @@ async def run_scan(
                 outcome.action_id, "failed",
                 {"http_status": getattr(exc, "http_status", None), "cursor_from": cursor, "cursor_to": cursor,
                  "source_refs": [], "count": 0},
-                ctx, decision.id,
             )
             raise ScanError(f"scan of {scope_id} failed: {type(exc).__name__}") from exc
 
-        outcome.source_refs = ctgov.order_refs(records, anchor or os.environ.get(ANCHOR_ENV) or None)
+        priority = _strings(scope.get("priority_refs"))
+        outcome.source_refs = ctgov.order_refs(records, priority)
         seen = max((r["last_update_post_date"] for r in records if r.get("last_update_post_date")), default=None)
         new_cursor = max(cursor, seen) if seen else cursor
 
@@ -284,12 +272,12 @@ async def run_scan(
             outcome.action_id, "delivered",
             {"http_status": outcome.http_status, "cursor_from": cursor, "cursor_to": outcome.cursor_to,
              "source_refs": outcome.source_refs, "count": len(outcome.source_refs)},
-            ctx, decision.id,
         )
-        await _db()["runs"].update_one(
-            {"_id": ctx.run_id},
-            {"$set": {"scan": {"cursor_from": cursor, "cursor_to": outcome.cursor_to, "query": query,
-                                "source_refs": outcome.source_refs}}},
+        await runs.record_scan(
+            ctx.run_id,
+            {"scope_id": scope_id, "cursor_from": cursor, "cursor_to": outcome.cursor_to, "query": query,
+             "source_refs": outcome.source_refs, "order": {"rule": ORDER_RULE, "priority_refs": priority},
+             "complete": outcome.complete, "cursor_advanced": outcome.cursor_advanced},
         )
         await _emit(
             "scan_finished", f"scan_finished|{ctx.run_id}|{scope_id}|{cursor}", ctx,

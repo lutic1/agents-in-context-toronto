@@ -73,4 +73,5 @@ def test_order_newest_first_with_anchor_first() -> None:
             [("NCT00000001", "2026-11-02"), ("NCT00000002", "2026-11-13"), ("NCT04712877", "2026-11-12")]]
     assert ctgov.order_refs(recs) == [
         "clinicaltrials.gov:NCT00000002", "clinicaltrials.gov:NCT04712877", "clinicaltrials.gov:NCT00000001"]
-    assert ctgov.order_refs(recs, "NCT04712877")[0] == "clinicaltrials.gov:NCT04712877"
+    assert ctgov.order_refs(recs, ["NCT04712877"])[0] == "clinicaltrials.gov:NCT04712877"
+    assert ctgov.order_refs(recs, ["NCT09999999"])[0] == "clinicaltrials.gov:NCT00000002"

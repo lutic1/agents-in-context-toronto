@@ -9,7 +9,7 @@ import pytest
 from dxp import discovery
 from dxp.sources import ctgov, load
 
-from .conftest import RUN_ID, SCOPE_ID, ScanGate, scan_mod, scope_doc, study
+from .conftest import RUN_ID, SCOPE_ID, FakeActions, ScanGate, scan_mod, scope_doc, study
 
 pytestmark = pytest.mark.atlas
 
@@ -40,6 +40,8 @@ async def test_scan_on_atlas(db, monkeypatch, events, fake_runs, ctgov_fake) -> 
     await db["runs"].insert_one({"_id": RUN_ID, "status": "running", "kind": "discover"})
     gate = ScanGate(db)
     monkeypatch.setattr(scan_mod.gate, "evaluate", gate.evaluate)
+    acts = FakeActions(db)
+    monkeypatch.setattr(scan_mod.actions, "record_source_result", acts.record_source_result, raising=False)
     ctgov_fake.pages = [[study("NCT04712877", "2026-11-12"), study("NCT00000012", "2026-11-03")]]
     from .conftest import run_ctx
 
