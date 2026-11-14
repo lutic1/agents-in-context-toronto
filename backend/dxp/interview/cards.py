@@ -13,7 +13,14 @@ Fail closed, in this order (a card that fails any step is not a card):
    labelled section that holds the quote (and from the quote's own leading label, which must agree). A quote with
    no known label, or one that spans two fields, has the field "other", and no intent uses "other".
 3. A quote with a claim-like construction (a comparison, a performance or result verb, a percentage, a figure next
-   to a performance noun) is excluded from every intent, whatever its field (`claim_like`).
+   to a performance noun) is excluded from every intent, whatever its field (`claim_like`). That net is the
+   SECOND line: the first is a strict shape per field (`shape_ok`), so a quote is offered only if it is in a form
+   the record's own fields have:
+   - structured fields (status, dates, conditions, phase, design, sponsor, location, enrollment, results): one or more
+     `Label: value` segments of that field, the value being an enumerated value, a date, a number or a list of names;
+   - interventions: the value is a list made only of the names the record gives (`mention_names`);
+   - narrative (brief summary, description): every word is in a small closed vocabulary of design words.
+   Free text after a label ("Intervention: X outclasses Y") has no such shape and is excluded. Fail closed.
 """
 
 from __future__ import annotations
@@ -39,12 +46,15 @@ __all__ = [
     "mention_names",
     "narrative_unsafe",
     "normalise_text",
+    "shape_ok",
+    "STRUCTURED_FIELDS",
 ]
 
 MAX_CARDS = 60
 MAX_QUOTE_CHARS = 600
 FIELD_OTHER = "other"
 NARRATIVE_FIELDS = frozenset({"summary", "description"})
+STRUCTURED_FIELDS = frozenset({"status", "dates", "conditions", "phase", "design", "interventions", "sponsor", "location", "enrollment", "results"})
 
 # A quote that talks to a model never answers a question, even though it may be verbatim.
 _INSTRUCTION = re.compile(
@@ -134,6 +144,21 @@ def _digit_near_performance_noun(text: str, window: int = 4) -> bool:
     return False
 
 
+# A second, wider net (red team 2): figures as fractions or folds, number words, regulatory and sales wording, verbs
+# of effect. It only ever leaves a quote OUT. The first line of defence is the shape of the quote (`shape_ok`).
+_CLAIM_EXTRA = re.compile(
+    r"outclass\w*|outshin\w*|\bmatch(?:es|ed|ing)?\b|\bon\s+par\b|\bpar\s+with\b|gold\s+standard|standard\s+of\s+care|\bhalv\w*|\bhalf\b|"
+    r"\bdoubl\w*|\btripl\w*|\d+\s*-?\s*fold|\bfold\b|\bcuts?\b|\b\d+\s*/\s*\d+\b|"
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|"
+    r"half|third|quarter|dozen)\b(?:\s+\w+)?\s+(?:of|in|out\s+of)\b|"
+    r"\bapprov\w*|\bclear(?:ed|ance)\b|\bfda\b|\bsafe\w*|\bsav(?:e|es|ed|ing)\b|\bcur(?:e|es|ed|ing)\b|\btreat(?:s|ed|ing)?\b|\bguid(?:e|es|ed|ing)\b|"
+    r"\benabl\w*|\bwork(?:s|ed|ing)?\b|\bexcellent\b|\brobust\b|\bbreakthrough\b|\bahead\b|\bleads\b|\bleading\b|\bwins?\b|\bpass(?:es|ed)?\b|"
+    r"\brarely\b|\balways\b|\bnever\b|\bnearly\b|\balmost\b|\btrusted\b|\brecommend\w*|\brival\w*|\buseful\b|\bwell\b|\bgood\b|\bgreat\b|"
+    r"\bmore\b|\bturnaround\b|\bfaster\b|\bquick\w*|\bcheap\w*|\bcost\w*|\bhelp\w*|\bimpro\w*|\bboost\w*|\bcut\b|\bgain\w*",
+    re.IGNORECASE,
+)
+
+
 def comparison_like(text: str) -> bool:
     """A comparison or a percentage only. Used on a question, where the performance verbs of `claim_like` would
     also catch ordinary words ("responsible", "specific")."""
@@ -147,6 +172,7 @@ def claim_like(text: str) -> bool:
         _COMPARATIVE.search(text)
         or _PERFORMANCE_VERB.search(text)
         or _PERCENT.search(text)
+        or _CLAIM_EXTRA.search(text)
         or _digit_near_performance_noun(text)
     )
 
@@ -182,6 +208,136 @@ def narrative_unsafe(text: str, names: list[str]) -> bool:
                 stripped = re.sub(re.escape(name), " ", stripped, flags=re.IGNORECASE)
         return bool(_USAGE_VERB.search(stripped) or re.search(r"\d", stripped))
     return False
+
+
+# --- the shape of a quote ----------------------------------------------------------------------------------
+#
+# A quote is offered only if it has the shape of its field. The shapes are small closed grammars, not word lists
+# of what is forbidden: a quote that is anything else (free text after a label, a clause with a verb) has no
+# shape and is excluded, whatever it says. See the module docstring.
+
+_SEGMENT_SPLIT = re.compile(r"(?<=[.;])\s+(?=[A-Z][A-Za-z ()/'-]{1,48}:\s)")
+_SEGMENT = re.compile(r"^([A-Za-z][A-Za-z ()/'-]{1,48}?)\s*:\s+(.+?)\.?$")
+_QUALIFIER = r"(?: \((?:estimated|estimate|actual|anticipated)\))?"
+_STATUS_VALUES = frozenset(
+    "recruiting|not yet recruiting|active not recruiting|active|completed|terminated|withdrawn|suspended|enrolling by invitation|unknown|"
+    "unknown status|available|no longer available|temporarily not available|approved for marketing|withheld".split("|")
+)
+_MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+_DATE_VALUE = re.compile(rf"^(?:\d{{4}}(?:-\d{{2}}(?:-\d{{2}})?)?|{_MONTH} (?:\d{{1,2}}, )?\d{{4}}){_QUALIFIER}$", re.IGNORECASE)
+_ROMAN_OR_ARABIC = r"(?:1|2|3|4|i|ii|iii|iv)"
+_PHASE_VALUE = re.compile(
+    rf"^(?:not applicable|n/a|na|early phase {_ROMAN_OR_ARABIC}|phase ?{_ROMAN_OR_ARABIC}(?: ?(?:/|,|and) ?(?:phase ?)?{_ROMAN_OR_ARABIC})?)$", re.IGNORECASE
+)
+_ENROLL_VALUE = re.compile(rf"^(?:\d{{1,7}}(?: (?:participants|subjects|people|patients))?{_QUALIFIER}|estimated|actual|anticipated)$", re.IGNORECASE)
+_RESULTS_VALUE = re.compile(r"^(?:yes|no|true|false|posted|not posted)$", re.IGNORECASE)
+_NAME_TOKEN = re.compile(r"^\(?[A-Z0-9][A-Za-z0-9'\-]*\)?$|^\([A-Za-z0-9'\-]+\)?$")
+_CONNECTORS = frozenset("of and or the de la du van von der non in at st".split())
+_MAX_VALUE_CHARS = 160
+_MAX_NAME_WORDS = 8
+
+# The labels whose value is a status, a date, ... (the others of a field take a list of names).
+_STATUS_LABELS = re.compile(r"^(?:overall status|status|recruitment status)$")
+_RESULTS_LABELS = re.compile(r"^(?:results posted|has results|results)$")
+_ENROLL_LABELS = re.compile(r"^(?:estimated enrollment|enrollment|enrolment|enrollment type)$")
+
+
+def _name_list_ok(value: str) -> bool:
+    """A list of names: items split on , or ;, each of 1 to 8 words that are capitalised, numbers, or one of a few
+    connectors (of, and, in, ...). A lower-case word that is not a connector ("outclasses", "is") is a clause, not a name."""
+    if not value or len(value) > _MAX_VALUE_CHARS or not re.fullmatch(r"[A-Za-z0-9 ,;()/'&+\-]+", value):
+        return False
+    items = [item.strip() for item in re.split(r"[,;]", value)]
+    if any(not item for item in items):
+        return False
+    for item in items:
+        words = item.split()
+        if not words or len(words) > _MAX_NAME_WORDS:
+            return False
+        for index, word in enumerate(words):
+            if _NAME_TOKEN.match(word):
+                continue
+            if word.lower() in _CONNECTORS and 0 < index < len(words) - 1:
+                continue
+            return False
+    return not claim_like(value)
+
+
+def _names_only(value: str, names: list[str]) -> bool:
+    known = {re.sub(r"\s+", " ", n).strip().lower() for n in names if n.strip()}
+    if not known or not value or len(value) > _MAX_VALUE_CHARS:
+        return False
+    items = [re.sub(r"\s+", " ", item).strip().lower() for item in re.split(r"[,;]", value)]
+    return all(item in known for item in items)
+
+
+def _value_ok(field: str, label: str, value: str, names: list[str]) -> bool:
+    value = value.strip()
+    if field == "status":
+        return bool(_STATUS_LABELS.match(label)) and re.sub(r"[_\s]+", " ", value).replace(",", "").strip().lower() in _STATUS_VALUES
+    if field == "dates":
+        return bool(_DATE_VALUE.match(value))
+    if field == "phase":
+        return bool(_PHASE_VALUE.match(re.sub(r"[_\s]+", " ", value).strip()))
+    if field == "enrollment":
+        return bool(_ENROLL_LABELS.match(label)) and bool(_ENROLL_VALUE.match(value))
+    if field == "results":
+        return bool(_RESULTS_LABELS.match(label)) and bool(_RESULTS_VALUE.match(value))
+    if field == "interventions":
+        return _names_only(value, names)
+    if field in {"conditions", "design", "sponsor", "location"}:
+        return _name_list_ok(value)
+    return False
+
+
+def structured_ok(field: str, text: str, names: list[str]) -> bool:
+    """True when the quote is one or more `Label: value` segments of this field and every value has the field's shape."""
+    if field not in STRUCTURED_FIELDS or not text or "\n" in text:
+        return False
+    segments = _SEGMENT_SPLIT.split(normalise_text(text))
+    for segment in segments:
+        match = _SEGMENT.match(segment.strip())
+        if match is None:
+            return False
+        label = re.sub(r"\s+", " ", match.group(1)).strip().lower()
+        if field_for_label(label) != field:
+            return False
+        if not _value_ok(field, label, match.group(2), names):
+            return False
+    return True
+
+
+# Narrative (brief summary, description) is prose. It is offered only if EVERY word is in this closed list of
+# plain design words (record names, which are stripped first, aside). No digit, no verb of effect, no adjective of
+# quality is in it, so a narrative quote can describe a design and nothing else. A word that is not here excludes the quote.
+_NARRATIVE_WORDS = frozenset(
+    """
+    a an the of in on at to for with and or is are was were be been this that these those it its as by from there here which who where when
+    observational interventional cohort cohorts study studies trial adult adults participants participant patients samples sample sampling
+    collected collection baseline blood plasma tissue specimens specimen prospective retrospective single multicenter multicentre multi-center
+    multi-centre center centre site sites open-label randomized randomised non-randomized non-randomised arm arms group groups design
+    population populations lung cancer early-stage stage time point points timepoints follow-up listed named mentioned given
+    """.split()
+)
+_NARRATIVE_WORD = re.compile(r"[A-Za-z]+(?:-[A-Za-z]+)*")
+
+
+def narrative_ok(text: str, names: list[str]) -> bool:
+    """A narrative quote made only of plain design words (and the record's own names). Fail closed."""
+    stripped = text
+    for name in sorted((n for n in names if n.strip()), key=len, reverse=True):
+        stripped = re.sub(re.escape(name), " ", stripped, flags=re.IGNORECASE)
+    if re.search(r"[0-9%]", stripped) or re.search(r"[^A-Za-z\s.,;()\-]", stripped):
+        return False
+    words = _NARRATIVE_WORD.findall(stripped)
+    return bool(words) and all(word.lower() in _NARRATIVE_WORDS for word in words) and not claim_like(text) and not narrative_unsafe(text, names)
+
+
+def shape_ok(field: str, text: str, names: list[str]) -> bool:
+    """The one test every intent applies to a card: the shape of its field. No shape, no answer."""
+    if field in NARRATIVE_FIELDS:
+        return narrative_ok(text, names)
+    return structured_ok(field, text, names)
 
 
 # --- fields --------------------------------------------------------------------------------------------------

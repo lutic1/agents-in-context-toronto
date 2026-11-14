@@ -4,10 +4,14 @@ Order, and why. Every step before the ranking is deterministic, and none of them
 
 1. The report must exist and be `accepted` (404, 409). Nothing is read from anything but the report.
 2. MEDICAL: a question that mentions a person or a clinical decision gets the one fixed refusal.
+   A letter outside ASCII is refused here too (a language the gate cannot read gets the same fixed refusal).
 3. INTENT: the question must map to exactly one answerable intent (status, dates, conditions, phase, design,
    interventions, sponsor, location, enrollment, results). Otherwise: "The accepted record doesn't answer that."
-4. OFF-TOPIC: every content word of the question must be a word of the record. Otherwise the same reply.
-5. CARDS: the intent may use only cards of its own fields, with no claim-like wording. None: the same reply.
+   A definition, a general-knowledge frame and a question typed one letter at a time have no intent.
+4. CARDS: the intent may use only cards of its own fields, each with the shape of that field (cards.shape_ok) and no
+   claim-like wording. None: the same reply.
+5. OFF-TOPIC: every content word of the question must be a stopword, a keyword or a word of the title or of THOSE
+   eligible cards (not of the whole report). Otherwise the same reply.
 6. RANKING: only now may a model be asked, and only to put those eligible cards in order (`select.py`). It never
    writes text. DxP composes the answer from allowlisted framing and the verbatim quotes, then verifies it. Any
    failure ends in the exact reply "The accepted record doesn't answer that."
@@ -83,16 +87,16 @@ async def build_answer(
     all_cards = cards_module.load_cards(report, raw)
     if not all_cards:
         return _not_in_record(reason="no_quotes_on_report", intent=intent.name)
-    outside = question_gate.off_topic_words(question, question_gate.vocabulary(report, all_cards))
-    if outside:
-        return _not_in_record(reason=question_gate.REASON_OFF_TOPIC, intent=intent.name, outside_words=len(outside))
     eligible = intents.eligible_cards(intent, all_cards, cards_module.mention_names(report))
     if not eligible:
         return _not_in_record(reason="no_eligible_cards", intent=intent.name)
+    outside = question_gate.off_topic_words(question, question_gate.vocabulary(report, eligible), intent)
+    if outside:
+        return _not_in_record(reason=question_gate.REASON_OFF_TOPIC, intent=intent.name, outside_words=len(outside))
 
     ranked = await rank_cards(question, intent.name, eligible, llm_call)
     answer = compose_module.render(ranked)
-    verdict_ok = await verify_answer(answer, ranked, raw, quote_check)
+    verdict_ok = await verify_answer(answer, ranked, raw, quote_check, names=cards_module.mention_names(report))
     if not verdict_ok.ok:
         return _not_in_record(reason="verification_failed", intent=intent.name, problems=verdict_ok.problems[:5])
     draft = _Draft(OUTCOME_ANSWERED, answer)

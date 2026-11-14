@@ -16,6 +16,10 @@ from collections.abc import Iterable
 
 __all__ = [
     "ALLOWLIST",
+    "FIXED_REPLY_SENTENCES",
+    "BLOCKED_SENTENCES",
+    "MEDICAL_SENTENCES",
+    "is_fixed_reply",
     "FRAME_INTRO",
     "FRAME_NOT_IN_RECORD",
     "FRAME_ONLY_RECORD",
@@ -34,6 +38,21 @@ FRAME_NOT_IN_RECORD = "The accepted record doesn't answer that."
 FRAME_QUOTES = "These are the quotes it rests on."
 
 ALLOWLIST: tuple[str, ...] = (FRAME_INTRO, FRAME_ONLY_RECORD, FRAME_NOT_IN_RECORD, FRAME_QUOTES)
+
+# The two other fixed replies the page serves as an answer, each built only from sentences listed HERE, in code, and
+# each passing the same mechanical no-facts check (`facts_in`). They are the one medical refusal (V70 ruling: the
+# fixed medical-advice refusal) and the reply for a blocked Decision. No model writes them and none is built from a
+# question. They are not framing around quotes, so they are not in `ALLOWLIST` (the four sentences of the ruling).
+MEDICAL_SENTENCES: tuple[str, ...] = (
+    "This page can't give medical advice, a diagnosis or a treatment recommendation.",
+    "It only quotes the accepted record.",
+    "That is a question for a qualified clinician.",
+)
+BLOCKED_SENTENCES: tuple[str, ...] = (
+    "The policy gate blocked this question, so no answer was given.",
+    "The record of this decision explains why.",
+)
+FIXED_REPLY_SENTENCES: tuple[str, ...] = (*MEDICAL_SENTENCES, *BLOCKED_SENTENCES)
 
 # What a sentence of framing may start with. Any other first word, capitalised, would be a name.
 _STARTERS = frozenset({"here's", "here", "i", "the", "these", "this", "that", "those", "it", "there"})
@@ -87,6 +106,13 @@ def facts_in(sentence: str) -> list[str]:
 
 def is_clean_framing(sentence: str) -> bool:
     return not facts_in(sentence)
+
+
+def is_fixed_reply(text: str, sentences: Iterable[str] = FIXED_REPLY_SENTENCES) -> bool:
+    """True when `text` is made only of listed fixed-reply or framing sentences, each passing the no-facts check."""
+    listed = {*sentences, *ALLOWLIST}
+    parts = [part for part in re.split(r"(?<=\.)\s+", text.strip()) if part]
+    return bool(parts) and all(part in listed and is_clean_framing(part) for part in parts)
 
 
 def allowed_framing(candidates: Iterable[str]) -> list[str]:

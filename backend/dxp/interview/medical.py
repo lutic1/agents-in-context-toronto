@@ -14,9 +14,9 @@ This is not a list of phrasings. There are two small vocabularies and nothing el
 plus a few frames that make any question hypothetical ("if a patient", "what if", "suppose", "imagine").
 A question is read after Unicode folding, look-alike letters, spacing tricks and common typos are repaired, so
 "sh0uld i", "s h o u l d" and "shoud i" are read as "should i". The same two vocabularies exist in French, Spanish,
-German, Italian, Portuguese and Dutch (accents folded) and as a few words in Chinese, Japanese, Korean, Russian
-and Arabic. A language that is not detected gets no answer either: the intent gate and the vocabulary guard
-(`question.py`) refuse to answer anything they cannot map to the record, still without a model call.
+German, Italian, Portuguese and Dutch (accents folded). Any letter outside ASCII after NFKD (Hindi, Hebrew, Thai, Greek,
+Cyrillic, Chinese, Japanese, Korean, ...) is a language this gate cannot read, so the question is refused ("foreign:script").
+A question typed one letter at a time is also read with its spaces removed (`_blob_rule`).
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-__all__ = ["medical_advice_rule", "is_medical_advice", "normalise_question"]
+__all__ = ["has_non_latin_letter", "medical_advice_rule", "is_medical_advice", "normalise_question"]
 
 _ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿­"), None)
 _DELEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
@@ -146,6 +146,7 @@ _PERSON_WORDS = frozenset(
     aunt auntie uncle grandma grandmother grandpa grandfather son daughter child children kid kids baby wife husband partner
     spouse boyfriend girlfriend brother sister sibling siblings mother father neighbour neighbor colleague coworker boss
     he she him his her hers himself herself someone somebody anyone anybody person persons man men woman women lady guy girl boy
+    they them their theirs themselves themself you your yours yourself yourselves u ur ya one ones
     elderly senior smoker smokers survivor survivors
     patient patients doctor doctors physician physicians oncologist oncologists clinician clinicians nurse nurses surgeon
     surgeons specialist specialists pharmacist pharmacists gp practitioner practitioners
@@ -177,7 +178,8 @@ _PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("would_you", r"\b(?:would|do|could|will|can) you (?:recommend|advise|suggest|think|pick|choose|prefer|do|say|take|give|tell me what)\b"),
         ("what_would", r"\bwhat (?:would|could|might|if)\b"),
         ("if_you_were", r"\bif you (?:were|was|had)\b|\byou think\b|\byour (?:opinion|view|advice|recommendation)\b"),
-        ("what_to_do", r"\bwhat to (?:do|take|give|use|choose|pick|order|prescribe|start|stop)\b"),
+        ("what_to_do", r"\bwhat to (?:do|take|give|use|choose|pick|order|prescribe|start|stop)\b|\bhow to (?:enrol|enroll|join|apply|sign|get in|take|start)\b"),
+        ("stage_for", r"\bfor stage\b|\bstage [0-9ivx]{1,4}\b(?! (?:of|in)\b)"),
         ("if_frame", r"\bif (?:a|an|the|some\w*|one|any\w*|it|they|there|this|that|i|we|you|he|she)\b"),
         ("with_stage", r"\b(?:with|has|had|have|having|diagnosed with|diagnosed|at) stage\b|\bstage [a-z0-9]{1,4} (?:patient|disease|cancer|case)\b"),
         ("years_old", r"\b\d+ ?(?:year|yr|yrs|years) ?(?:old)?\b|\baged \d+\b|\b\d+ y o\b"),
@@ -244,14 +246,45 @@ def _foreign_rule(question: str) -> str | None:
     return None
 
 
+def has_non_latin_letter(question: str) -> bool:
+    """True when, after NFKD and with combining marks removed, any letter is outside ASCII. Hindi, Hebrew, Thai,
+    Greek, Bengali, Tamil, Cyrillic, Chinese, Japanese and Korean are all in this set. A language the gate cannot
+    read is never answered: the question gets the fixed refusal. Accents on Latin letters fold away ("médecin")."""
+    folded = "".join(ch for ch in unicodedata.normalize("NFKD", question) if not unicodedata.combining(ch))
+    return any(ch.isalpha() and ord(ch) > 127 for ch in folded)
+
+
+# Stems of the decision and person vocabulary, searched as SUBSTRINGS of the question with every space and
+# separator removed, so "w h a t d o s e" and "s h o u l d" are read. Words short enough to sit inside ordinary
+# words (he, she, we, my, i) are not here; a letter-spaced question that is not caught by these is not answered
+# either (the vocabulary guard counts runs of single letters as words outside the record).
+_BLOB_STEMS = (
+    "should", "dose", "dosage", "treat", "patient", "doctor", "oncolog", "clinician", "physician", "nurse", "mother", "father", "mum", "mom",
+    "drug", "therap", "recommend", "advis", "advice", "diagnose", "diagnosis", "prognos", "biops", "surger", "medic", "chemo", "prescri", "symptom", "surviv",
+    "eligib", "qualify", "decision", "myself", "iwant", "iam", "ineed", "imean", "wecan", "weneed", "wehave", "ihave", "mycase", "myfamily",
+)
+
+
+def _blob_rule(question: str) -> str | None:
+    plain = normalise_question(question)
+    for text in (plain, _deleet(plain)):
+        blob = re.sub(r"[^a-z]", "", text)
+        for stem in _BLOB_STEMS:
+            if stem in blob:
+                return f"spaced:{stem}"
+    return None
+
+
 def medical_advice_rule(question: str) -> str | None:
     """The name of the rule that makes this a medical question, or None. Case, spacing and simple character
-    substitutions do not hide a word."""
+    substitutions do not hide a word. A letter outside ASCII is a language this gate cannot read: refused."""
+    if has_non_latin_letter(question):
+        return "foreign:script"
     for tokens in _views(question):
         rule = _rule_for_tokens(tokens)
         if rule is not None:
             return rule
-    return _foreign_rule(question)
+    return _blob_rule(question) or _foreign_rule(question)
 
 
 def is_medical_advice(question: str) -> bool:

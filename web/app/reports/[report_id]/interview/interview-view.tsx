@@ -48,6 +48,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
   const [announce, setAnnounce] = useState("");
   const [speak, setSpeak] = useState<((text: string) => void) | null>(null);
   const counter = useRef(0);
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fieldId = useId();
 
   const onSpeaker = useCallback((fn: ((text: string) => void) | null) => setSpeak(() => fn), []);
@@ -59,6 +60,9 @@ export function InterviewView({ reportId }: { reportId: string }) {
     const id = `turn-${counter.current}`;
     setPending(true);
     setQuestion("");
+    // The Ask button is disabled once the box is empty, so a keyboard user who pressed it would lose focus to the
+    // page. Focus goes back to the ask box; the answer is announced by the status region, not by moving focus.
+    fieldRef.current?.focus();
     setAnnounce("Looking through the accepted record.");
     setTurns((current) => [{ id, question: text, outcome: null }, ...current]);
     const outcome = await askQuestion(reportId, text);
@@ -98,6 +102,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
                 Ask a question about this accepted report
               </Label>
               <Textarea
+                ref={fieldRef}
                 id={fieldId}
                 value={question}
                 maxLength={QUESTION_LIMIT}
@@ -130,7 +135,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
 
             {turns.length === 0 ? (
               <Notice icon={SearchX} title="No questions yet">
-                Ask about the trial&apos;s status, the names in the record or the related evidence. Each answer is built only from quotes stored on this
+                Ask about the record&apos;s status, dates, conditions, phase, design, names, sponsor, location, enrollment or posted results. Each answer is built only from quotes stored on this
                 report and cites them.
               </Notice>
             ) : (

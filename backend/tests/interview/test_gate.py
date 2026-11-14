@@ -154,9 +154,13 @@ async def test_the_model_sees_only_the_eligible_cards_of_the_matched_intent(stor
     model, schema, _ = fake_llm.calls[0]
     assert model == "claude-sonnet-5-5" and schema["required"] == ["quote_ids"] and schema["additionalProperties"] is False
     prompt = fake_llm.prompt_text()
-    assert "Study type: OBSERVATIONAL" in prompt and Q_BLANK_SHOWN in prompt
-    for other in (Q_STATUS, Q_ENROL, Q_SPONSOR, Q_LOCATION, Q_DATES, Q_NAMES, "better than", "never found"):
+    pool = {c.text: c for c in cards.load_cards(make_report(), {VERSION_ID: RAW_TEXT})}
+    # Only the eligible cards of the intent are named to the model, and only by id, field and length: no quote text.
+    assert pool[EXPECTED["design"]].quote_id in prompt and pool[Q_BLANK_SHOWN].quote_id in prompt
+    for other in (Q_STATUS, Q_ENROL, Q_SPONSOR, Q_LOCATION, Q_DATES, Q_NAMES, "better than", "never found", Q_BLANK_SHOWN, "Study type"):
         assert other not in prompt, other
+    for other_card in (Q_STATUS, Q_ENROL, Q_SPONSOR, Q_LOCATION, Q_DATES, Q_NAMES):
+        assert pool[other_card].quote_id not in prompt
 
 
 async def test_the_model_ranks_and_dxp_writes_the_text(store, fake_llm, fake_gate, ctx) -> None:
@@ -197,7 +201,7 @@ async def test_a_model_failure_keeps_report_order_and_still_answers(store, fake_
 
 async def test_at_most_three_quotes_are_cited(store, fake_llm, fake_gate, ctx) -> None:
     report = make_report()
-    extra = [f"Allocation: RANDOMIZED group {n}" for n in range(5)]
+    extra = [f"Allocation: Randomized Group {n}" for n in range(5)]
     for text in extra:
         report["discovery"]["quotes"].append({"text": text, "quote_found": True, "version_id": VERSION_ID})
     store.reports[REPORT_ID] = report

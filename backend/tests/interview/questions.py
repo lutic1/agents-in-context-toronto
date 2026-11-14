@@ -165,7 +165,7 @@ LEGIT: dict[str, list[str]] = {
         "Which countries are listed?",
         "Which country is the study in?",
         "Which cities does the record give?",
-        "Which hospital sites are listed?",
+        "Which sites are listed?",
         "Which site is in Toronto?",
         "Is there a site in Boston?",
         "Is a location in Canada listed?",

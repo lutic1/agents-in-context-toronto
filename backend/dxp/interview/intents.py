@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from dxp.interview.cards import NARRATIVE_FIELDS, Card, claim_like, narrative_unsafe, normalise_text
+from dxp.interview.cards import NARRATIVE_FIELDS, Card, claim_like, normalise_text, shape_ok
 
 __all__ = ["INTENTS", "Intent", "STOPWORDS", "eligible_cards", "keyword_stems", "match_intent", "stem", "tokenise"]
 
@@ -118,7 +118,7 @@ INTENTS: tuple[Intent, ...] = (
     ),
     Intent(
         "results",
-        frozenset({"results", "status"}),
+        frozenset({"results"}),
         _words("results result posted"),
         ("results posted", "posted results"),
         must_hold=re.compile(r"\bresults?\b", re.IGNORECASE),
@@ -172,16 +172,15 @@ def intent_named(name: str) -> Intent:
 
 
 def eligible_cards(intent: Intent, cards: list[Card], names: list[str]) -> list[Card]:
-    """The cards this intent may use, in report order. Fail closed: a card of another field, a claim-like card,
-    a narrative card the intent does not allow, or a card that does not hold what the intent needs is left out."""
-    lowered_names = [n.lower() for n in names if n.strip()]
+    """The cards this intent may use, in report order. Fail closed: a card of another field, a card that does not
+    have the shape of its field (`cards.shape_ok`: no free text after a label, no prose outside the closed design
+    vocabulary), a claim-like card, a narrative card the intent does not allow, or a card that does not hold what
+    the intent needs is left out. Interventions are cards that list only the names the record gives."""
     chosen: list[Card] = []
     for card in cards:
         if card.field not in intent.fields and not (intent.narrative and card.field in NARRATIVE_FIELDS):
             continue
-        if claim_like(card.text):
-            continue
-        if card.field in NARRATIVE_FIELDS and narrative_unsafe(card.text, names):
+        if claim_like(card.text) or not shape_ok(card.field, card.text, names):
             continue
         if intent.must_hold is not None and not intent.must_hold.search(card.text):
             continue
@@ -189,6 +188,7 @@ def eligible_cards(intent: Intent, cards: list[Card], names: list[str]) -> list[
             continue
         if card.field in NARRATIVE_FIELDS and intent.name == "interventions":
             # A narrative card helps "what the record names" only if it names one of the record's names.
+            lowered_names = [n.lower() for n in names if n.strip()]
             if not any(name in normalise_text(card.text).lower() for name in lowered_names):
                 continue
         chosen.append(card)

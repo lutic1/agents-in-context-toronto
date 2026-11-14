@@ -7,7 +7,8 @@ Every check fails closed. The answer is returned only if all of these hold:
 2. every framing block is on the allowlist AND passes the mechanical no-facts check;
 3. each cited quote is found in the raw text of the exact source version it names (V40), compared on the
    whitespace-normalised form;
-4. no card is claim-like and no card is of the "other" field (a second net under the cards' own rules);
+4. no card is claim-like, no card is of the "other" field and every card has the shape of its field (a second net under
+   the cards' own rules);
 5. no digit appears outside a cited quote;
 6. every claim kind is sent to the gate for every cited quote; the gate decides (AD-19).
 """
@@ -21,7 +22,7 @@ from dataclasses import dataclass, field
 
 from dxp.api.models import ClaimCheck
 from dxp.interview import framing
-from dxp.interview.cards import FIELD_OTHER, Card, claim_like, normalise_text
+from dxp.interview.cards import FIELD_OTHER, Card, claim_like, normalise_text, shape_ok
 from dxp.interview.compose import render, split_blocks
 
 __all__ = ["CLAIM_KINDS", "QuoteCheck", "Verification", "default_quote_check", "verify_answer"]
@@ -56,8 +57,10 @@ async def verify_answer(
     cards: list[Card],
     raw_texts: dict[str, str | None],
     quote_check: QuoteCheck | None = None,
+    names: list[str] | None = None,
 ) -> Verification:
-    """`raw_texts` maps a version_id to that version's raw text (None when unknown)."""
+    """`raw_texts` maps a version_id to that version's raw text (None when unknown). `names` are the names the
+    record gives, which an interventions card may list (none given: no interventions card can pass)."""
     check = quote_check or default_quote_check
     problems: list[str] = []
     claims: list[ClaimCheck] = []
@@ -79,6 +82,8 @@ async def verify_answer(
             problems.append(f"{label}: no known field")
         if claim_like(card.text):
             problems.append(f"{label}: claim-like wording")
+        if not shape_ok(card.field, card.text, names or []):
+            problems.append(f"{label}: not in the shape of its field")
         if "\n" in card.text or card.text != normalise_text(card.text):
             problems.append(f"{label}: quote is not whitespace-normalised")
         for kind in CLAIM_KINDS:
