@@ -6,6 +6,11 @@ only inserts of this run's events, and yields `(resume_token, event)` for each o
 - `resume_token` is the change's opaque resume token as text (its `_data`), used as the SSE `id`;
 - `event` is the inserted document in the AD-14 `Event` shape (JSON-ready), `seq` taken from `_id`.
 
+While no event of the run arrives, the change stream's own resume token still advances (its
+post-batch token). It is yielded as `(resume_token, None)` whenever it moves, so the route can hand
+it to the client on a heartbeat or before closing and a quiet stream still resumes from now, not
+from where it opened.
+
 `resume_after` is the last SSE id the client saw (`Last-Event-ID`). A token that is malformed or that
 the server can no longer resume from raises `ResumeTokenLost`; the route turns that into
 `event: reset`. Ordering stays `seq` (AD-10): the stream is only a wake-up mirror of `events`, and
@@ -14,6 +19,7 @@ the audit stays the source. Nothing here writes. The frozen signature is in test
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import AsyncIterator
 from typing import Any
@@ -34,6 +40,7 @@ RESUME_ERROR_CODES = frozenset({
     286,  # ChangeStreamHistoryLost (the oplog has rolled past it)
 })
 _EVENT_FIELDS = tuple(m.Event.model_fields)
+MAX_AWAIT_MS = 1000  # how long one idle getMore waits on the server
 
 
 class ResumeTokenLost(Exception):
@@ -80,9 +87,11 @@ def to_event(doc: dict[str, Any]) -> dict[str, Any]:
 
 async def run_events(run_id: str, resume_after: Any | None = None) -> AsyncIterator[tuple[Any, dict[str, Any]]]:
     """Yield (resume_token, event) for each new event of the run, via store; resume_after is the
-    last SSE id (Last-Event-ID)."""
+    last SSE id (Last-Event-ID). While idle, (resume_token, None) when the stream's token moves."""
     resume = decode_token(resume_after)
-    kwargs: dict[str, Any] = {"resume_after": resume} if resume is not None else {}
+    kwargs: dict[str, Any] = {"max_await_time_ms": MAX_AWAIT_MS}
+    if resume is not None:
+        kwargs["resume_after"] = resume
     try:
         change_stream = await _events().watch(pipeline(run_id), **kwargs)
     except OperationFailure as exc:
@@ -90,8 +99,17 @@ async def run_events(run_id: str, resume_after: Any | None = None) -> AsyncItera
             raise ResumeTokenLost(str(exc)) from exc
         raise
     async with change_stream as changes:
+        last_idle: str | None = None
         try:
-            async for change in changes:
+            while True:
+                change = await changes.try_next()
+                if change is None:
+                    token = encode_token(getattr(changes, "resume_token", None))
+                    if token is not None and token != last_idle:
+                        last_idle = token
+                        yield token, None
+                    await asyncio.sleep(0)  # the server's await already paced this loop
+                    continue
                 doc = change.get("fullDocument") or {}
                 if change.get("operationType") != "insert" or doc.get("run_id") != run_id:
                     continue  # the pipeline already filters; this never lets another run through

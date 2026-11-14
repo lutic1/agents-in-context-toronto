@@ -48,6 +48,9 @@ DEFAULT_MAX_SECONDS = 50.0
 HEARTBEAT_SECONDS = 15.0
 # How long EventSource waits before it reconnects after the stream ends (ms).
 RETRY_MS = 1000
+# After a failed watch() (for example, no change streams on the tier), the browser waits this long
+# before it tries again; the screen polls meanwhile instead of reconnecting every second.
+FAILED_RETRY_MS = 30000
 
 _DONE = object()
 
@@ -65,6 +68,11 @@ def max_seconds() -> float:
 def sse_message(token: str, event: dict[str, Any]) -> str:
     data = json.dumps(event, separators=(",", ":"), default=str)
     return f"id: {token}\ndata: {data}\n\n"
+
+
+def sse_id(token: str) -> str:
+    """An id-only block: it moves the browser's lastEventId and fires no message (SSE spec)."""
+    return f"id: {token}\n\n"
 
 
 def sse_reset() -> str:
@@ -91,16 +99,24 @@ async def event_stream(run_id: str, resume_after: str | None) -> AsyncIterator[s
     yield f"retry: {RETRY_MS}\n: open\n\n"
     queue: asyncio.Queue = asyncio.Queue()
     pump = asyncio.create_task(_pump(run_id, resume_after, queue))
+    latest: str | None = None  # the newest resume token, sent or not
+    sent: str | None = None  # the last token the client has
     try:
         while True:
             remaining = deadline - loop.time()
             if remaining <= 0:
+                if latest is not None and latest != sent:
+                    yield sse_id(latest)  # a quiet stream still resumes from now
                 return  # end before the hosting limit; the client resumes from its last id
             try:
                 item = await asyncio.wait_for(queue.get(), timeout=min(HEARTBEAT_SECONDS, remaining))
             except TimeoutError:
                 if deadline - loop.time() > 0:
-                    yield ": heartbeat\n\n"
+                    if latest is not None and latest != sent:
+                        yield f"id: {latest}\n: heartbeat\n\n"
+                        sent = latest
+                    else:
+                        yield ": heartbeat\n\n"
                 continue
             if item is _DONE:
                 return
@@ -108,9 +124,15 @@ async def event_stream(run_id: str, resume_after: str | None) -> AsyncIterator[s
                 yield sse_reset()
                 return
             if isinstance(item, Exception):
-                return  # a failed watch ends the stream; EventSource reconnects, the screen polls meanwhile
+                # A failed watch ends the stream: back off, and the screen polls meanwhile.
+                yield f"retry: {FAILED_RETRY_MS}\n\n"
+                return
             token, event = item
+            latest = token
+            if event is None:
+                continue  # the token moved with no event: sent on the next heartbeat or at the end
             yield sse_message(token, event)
+            sent = token
     finally:
         pump.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
