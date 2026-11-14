@@ -1,10 +1,20 @@
 """Report filing (AD-27): the report is the pending proposal.
 
-`file()` gates each draft as a report-level `file_proposal` (target
-`<report_id>|draft<n>`, each its own Decision, V21). Only when the last draft
-is allowed is anything written: the `reports` document (`pending`, with its
-script, V41), one `ledger.file()` per knowledge update, the `report_filed`
-event and the report's one `notify_slack` action. A blocked report writes
+`file(draft, ctx, final=...)` gates one draft as a report-level
+`file_proposal` (target `<report_id>|draft<n>`, its own Decision, V21). The
+caller (A10) calls it once per draft, in order, with `final=False` for every
+draft but the last (Luis's ruling, 14 Nov):
+
+- `final=False` only asks the gate. The Decision is recorded by the gate;
+  nothing is written here, no update is filed and no alert is created. An
+  allowed gate-only action is settled `done` with `report_id: None` through
+  `gate.mark_action` (V65). A non-final draft carries no `updates`.
+- `final=True` (the default), when allowed, writes the `reports` document
+  (`pending`, with its script, V41), one `ledger.file()` per update (each
+  change keeps its own `admission_id`, D22) and the `report_filed` event.
+
+`file()` never creates or sends `notify_slack`: the run (A10) dispatches the
+report's one alert after the final `file()` succeeds. A blocked draft writes
 nothing here: the gate has recorded its Decision and event.
 """
 
@@ -20,7 +30,6 @@ from dxp.api.models import Decision, EvidenceRef, ProposedAction, Report, RunCon
 
 log = logging.getLogger("dxp.reports")
 
-SLACK_DESTINATION = "slack:#all-mango-db-hackathon"
 UNPINNED_RELATED = "{count} related item(s) could not be pinned to a source version and are not listed."
 
 
@@ -81,7 +90,7 @@ def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) ->
         },
         evidence_ref=EvidenceRef(source_ref=draft.get("source_ref"), version_id=draft.get("version_id"), report_id=report_id),
         retrieval=draft.get("retrieval") or None,
-        memories_used=(draft.get("memories_used") or []) if number > 1 else [],
+        memories_used=(one.get("memories_used") or []) if number > 1 else [],
     )
 
 
@@ -149,35 +158,6 @@ async def _refresh_proposals(reports, proposals, report_id: str) -> None:
     )
 
 
-async def _notify(db, report_id: str, document: dict[str, Any], ctx: RunContext) -> None:
-    """The report's one notify_slack action (V11). Its result is recorded by actions.dispatch;
-    a failure here never undoes or blocks the report."""
-    from dxp import actions
-
-    try:
-        if await db["actions"].find_one({"target.report_id": report_id, "kind": "notify_slack"}):
-            return
-        await actions.dispatch(
-            ProposedAction(
-                kind="notify_slack",
-                destination=SLACK_DESTINATION,
-                target=Target(report_id=report_id, scope_id=document.get("scope_id")),
-                inputs={
-                    "script_hash": document["script_hash"],
-                    "headline": document["headline"],
-                    "status_line": document.get("status_line"),
-                    "source_ref": document["source_ref"],
-                },
-                evidence_ref=EvidenceRef(
-                    source_ref=document["source_ref"], version_id=document["version_id"], report_id=report_id
-                ),
-            ),
-            ctx,
-        )
-    except Exception as exc:
-        log.warning("reports.file: notify_slack for %s not dispatched: %s", report_id, type(exc).__name__)
-
-
 async def _settle(decision: Decision, status: str, result: dict[str, Any] | None) -> None:
     """Settle a report-level action through Governance, the only writer of `actions` (V65).
     Without a Governance function for it the action is left as the gate wrote it."""
@@ -192,12 +172,27 @@ async def _settle(decision: Decision, status: str, result: dict[str, Any] | None
         log.warning("reports.file: action %s not settled: %s", decision.action_id, type(exc).__name__)
 
 
-async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
-    """Gate the report as a report-level file_proposal; allowed: store the report pending with its
-    script (V41), ledger.file each update, one notify_slack action. Returns the Decision."""
+def _check_shape(draft: dict[str, Any], final: bool) -> None:
+    """One draft per call. Raised before the gate is asked, so a wrong call records nothing."""
+    nested = draft.get("drafts") or []
+    if len(nested) > 1:
+        raise ValueError("reports.file takes one draft per call: pass each of drafted['drafts'] in order, "
+                         "with final=False for every draft but the last")
+    if not final and draft.get("updates"):
+        raise ValueError("a non-final draft carries no updates; only the final draft files them")
+
+
+async def file(draft: dict[str, Any], ctx: RunContext, final: bool = True) -> Decision:
+    """Gate one draft as a report-level file_proposal and return its Decision.
+
+    `final=False`: gate only, nothing written. `final=True` and allowed: store the report pending
+    with its script (V41) and ledger.file each update. The alert is the run's (A10), never sent here.
+    On the final draft, `blocked_draft_decision_id` (the Decision of an earlier blocked draft, set by
+    the caller) is recorded on the report so the memory's effect is visible."""
     from dxp import gate, ledger, store
     from dxp.reports.draft import team_for_scope
 
+    _check_shape(draft, final)
     if not draft.get("team_id"):
         draft = {**draft, "team_id": await team_for_scope(draft.get("scope_id"))}
     report_id = report_id_for(ctx.run_id or draft.get("run_id"), draft["source_ref"])
@@ -209,19 +204,15 @@ async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
             f"report {report_id} cannot be filed: " + (f"missing {', '.join(missing)}" if missing else type(exc).__name__)
         ) from None
 
-    drafts = draft.get("drafts") or [draft]
-    decisions: list[Decision] = []
-    for one in drafts:
-        decisions.append(await gate.evaluate(ctx, report_action(report_id, draft, one)))
-    decision = decisions[-1]
-    earlier_allowed = [d for d in decisions[:-1] if d.outcome == "allowed"]
+    decision = await gate.evaluate(ctx, report_action(report_id, draft, draft))
+    if not final:
+        if decision.outcome == "allowed":  # gate-only: this draft is never written
+            await _settle(decision, "done", {"report_id": None})
+        return decision
     if decision.outcome != "allowed":
-        for superseded in earlier_allowed:  # an allowed earlier draft wrote nothing and never will
-            await _settle(superseded, "done", {"report_id": None})
         return decision
 
-    blocked_earlier = next((d.id for d in decisions[:-1] if d.outcome == "blocked"), None)
-    document = report_document(report_id, draft, ctx, decision, blocked_earlier)
+    document = report_document(report_id, draft, ctx, decision, draft.get("blocked_draft_decision_id"))
     db = store.db()
     try:
         try:
@@ -232,7 +223,7 @@ async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
             raise ReportNotFiled(f"report {report_id} was allowed but could not be stored ({type(exc).__name__})") from None
 
         for update in draft.get("updates") or []:
-            change = {**update["change"], "report_id": report_id}
+            change = {**update["change"], "report_id": report_id}  # keeps the caller's admission_id (D22)
             await ledger.file(update["finding_id"], [change], ctx.mode, ctx)
         await _refresh_proposals(db["reports"], db["proposals"], report_id)
 
@@ -248,15 +239,10 @@ async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
             "status": "pending",
         })
     except Exception:
-        for failed in [*earlier_allowed, decision]:
-            await _settle(failed, "failed", None)
+        await _settle(decision, "failed", None)
         raise
     stored = await db["reports"].find_one({"_id": report_id}) or document
-    result = {"proposal_ids": list(stored.get("proposal_ids") or []), "report_id": report_id}
-    for superseded in earlier_allowed:  # the draft it gated was replaced by the filed one
-        await _settle(superseded, "done", {"report_id": report_id})
-    await _settle(decision, "done", result)
-    await _notify(db, report_id, document, ctx)
+    await _settle(decision, "done", {"proposal_ids": list(stored.get("proposal_ids") or []), "report_id": report_id})
     return decision
 
 
@@ -287,7 +273,9 @@ async def add_related(report_id: str, refs: list[str], ctx: RunContext) -> list[
     for ref in refs:
         related = report.get("related") or []
         source = await db["source_items"].find_one({"_id": ref}) or {}
-        relationship = await relate(new_item, {"ref": ref, "retrieval_method": None})
+        # The version the task found is pinned here, explicitly, and recorded on the relationship (V40).
+        pinned = {"ref": ref, "version_id": source.get("current_version_id"), "retrieval_method": None}
+        relationship = await relate(new_item, pinned)
         action = ProposedAction(
             kind="file_related_evidence",
             destination="ledger",

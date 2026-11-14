@@ -14,7 +14,7 @@ from dxp.api.models import Relationship
 
 log = logging.getLogger("dxp.reports")
 
-MODEL = "claude-sonnet-5-5"  # the stronger model (AD-11)
+MODEL_FALLBACK = "claude-sonnet-5-5"  # used only until llm.MODEL_IDS exists (A08)
 MAX_RECORD_CHARS = 24000
 
 LABELS = ("supports", "contradicts", "extends", "new_question")
@@ -170,7 +170,8 @@ async def load_item(item: Any) -> dict[str, Any]:
 
     Accepts a source item, a Finding or a `Retrieval` item (`{ ref, version_id, score }`).
     Whatever is missing is read from the store, and the text is always the `raw_text` of
-    the exact version the item names (V40), never the current pointer when a version is given.
+    the exact version the item names (V40). The current pointer is never read for a version: an
+    item that names none stays unpinned, so its relationship cannot be labelled or listed.
     """
     from dxp import store
 
@@ -186,10 +187,9 @@ async def load_item(item: Any) -> dict[str, Any]:
             out["version_id"] = out.get("version_id") or finding.get("version_id")
             out["title"] = out.get("title") or finding.get("summary")
         out["source_ref"] = out.get("source_ref") or ref
-        if not out.get("version_id") or not out.get("title"):
+        if not out.get("title"):
             source = await db["source_items"].find_one({"_id": out["source_ref"]}) or {}
-            out["version_id"] = out.get("version_id") or source.get("current_version_id")
-            out["title"] = out.get("title") or source.get("title") or source.get("brief_title")
+            out["title"] = source.get("title") or source.get("brief_title")
         if not out.get("raw_text") and out.get("version_id"):
             version = await db["source_versions"].find_one({"_id": out["version_id"]}) or {}
             out["raw_text"] = version.get("raw_text")
@@ -206,7 +206,8 @@ async def _ask(new: dict[str, Any], related: dict[str, Any]) -> dict[str, Any] |
     from dxp.llm.prompts import relate as prompt
 
     try:
-        output = await llm.call_structured(MODEL, prompt.SCHEMA, [
+        model = (getattr(llm, "MODEL_IDS", None) or {}).get("strong", MODEL_FALLBACK)  # AD-11
+        output = await llm.call_structured(model, prompt.SCHEMA, [
             {"role": "system", "content": prompt.SYSTEM},
             {"role": "user", "content": prompt.USER.format(
                 new_ref=new.get("source_ref"),

@@ -154,7 +154,8 @@ async def ensure_indexes() -> None:
         try:
             from dxp.retrieval.embed import embed_missing
 
-            await embed_missing(db)
+            # memories are left out: only `memory` writes `memories` (AD-28); it embeds each version.
+            await embed_missing(db, collections=tuple(c for c in TEXT_FIELDS if c != "memories"))
         except Exception as exc:
             log.warning("retrieval.ensure_indexes: embedding failed: %s", type(exc).__name__)
     for spec in index_definitions(mode):

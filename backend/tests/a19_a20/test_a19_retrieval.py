@@ -194,7 +194,8 @@ async def test_memories_without_tags_filter_on_team_and_status_only(mongo, monke
     assert result.index == "tx_memories"
 
 
-async def test_voyage_mode_embeds_a_new_memory_before_searching(mongo, monkeypatch):
+async def test_memory_retrieval_never_writes_an_embedding_in_voyage_mode(mongo, monkeypatch):
+    """Only `memory` writes `memories` (AD-28): memory.create/correct embed each version."""
     monkeypatch.setenv("DXP_EMBEDDING", "voyage")
     mongo["memories"].add(M1)
     calls = []
@@ -209,9 +210,9 @@ async def test_voyage_mode_embeds_a_new_memory_before_searching(mongo, monkeypat
     monkeypatch.setattr(embed_module, "embed", fake_embed)
     monkeypatch.setattr(related_module, "embed_query", fake_query)
     mongo["memories"].on_aggregate = scored((M1, 0.9))
-    await retrieval.memories("team_lb", "text", {"claim_kind": "k"}, 3)
-    assert calls == [[M1["text"]]]
-    assert mongo["memories"].docs[0]["embedding"] == [0.5, 0.5]
+    result = await retrieval.memories("team_lb", "text", {"claim_kind": "k"}, 3)
+    assert result.method == "vector_search" and calls == []
+    assert "embedding" not in mongo["memories"].docs[0]
 
 
 class FakeVoyage:
@@ -259,3 +260,10 @@ async def test_embed_missing_embeds_only_documents_without_an_embedding(mongo, m
     assert mongo["source_items"].docs[1]["embedding"] == [9.0]
     assert "embedding" not in mongo["source_items"].docs[2]
     assert mongo["findings"].docs[0]["embedding"] == [3.0]
+
+
+async def test_an_empty_query_never_claims_a_vector_search(mongo, monkeypatch):
+    for mode in ("auto", "voyage", "none"):
+        monkeypatch.setenv("DXP_EMBEDDING", mode)
+        for result in (await retrieval.related(SCOPE, "   ", 5), await retrieval.memories("team_lb", "", None, 3)):
+            assert result.method == "text_search" and result.index is None and result.items == []

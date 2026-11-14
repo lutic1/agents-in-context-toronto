@@ -18,7 +18,8 @@ from dxp.api.models import Memory, Relationship
 log = logging.getLogger("dxp.reports")
 
 NO_CHANGE_TEXT = "retrieved, no change"
-MODEL = "claude-sonnet-5-5"  # the stronger model (AD-11)
+MODEL_FALLBACK = "claude-sonnet-5-5"  # used only until llm.MODEL_IDS exists (A08)
+DEFAULT_TESTING = ["ctDNA or plasma", "tissue profiling"]  # V33: the task's testing when the model gives none
 MAX_RECORD_CHARS = 24000
 MAX_QUOTE_CHARS = 300
 CLAIM_KINDS = ("claim_performed_or_results", "claim_planned", "claim_preclinical")  # the gate's vocabulary (V60)
@@ -512,6 +513,7 @@ def compose(number: int, output: Any, base: dict[str, Any], quote_found) -> dict
         gap = base["gap"]
     task = output.get("task") if isinstance(output.get("task"), dict) else {}
     testing = [t for t in (_clean(x) for x in task.get("testing") or []) if t and not _has_name(t, names)][:5]
+    testing = testing or list(DEFAULT_TESTING)
     plain = _clean(output.get("intervention_plain"))
     if not plain or len(plain) > 80 or _has_name(plain, names):
         plain = base["intervention_plain"]
@@ -521,7 +523,7 @@ def compose(number: int, output: Any, base: dict[str, Any], quote_found) -> dict
     return {
         "draft": number, "headline": headline, "summary": summary, "claims": claims, "quotes": quotes,
         "gap": gap, "intervention_plain": plain, "collection_label": label,
-        "task": {"condition": _clean(task.get("condition")) or base["condition"],
+        "task": {"condition": base["condition"],  # the scope's condition, never the model's
                  "stage": _clean(task.get("stage")) or "early", "testing": testing,
                  "has_results": True, "max": 5},
     }
@@ -559,23 +561,29 @@ async def _load_source(item: Any) -> dict[str, Any]:
             log.warning("reports.draft: could not load the source version: %s", type(exc).__name__)
     if not source.get("scope_id") and source.get("scope_ids"):
         source["scope_id"] = source["scope_ids"][0]
+    scope = await _scope(source.get("scope_id"))
     if not source.get("team_id"):
-        source["team_id"] = await team_for_scope(source.get("scope_id"))
+        source["team_id"] = scope.get("team_id")
+    if not source.get("scope_condition"):
+        source["scope_condition"] = scope.get("condition")
     return source
+
+
+async def _scope(scope_id: Any) -> dict[str, Any]:
+    if not scope_id:
+        return {}
+    try:
+        from dxp import store
+
+        return await store.db()["research_scopes"].find_one({"_id": scope_id}) or {}
+    except Exception as exc:
+        log.warning("reports.draft: could not read the scope: %s", type(exc).__name__)
+        return {}
 
 
 async def team_for_scope(scope_id: Any) -> str | None:
     """The Team of a research scope (`research_scopes.team_id`); a source item carries scopes, not a Team."""
-    if not scope_id:
-        return None
-    try:
-        from dxp import store
-
-        scope = await store.db()["research_scopes"].find_one({"_id": scope_id}) or {}
-        return scope.get("team_id")
-    except Exception as exc:
-        log.warning("reports.draft: could not read the scope's Team: %s", type(exc).__name__)
-        return None
+    return (await _scope(scope_id)).get("team_id")
 
 
 def retrieval_from_related(related: list[dict[str, Any]], scope_id: Any) -> dict[str, Any] | None:
@@ -643,8 +651,9 @@ def _record_fields(source: dict[str, Any], names: list[str], related: list[dict[
 async def _call(schema: dict[str, Any], system: str, user: str) -> Any:
     from dxp import llm
 
+    model = (getattr(llm, "MODEL_IDS", None) or {}).get("strong", MODEL_FALLBACK)  # AD-11
     try:
-        return await llm.call_structured(MODEL, schema, [
+        return await llm.call_structured(model, schema, [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ])
@@ -705,7 +714,9 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
     verbatim = intervention_text(source.get("interventions"))
     title = _clean(source.get("title") or source.get("brief_title")).rstrip(".")
     conditions = source.get("conditions") or []
-    condition = _clean(conditions[0]) if conditions and isinstance(conditions[0], str) else "lung cancer"
+    condition = (_clean(source.get("scope_condition"))
+                 or (_clean(conditions[0]) if conditions and isinstance(conditions[0], str) else "")
+                 or "lung cancer")
     headline = f"New trial signal: {title}." if title else f"New trial signal in {condition}."
     if wording_flags(headline, names):
         headline = f"New trial signal in {condition}."
@@ -749,8 +760,7 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
         use["author"] = use["author"] or ""
 
     retrieval = source.get("retrieval")
-    return {
-        "draft": final["draft"],
+    shared = {
         "attempt": int(source.get("attempt") or 0),
         "run_id": source.get("run_id"),
         "scope_id": source.get("scope_id"),
@@ -758,25 +768,33 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
         "source_ref": source.get("source_ref"),
         "version_id": source.get("version_id"),
         "nct_id": source.get("nct_id"),
-        "headline": final["headline"],
         "status_line": status_line(source.get("overall_status"), source.get("has_results")),
-        "discovery": {
-            "summary": final["summary"],
-            "quotes": final["quotes"],
-            "trial_status": source.get("overall_status"),
-            "has_results": source.get("has_results"),
-            "intervention_text": verbatim,
-            "mentions": mentions,
-        },
-        "claims": final["claims"],
         "name_mentions": [{**m, "description": NAMED_IN_RECORD} for m in mentions],
         "related": related_dicts,
-        "uncertainties": final["uncertainties"],
-        "gap": final["gap"],
         "retrieval": _plain(retrieval) if retrieval else retrieval_from_related(related_dicts, source.get("scope_id")),
-        "memories_used": effects,
-        "recommended_task": {"kind": "search_related", "params": final["task"]},
-        "updates": build_updates(source, findings, mentions, final["quotes"], final["collection_label"], quote_found),
         "source_fields": {"overall_status": source.get("overall_status"), "has_results": source.get("has_results")},
-        "drafts": drafts,
     }
+
+    def self_contained(one: dict[str, Any], is_final: bool) -> dict[str, Any]:
+        """One draft A10 can pass to `reports.file` on its own: the shared report fields plus
+        this draft's content; `updates` only on the final draft, memories only after draft 1."""
+        out = {
+            **shared,
+            **one,
+            "discovery": {
+                "summary": one["summary"],
+                "quotes": one["quotes"],
+                "trial_status": source.get("overall_status"),
+                "has_results": source.get("has_results"),
+                "intervention_text": verbatim,
+                "mentions": mentions,
+            },
+            "memories_used": effects if is_final and one["draft"] > 1 else [],
+            "recommended_task": {"kind": "search_related", "params": one["task"]},
+        }
+        if is_final:
+            out["updates"] = build_updates(source, findings, mentions, one["quotes"], one["collection_label"], quote_found)
+        return out
+
+    composed = [self_contained(one, index == len(drafts) - 1) for index, one in enumerate(drafts)]
+    return {**composed[-1], "drafts": composed}

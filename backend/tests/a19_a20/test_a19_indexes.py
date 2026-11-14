@@ -188,3 +188,20 @@ async def test_index_status_reports_queryable(fake_db):
     assert await indexes.index_status() == {"ts_source_items": False, "ts_findings": True,
                                             "ts_memories": False}
     assert await indexes.wait_until_queryable(timeout_s=0, poll_s=0) is False
+
+
+async def test_ensure_indexes_in_voyage_mode_never_embeds_memories(fake_db, monkeypatch):
+    """Only `memory` writes `memories` (AD-28); setup embeds the other collections."""
+    import importlib
+
+    embed_module = importlib.import_module("dxp.retrieval.embed")
+    seen = []
+
+    async def embed_missing(db, match=None, collections=None):
+        seen.append(collections)
+        return 0
+
+    monkeypatch.setattr(embed_module, "embed_missing", embed_missing)
+    fake_db(FakeDb(), "voyage")
+    await indexes.ensure_indexes()
+    assert len(seen) == 1 and "memories" not in seen[0] and set(seen[0]) == set(indexes.TEXT_FIELDS) - {"memories"}

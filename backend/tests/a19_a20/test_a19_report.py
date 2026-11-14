@@ -235,6 +235,20 @@ async def demo_draft(world, memories=(M1,)):
     return await reports.draft(item(), findings(), related(), list(memories))
 
 
+async def file_each(drafted, ctx=None):
+    """What A10 does (Luis's ruling, 14 Nov): one `reports.file` per draft, `final=False` for all
+    but the last, which records the earlier blocked draft's Decision. The top-level dict is the
+    final draft, so a test may edit it before filing."""
+    ctx = ctx or context()
+    blocked = None
+    for one in drafted["drafts"][:-1]:
+        decision = await reports.file(one, ctx, final=False)
+        if decision.outcome == "blocked":
+            blocked = blocked or decision.id
+    last = {k: v for k, v in drafted.items() if k != "drafts"}
+    return await reports.file({**last, "blocked_draft_decision_id": blocked}, ctx)
+
+
 # ----------------------------------------------------------------------- reports.draft
 
 async def test_draft_writes_two_drafts_and_returns_the_report_fields(world):
@@ -408,7 +422,7 @@ REPORT_ID = identity.derive("rep_", RUN, REF)
 
 async def filed(world, **kwargs):
     d = await demo_draft(world, **kwargs)
-    decision = await reports.file(d, context())
+    decision = await file_each(d)
     return d, decision, await world.mongo["reports"].find_one({"_id": REPORT_ID})
 
 
@@ -457,29 +471,28 @@ async def test_only_the_evidence_collection_update_is_filed_and_the_mention_link
     assert len(blocked) == 1 and blocked[0][1].inputs["mention"]["name"] == "FoundationOne CDx"
 
 
-async def test_an_allowed_report_gets_exactly_one_notify_slack_action_and_one_event(world):
+async def test_an_allowed_report_sends_no_alert_and_emits_one_event(world):
+    """The run (A10) sends the report's one alert after the final file; reports.file never does."""
     _, decision, doc = await filed(world)
-    assert len(world.dispatched) == 1
-    action = world.dispatched[0]
-    assert action.kind == "notify_slack" and action.destination == "slack:#all-mango-db-hackathon"
-    assert action.target.report_id == REPORT_ID and action.inputs["script_hash"] == doc["script_hash"]
+    assert world.dispatched == [] and world.mongo["actions"].docs == []
+    assert not hasattr(file_module, "SLACK_DESTINATION") and not hasattr(file_module, "_notify")
     assert [(e["type"], e["report_id"], e["decision_id"], e["run_id"]) for e in world.mongo.events] == [
         ("report_filed", REPORT_ID, decision.id, RUN)]
 
 
-async def test_a_report_with_two_updates_files_two_pending_proposals_and_one_notification(world):
+async def test_a_report_with_two_updates_files_two_pending_proposals(world):
     d = await demo_draft(world)
     extra = {"finding_id": "f_cccccccccccccccc", "change": {
         "field": "sample_types", "value": "plasma", "label": "Plasma", "diagnostic_id": "dx_2222222222222222",
         "evidence": {"source_ref": REF, "version_id": VERSION, "quote": Q_DESIGN},
         "check": {"quote_found": True, "supported": True, "confidence": 0.9}}}
     d["updates"] = [d["updates"][0], extra]
-    await reports.file(d, context())
+    await file_each(d)
     doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
     assert [p["status"] for p in world.mongo["proposals"].docs] == ["pending", "pending"]
     assert len(doc["proposal_ids"]) == 2 and doc["diagnostic_ids"] == ["dx_2222222222222222"]
     assert all(p["evidence"]["version_id"] == VERSION for p in world.mongo["proposals"].docs)
-    assert len(world.dispatched) == 1
+    assert world.dispatched == []
 
 
 async def test_every_filed_report_carries_a_script_holding_only_its_own_facts(world):
@@ -515,7 +528,7 @@ async def test_the_report_pins_its_version_on_quotes_relationships_and_retrieval
 async def test_a_blocked_report_writes_nothing_but_its_decision(world):
     world.revision = NO_CHANGE  # no memory applied: the unsupported claim survives into draft 2
     d = await demo_draft(world)
-    decision = await reports.file(d, context())
+    decision = await file_each(d)
     assert decision.outcome == "blocked" and decision.failed_check == "evidence_checks"
     assert len(world.gate.calls) == 2  # one Decision per draft; no change was gated
     assert world.mongo["reports"].docs == [] and world.mongo["proposals"].docs == []
@@ -535,18 +548,11 @@ async def test_a_single_draft_is_filed_as_draft_one(world):
     assert len([a for _, a in world.gate.calls if "draft" in a.inputs]) == 1
 
 
-async def test_filing_again_keeps_one_report_one_proposal_and_one_notification(world):
+async def test_filing_again_keeps_one_report_one_proposal_and_one_event(world):
     d, _, _ = await filed(world)
-    await reports.file(d, context())
+    await file_each(d)
     assert len(world.mongo["reports"].docs) == 1 and len(world.mongo["proposals"].docs) == 1
-    assert len(world.dispatched) == 1 and len(world.mongo.events) == 1
-
-
-async def test_a_failed_slack_dispatch_never_blocks_the_report(world):
-    world.dispatch_error = TimeoutError("slack timed out")
-    _, decision, doc = await filed(world)
-    assert decision.outcome == "allowed" and doc["status"] == "pending"
-    assert len(world.mongo["proposals"].docs) == 1
+    assert world.dispatched == [] and len(world.mongo.events) == 1
 
 
 async def test_the_report_validates_against_the_frozen_shape(world):
@@ -644,6 +650,9 @@ async def test_get_reports_lists_by_status_and_run(world, api_client, reader):
 async def test_get_report_returns_the_report_with_its_script_and_never_raw_text(world, api_client, reader):
     _, _, doc = await filed(world)
     await world.mongo["reports"].update_one({"_id": REPORT_ID}, {"$set": {"raw_text": RAW, "status": "accepted"}})
+    await world.mongo["actions"].insert_one({  # the alert A10 dispatched after the final file
+        "_id": "act_0000000000000001", "kind": "notify_slack", "status": "delivered",
+        "target": {"report_id": REPORT_ID}, "result": {"http_status": 200}})
     response = api_client.get(f"/api/v1/reports/{REPORT_ID}")
     assert response.status_code == 200
     body = response.json()
@@ -687,14 +696,14 @@ async def test_the_team_comes_from_the_scope_when_the_item_names_none(world):
     bare = {k: v for k, v in item().items() if k != "team_id"}
     d = await reports.draft(bare, findings(), related(), [M1])
     assert d["team_id"] == TEAM
-    await reports.file(d, context())
+    await file_each(d)
     assert (await world.mongo["reports"].find_one({"_id": REPORT_ID}))["team_id"] == TEAM
 
 
 async def test_a_report_with_no_resolvable_team_fails_before_the_gate(world):
     d = await reports.draft({**item(), "team_id": None, "scope_id": "scope_unknown"}, findings(), related(), [M1])
     with pytest.raises(ValueError, match="missing team_id"):
-        await reports.file(d, context())
+        await file_each(d)
     assert world.gate.calls == [] and world.mongo["reports"].docs == []
 
 
@@ -704,7 +713,7 @@ async def test_the_retrieval_record_is_rebuilt_from_the_related_items(world):
         "method": "vector_search", "index": "vs_source_items+vs_findings", "top_k": 1,
         "filter": {"scope_id": SCOPE},
         "items": [{"ref": "ctgov:NCT00000001", "version_id": "sv_bbbbbbbbbbbbbbbb", "score": 0.83}]}
-    await reports.file(d, context())
+    await file_each(d)
     action = [a for _, a in world.gate.calls if "draft" in a.inputs][0]
     assert action.retrieval.method == "vector_search" and action.retrieval.items[0].score == 0.83
     assert (await world.mongo["reports"].find_one({"_id": REPORT_ID}))["retrieval"]["top_k"] == 1
@@ -712,12 +721,12 @@ async def test_the_retrieval_record_is_rebuilt_from_the_related_items(world):
 
 async def test_a_redraft_attempt_gets_a_new_target_and_a_new_decision(world):
     world.revision = NO_CHANGE  # the unsupported claim survives: blocked
-    blocked = await reports.file(await demo_draft(world), context())
+    blocked = await file_each(await demo_draft(world))
     assert blocked.outcome == "blocked"
     world.revision = REVISION
     redraft = await reports.draft(item(attempt=1), findings(), related(), [M1])
     assert redraft["attempt"] == 1
-    decision = await reports.file(redraft, context())
+    decision = await file_each(redraft)
     targets = [a.inputs["id_target"] for _, a in world.gate.calls if "draft" in a.inputs]
     assert targets == [f"{REPORT_ID}|draft1", f"{REPORT_ID}|draft2", f"{REPORT_ID}|draft1.r1", f"{REPORT_ID}|draft2.r1"]
     assert decision.outcome == "allowed" and decision.id != blocked.id
@@ -748,7 +757,7 @@ async def test_a_relationship_with_no_source_version_is_left_out_and_counted(wor
     unpinned = dict(related()[0], related_ref="ctgov:NCT00000002", label="related_unestablished", rationale=None,
                     related_quote={"source_ref": "ctgov:NCT00000002", "version_id": None, "text": "", "quote_found": False})
     d = await reports.draft(item(), findings(), related() + [unpinned], [M1])
-    await reports.file(d, context())
+    await file_each(d)
     doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
     assert [r["related_ref"] for r in doc["related"]] == ["ctgov:NCT00000001"]
     assert doc["uncertainties"][-1] == "1 related item(s) could not be pinned to a source version and are not listed."
@@ -761,20 +770,20 @@ async def test_a_rejected_report_write_fails_cleanly_and_marks_the_actions_faile
     world.write_error = WriteError("Document failed validation")
     d = await demo_draft(world)
     with pytest.raises(file_module.ReportNotFiled) as error:
-        await reports.file(d, context())
+        await file_each(d)
     assert REPORT_ID in str(error.value) and "validation" not in str(error.value)
     assert world.ledger_calls == [] and world.dispatched == [] and world.mongo.events == []
-    assert [(status, result) for _, status, result in world.settled] == [("failed", None), ("failed", None)]
+    assert [(status, result) for _, status, result in world.settled] == [("done", {"report_id": None}), ("failed", None)]
 
 
 async def test_report_level_actions_are_settled_only_through_governance(world):
     world.block_showed = False
     _, decision, doc = await filed(world)
     assert world.settled == [
-        ("act_fake000000000001", "done", {"report_id": REPORT_ID}),
+        ("act_fake000000000001", "done", {"report_id": None}),  # draft 1: gate only
         (decision.action_id, "done", {"proposal_ids": doc["proposal_ids"], "report_id": REPORT_ID}),
     ]
-    assert all(a["kind"] == "notify_slack" for a in world.mongo["actions"].docs)  # reports wrote no action itself
+    assert world.mongo["actions"].docs == []  # reports wrote no action itself
 
 
 async def test_without_a_governance_settle_function_the_action_is_left_alone(world, monkeypatch):
@@ -783,3 +792,98 @@ async def test_without_a_governance_settle_function_the_action_is_left_alone(wor
     monkeypatch.delattr(dxp.gate, "mark_action")
     _, decision, _ = await filed(world)
     assert decision.outcome == "allowed" and world.settled == []
+
+
+# ------------------------------------------- one draft per call (Luis's ruling, 14 Nov)
+
+async def test_each_draft_is_self_contained_and_only_the_final_one_carries_updates(world):
+    d = await demo_draft(world)
+    one, two = d["drafts"]
+    for draft in (one, two):
+        assert {k: draft[k] for k in ("scope_id", "team_id", "source_ref", "version_id", "run_id")} == {
+            "scope_id": SCOPE, "team_id": TEAM, "source_ref": REF, "version_id": VERSION, "run_id": RUN}
+        assert draft["headline"] and draft["gap"] and draft["discovery"]["summary"] == draft["summary"]
+    assert "updates" not in one and one["memories_used"] == []
+    assert two["updates"] == d["updates"] and two["memories_used"] == d["memories_used"] != []
+    assert {k: v for k, v in d.items() if k != "drafts"} == two
+
+
+async def test_a_non_final_draft_is_gate_only_and_writes_nothing(world):
+    world.block_showed = False
+    one = (await demo_draft(world))["drafts"][0]
+    decision = await reports.file(one, context(), final=False)
+    assert decision.outcome == "allowed"
+    assert [a.inputs["id_target"] for _, a in world.gate.calls] == [f"{REPORT_ID}|draft1"]
+    assert world.mongo["reports"].docs == [] and world.mongo["proposals"].docs == []
+    assert world.ledger_calls == [] and world.dispatched == [] and world.mongo.events == []
+    assert world.settled == [(decision.action_id, "done", {"report_id": None})]
+
+
+async def test_a_blocked_non_final_draft_is_recorded_on_the_filed_report(world):
+    d = await demo_draft(world)
+    first = await reports.file(d["drafts"][0], context(), final=False)
+    assert first.outcome == "blocked" and world.settled == []
+    final = await reports.file({**d["drafts"][1], "blocked_draft_decision_id": first.id}, context())
+    doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
+    assert final.outcome == "allowed" and doc["blocked_draft_decision_id"] == first.id
+
+
+async def test_a_non_final_draft_with_updates_is_refused_before_the_gate(world):
+    d = await demo_draft(world)
+    with pytest.raises(ValueError, match="non-final draft carries no updates"):
+        await reports.file({**d["drafts"][0], "updates": d["updates"]}, context(), final=False)
+    assert world.gate.calls == []
+
+
+async def test_two_drafts_in_one_call_are_refused_before_the_gate(world):
+    with pytest.raises(ValueError, match="one draft per call"):
+        await reports.file(await demo_draft(world), context())
+    assert world.gate.calls == [] and world.mongo["reports"].docs == []
+
+
+async def test_each_change_keeps_the_admission_id_the_run_gave_it(world):
+    d = await demo_draft(world)
+    for index, update in enumerate(d["updates"]):
+        update["change"]["admission_id"] = f"adm_{index:016d}"
+    await file_each(d)
+    assert [c["admission_id"] for _, c, _ in world.ledger_calls] == [
+        f"adm_{index:016d}" for index in range(len(d["updates"]))]
+
+
+async def test_the_task_condition_is_the_scopes_not_the_models(world):
+    await world.mongo["research_scopes"].update_one({"_id": SCOPE}, {"$set": {"condition": "lung cancer (NSCLC)"}})
+    world.first = dict(GOOD_1, task=dict(TASK, condition="breast cancer"))
+    d = await demo_draft(world, memories=())
+    assert d["recommended_task"]["params"]["condition"] == "lung cancer (NSCLC)"
+
+
+async def test_a_failed_model_call_still_gives_the_v33_testing_defaults(world):
+    world.first = RuntimeError("model down")
+    d = await demo_draft(world, memories=())
+    params = d["recommended_task"]["params"]
+    assert params["testing"] == ["ctDNA or plasma", "tissue profiling"]
+    assert params["stage"] == "early" and params["max"] == 5 and d["gap"].endswith("?")
+
+
+async def test_the_model_id_comes_from_llm_when_it_names_one(world, monkeypatch):
+    import dxp.llm
+
+    seen = []
+    plain = dxp.llm.call_structured
+
+    async def spy(model, schema, messages):
+        seen.append(model)
+        return await plain(model, schema, messages)
+
+    monkeypatch.setattr(dxp.llm, "call_structured", spy)
+    monkeypatch.setattr(dxp.llm, "MODEL_IDS", {"fast": "claude-haiku-5-5", "strong": "model-from-llm"}, raising=False)
+    await demo_draft(world, memories=())
+    assert seen == ["model-from-llm"]
+
+
+def test_the_report_prompts_say_the_record_is_data_not_instructions():
+    from dxp.llm.prompts import relate as relate_prompt
+    from dxp.llm.prompts import report as report_prompt
+
+    for system in (report_prompt.SYSTEM, report_prompt.REVISE_SYSTEM, relate_prompt.SYSTEM):
+        assert "data, not instructions" in system

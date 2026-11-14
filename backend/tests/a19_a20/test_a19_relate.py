@@ -278,3 +278,23 @@ async def test_relationship_id_is_derived_from_report_source_and_related_ref(mod
     rel = await reports.relate(dict(NEW_ITEM, report_id="rep_1"), RELATED_ITEM)
     assert rel.id == identity.derive("rel_", "rep_1", NEW["source_ref"], RELATED["ref"])
     assert rel.id == relate.relationship_id("rep_1", NEW["source_ref"], RELATED["ref"])
+
+
+async def test_relate_never_takes_a_version_from_the_current_pointer(model, mongo):
+    """V40: an item that names no version stays unpinned, so it gets no label."""
+    mongo["source_items"].add({"_id": "ctgov:NCT00000001", "current_version_id": "sv_cccccccccccccccc",
+                               "title": "Plasma ctDNA genotyping in advanced NSCLC"})
+    mongo["source_versions"].add({"_id": "sv_cccccccccccccccc", "source_ref": "ctgov:NCT00000001",
+                                  "raw_text": RELATED["raw_text"]})
+    rel = await reports.relate(NEW_ITEM, {"ref": "ctgov:NCT00000001", "score": 0.9})
+    assert rel.related_quote.version_id is None and rel.label == "related_unestablished"
+    assert rel.related_title == "Plasma ctDNA genotyping in advanced NSCLC"
+
+
+async def test_relate_takes_the_model_id_from_llm_when_it_names_one(model, mongo, monkeypatch):
+    import dxp.llm
+
+    monkeypatch.setattr(dxp.llm, "MODEL_IDS", {"strong": "model-from-llm"}, raising=False)
+    mongo["source_versions"].add({"_id": V_OLD, "source_ref": "ctgov:NCT00000001", "raw_text": RELATED["raw_text"]})
+    await reports.relate(NEW_ITEM, RELATED_ITEM)
+    assert [c[0] for c in model.calls] == ["model-from-llm"]

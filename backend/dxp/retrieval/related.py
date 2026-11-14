@@ -14,7 +14,7 @@ import logging
 from typing import Any
 
 from dxp.api.models import Retrieval, RetrievalFilter, RetrievalItem
-from dxp.retrieval.embed import embed_missing, embed_query
+from dxp.retrieval.embed import embed_query
 from dxp.retrieval.indexes import (
     EMBEDDING_PATH,
     REGULAR_TEXT_INDEX_NAMES,
@@ -139,7 +139,7 @@ async def related(scope_id: str, text: str, k: int, exclude: list[str] | None = 
     query = (text or "").strip()[:MAX_QUERY_CHARS]
     mode = _mode()
     if not query or not k:
-        return Retrieval(method=VECTOR if mode != "none" else TEXT, index=None, top_k=k, filter=flt, items=[])
+        return Retrieval(method=TEXT, index=None, top_k=k, filter=flt, items=[])  # nothing was searched
     db = _db()
     wide = k + len(excluded)
 
@@ -184,13 +184,9 @@ async def memories(team_id: str, text: str, tags: dict[str, Any] | None, k: int)
     query = (text or "").strip()[:MAX_QUERY_CHARS]
     mode = _mode()
     if not query or not k:
-        return Retrieval(method=VECTOR if mode != "none" else TEXT, index=None, top_k=k, filter=flt, items=[])
+        return Retrieval(method=TEXT, index=None, top_k=k, filter=flt, items=[])  # nothing was searched
     db = _db()
-    if mode == "voyage":
-        try:  # a memory written after setup has no embedding yet
-            await embed_missing(db, {"team_id": team_id, "status": "active"}, ("memories",))
-        except Exception as exc:
-            log.warning("retrieval: memory embedding failed: %s", type(exc).__name__)
+    # Read-only (AD-28): in voyage mode `memory.create`/`correct` write each version's embedding.
 
     async def search(query_fn) -> list[RetrievalItem]:
         docs = await query_fn(db, "memories", query, k, filters, _MEMORY_FIELDS, mode)
