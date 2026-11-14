@@ -240,7 +240,12 @@ def test_without_a_store_or_binding_the_resolver_says_so(monkeypatch):
     """A missing database is never mistaken for "unresolved"."""
     import sys
 
+    import dxp
+
     monkeypatch.setitem(sys.modules, "dxp.store", None)  # import fails
+    # `from dxp import store` reads the package attribute first, so an earlier
+    # import of dxp.store (by any other test) must be hidden too.
+    monkeypatch.delattr(dxp, "store", raising=False)
     with pytest.raises(ResolverUnavailable):
         resolve_exact("FoundationOne CDx")
 
