@@ -21,7 +21,7 @@ NO_CHANGE_TEXT = "retrieved, no change"
 MODEL = "claude-sonnet-5-5"  # the stronger model (AD-11)
 MAX_RECORD_CHARS = 24000
 MAX_QUOTE_CHARS = 300
-CLAIM_KINDS = ("claim_planned", "claim_performed_or_results", "claim_preclinical", "claim_design")
+CLAIM_KINDS = ("claim_performed_or_results", "claim_planned", "claim_preclinical")  # the gate's vocabulary (V60)
 NAMED_IN_RECORD = "named in the record"
 EVIDENCE_COLLECTION = "evidence_collection"
 NO_RESULTS = "No results posted."
@@ -36,17 +36,35 @@ MENTION_NOT_PROOF = "a name in the record is a mention, not proof of use (V37)"
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+|(?<=[.!?][\"')\]])\s+")
 _WORD = re.compile(r"[a-z0-9]+")
 
-# Verb forms only: the nouns "study" and "use" are left out on purpose.
+# Verb families that must never act on a named product (V37). `bare` forms that are also
+# nouns (use, study, test) count only after an auxiliary or "to".
 WORDING_VERBS = {
-    "uses": ("uses", "used", "using", "utilises", "utilised", "utilising",
-             "utilizes", "utilized", "utilizing"),
-    "studies": ("studies", "studied", "studying"),
-    "showed": ("shows", "showed", "shown", "showing", "demonstrates",
-               "demonstrated", "demonstrating"),
+    "uses": {"bare": ("use", "utilise", "utilize"),
+             "inflected": ("uses", "used", "using", "utilises", "utilised", "utilising",
+                           "utilizes", "utilized", "utilizing"),
+             "participle": ("used", "utilised", "utilized")},
+    "studies": {"bare": ("study",), "inflected": ("studies", "studied", "studying"), "participle": ("studied",)},
+    "showed": {"bare": ("show", "demonstrate"),
+               "inflected": ("shows", "showed", "shown", "showing", "demonstrates", "demonstrated", "demonstrating"),
+               "participle": ("shown", "demonstrated")},
+    "tests": {"bare": ("test",), "inflected": ("tests", "tested", "testing"), "participle": ("tested",)},
+    "evaluates": {"bare": ("evaluate",), "inflected": ("evaluates", "evaluated", "evaluating"),
+                  "participle": ("evaluated",)},
+    "assesses": {"bare": ("assess",), "inflected": ("assesses", "assessed", "assessing"), "participle": ("assessed",)},
 }
-_VERB_FAMILY = {form: family for family, forms in WORDING_VERBS.items() for form in forms}
-_VERB_RE = re.compile(r"\b(%s)\b" % "|".join(sorted(_VERB_FAMILY, key=len, reverse=True)),
-                      re.IGNORECASE)
+_NOUN_LIKE = frozenset({"use", "study", "test"})
+_AUXILIARIES = frozenset("to will would may might can could should shall must not did does do also".split())
+_VERB_FAMILY = {form: family for family, forms in WORDING_VERBS.items()
+                for form in forms["bare"] + forms["inflected"]}
+_VERB_RE = re.compile(r"\b(%s)\b" % "|".join(sorted(_VERB_FAMILY, key=len, reverse=True)), re.IGNORECASE)
+_PARTICIPLE_FAMILY = {form: family for family, forms in WORDING_VERBS.items() for form in forms["participle"]}
+_SUBJECT_VERBS = {form: "showed" for form in ("shows", "showed", "demonstrates", "demonstrated")}
+_AFTER_NAME_RE = re.compile(
+    r"^[\s\"')\]]*(?:(?:is|are|was|were|be|been|being|will be|has been|have been)\s+)?(?:\w+ly\s+)?(%s)\b"
+    % "|".join(sorted({**_PARTICIPLE_FAMILY, **_SUBJECT_VERBS}, key=len, reverse=True)),
+    re.IGNORECASE,
+)
+MAX_WORDS_BETWEEN = 3
 
 
 def split_sentences(text):
@@ -107,48 +125,89 @@ def draft_changes(draft_without, draft_with):
     return changes
 
 
-def _words(text):
-    return set(_WORD.findall(str(text or "").lower()))
-
-
 def _memory_id(memory):
     return memory.get("memory_id") or memory.get("id")
 
 
-def memory_effects(draft_without, draft_with, memories, attribution=None):
-    """MemoryUse[] (AD-14): each retrieved memory with the change it made.
+def _same(a, b):
+    return " ".join(str(a or "").split()) == " ".join(str(b or "").split())
 
-    A memory's effect is one real difference between the two drafts
-    ({ target, before, after }) or None ("retrieved, no change"). Each
-    difference goes to one memory: the one `attribution` names for it
-    ({ memory_id: the changed text in draft 2 }), else the memory sharing the
-    most words with the changed text, else the first (best ranked) memory.
-    An attribution that names text the drafts do not differ on is ignored.
+
+def verified_citations(draft_without, draft_candidate, cited, memory_ids):
+    """The model's citations that are real: `[(memory_id, change)]`.
+
+    `cited` is what the model said each memory changed: `[{ memory_id, before, after }]`.
+    A citation counts only when it names a retrieved memory and its before and after are
+    one actual difference between draft 1 and the candidate draft 2.
+    """
+    changes = draft_changes(draft_without, draft_candidate)
+    accepted = []
+    for entry in cited or []:
+        if not isinstance(entry, dict) or entry.get("memory_id") not in memory_ids:
+            continue
+        for change in changes:
+            if _same(change["before"], entry.get("before")) and _same(change["after"], entry.get("after")):
+                if not any(c is change or (c["before"], c["after"]) == (change["before"], change["after"])
+                           for _, c in accepted):
+                    accepted.append((entry["memory_id"], change))
+                break
+    return accepted
+
+
+def _swap_sentence(text, before, after):
+    parts = [after if part == before else part for part in split_sentences(text)]
+    return " ".join(part for part in parts if part)
+
+
+def apply_citations(draft_without, draft_candidate, accepted):
+    """Draft 2: draft 1 with only the cited, verified changes applied.
+
+    Every other difference in the candidate is dropped, so draft 2 differs from draft 1
+    only where a memory is cited.
+    """
+    second = {**draft_without, "draft": 2, "claims": [dict(c) for c in draft_without.get("claims") or []]}
+    candidate_claims = {c["text"]: c for c in draft_candidate.get("claims") or []}
+    for _, change in accepted:
+        before, after = change["before"], change["after"]
+        if change["target"] == "label":
+            for claim in second["claims"]:
+                if claim.get("claim_kind") == before and (candidate_claims.get(claim["text"]) or {}).get("claim_kind") == after:
+                    claim["claim_kind"] = after
+            continue
+        if not before:  # an added sentence: a claim if the candidate tagged it, else part of the summary
+            if after in candidate_claims:
+                if after not in [c["text"] for c in second["claims"]]:
+                    second["claims"].append(dict(candidate_claims[after]))
+            if after in split_sentences(draft_candidate.get("summary")) or after not in candidate_claims:
+                if after not in split_sentences(second.get("summary")):
+                    second["summary"] = " ".join(x for x in (second.get("summary"), after) if x)
+            continue
+        for field in ("headline", "summary", "gap"):
+            second[field] = _swap_sentence(second.get(field), before, after)
+        claims = []
+        for claim in second["claims"]:
+            if claim["text"] == before:
+                if not after:
+                    continue
+                claim = dict(candidate_claims.get(after) or {**claim, "text": after})
+            claims.append(claim)
+        second["claims"] = claims
+    return second
+
+
+def memory_effects(draft_without, draft_with, memories, cited=None):
+    """MemoryUse[] (AD-14): each retrieved memory with the change it made, or none.
+
+    A memory has an effect only when a citation names it (`cited`:
+    `[{ memory_id, before, after }]`) and that before and after are a real difference
+    between the two drafts. Anything else is None: "retrieved, no change". Nothing is
+    inferred from wording.
     """
     memories = list(memories or [])
-    changes = draft_changes(draft_without, draft_with)
-    attribution = attribution or {}
-    owned: dict[Any, list[tuple[int, dict]]] = {}
-    for change in changes:
-        owner = None
-        changed = _words(change["before"]) ^ _words(change["after"])
-        if not changed:
-            changed = _words(change["before"]) | _words(change["after"])
-        for memory in memories:
-            named = attribution.get(_memory_id(memory))
-            if named and named in (change["after"], change["before"]):
-                owner = memory
-                break
-        if owner is None and memories:
-            scored = [(len(changed & _words(m.get("text"))), -i, m) for i, m in enumerate(memories)]
-            owner = max(scored, key=lambda entry: entry[:2])[2]
-        if owner is not None:
-            named = attribution.get(_memory_id(owner))
-            is_named = bool(named) and named in (change["after"], change["before"])
-            weight = len(changed & _words(owner.get("text"))) + (10**6 if is_named else 0)
-            owned.setdefault(_memory_id(owner), []).append((weight, change))
-    # A memory shows one effect: the difference closest to its own words, the earliest on a tie.
-    effects = {key: max(found, key=lambda entry: entry[0])[1] for key, found in owned.items()}
+    ids = [_memory_id(m) for m in memories]
+    effects = {}
+    for memory_id, change in verified_citations(draft_without, draft_with, cited, ids):
+        effects.setdefault(memory_id, dict(change))
     return [
         {
             "memory_id": _memory_id(memory),
@@ -172,26 +231,48 @@ def effect_text(memory_use):
 
 # --------------------------------------------------------------- wording (V37)
 
-def wording_flags(text, names):
-    """Sentences that say "uses", "studies" or "showed" about a named product.
+def _acts_on(sentence, start, end):
+    """The verb families acting on the name at sentence[start:end], in order of appearance."""
+    families = []
+    for match in _VERB_RE.finditer(sentence[:start]):
+        between = sentence[match.end():start]
+        if re.search(r"[,;:()]", between) or len(_WORD.findall(between.lower())) > MAX_WORDS_BETWEEN:
+            continue
+        form = match.group(1).lower()
+        if form in _NOUN_LIKE:
+            before = _WORD.findall(sentence[:match.start()].lower())[-2:]
+            if not _AUXILIARIES & set(before):
+                continue
+        families.append(_VERB_FAMILY[form])
+    after = _AFTER_NAME_RE.match(sentence[end:])
+    if after:
+        form = after.group(1).lower()
+        families.append(_PARTICIPLE_FAMILY.get(form) or _SUBJECT_VERBS[form])
+    return families
 
-    Returns [{ name, verb, sentence }]; verb is the family: "uses", "studies"
-    or "showed". A name alone, or a verb in a sentence that names no product,
-    is not flagged.
+
+def wording_flags(text, names):
+    """Sentences in which a use, study, show, test, evaluate or assess verb acts on a named product.
+
+    Returns [{ name, verb, sentence }]; verb is the family: "uses", "studies", "showed",
+    "tests", "evaluates" or "assesses". A verb acts on a name when the name follows it
+    within a few words of the same clause ("will use X", "aims to study X", "results
+    show X"), or when the name is its subject or passive subject ("X showed", "X was
+    used"). A name alone, a noun ("this study", "proof of use") or a verb in a sentence
+    that names no product is not flagged.
     """
     names = [name for name in (names or []) if isinstance(name, str) and name.strip()]
     flags = []
     for sentence in split_sentences(text):
         lowered = sentence.lower()
-        present = [name for name in names if name.strip().lower() in lowered]
-        if not present:
-            continue
-        families = []
-        for match in _VERB_RE.finditer(sentence):
-            family = _VERB_FAMILY[match.group(1).lower()]
-            if family not in families:
-                families.append(family)
-        for name in present:
+        for name in names:
+            needle = name.strip().lower()
+            families, position = [], lowered.find(needle)
+            while position != -1:
+                for family in _acts_on(sentence, position, position + len(needle)):
+                    if family not in families:
+                        families.append(family)
+                position = lowered.find(needle, position + 1)
             for family in families:
                 flags.append({"name": name, "verb": family, "sentence": sentence})
     return flags
@@ -352,9 +433,18 @@ def build_updates(source: dict[str, Any], findings: list[dict[str, Any]], mentio
         if best:
             quote, check = best.get("quote"), dict(best.get("check") or {})
         else:
-            quote = next((q["text"] for q in quotes if q.get("quote_found")), None)
-            check = {"quote_found": quote is not None, "supported": False, "confidence": 0.0,
-                     "detail": "no checked value of the record backs this update"}
+            # No checked value: the record's own title or NCT ID, word for word from this version,
+            # shows that this record is what the update adds.
+            own = [source.get("title"), source.get("brief_title"), source.get("nct_id")]
+            quote = next((q for q in own if isinstance(q, str) and q.strip() and len(q) <= MAX_QUOTE_CHARS
+                          and quote_found(q)), None)
+            if quote:
+                check = {"quote_found": True, "supported": True, "confidence": 1.0,
+                         "detail": "the record's own title or identifier, found word for word in this version"}
+            else:
+                quote = next((q["text"] for q in quotes if q.get("quote_found")), None)
+                check = {"quote_found": quote is not None, "supported": False, "confidence": 0.0,
+                         "detail": "no checked value of the record backs this update"}
         updates.append({"finding_id": record_finding_id, "change": {
             "field": EVIDENCE_COLLECTION, "value": source_ref, "label": label, "diagnostic_id": None,
             "scope_id": source["scope_id"], "evidence": evidence(quote), "check": check, "trigger": "discovery",
@@ -412,7 +502,7 @@ def compose(number: int, output: Any, base: dict[str, Any], quote_found) -> dict
         quote = _clean(claim.get("quote")) if isinstance(claim.get("quote"), str) else ""
         quote = claim["quote"] if quote and len(claim["quote"]) <= MAX_QUOTE_CHARS else ""
         found = bool(quote) and quote_found(quote)
-        kind = claim.get("claim_kind") if claim.get("claim_kind") in CLAIM_KINDS else "claim_design"
+        kind = claim.get("claim_kind") if claim.get("claim_kind") in CLAIM_KINDS else None
         claims.append({"text": text, "claim_kind": kind, "quote": quote, "quote_found": found})
         if quote and quote not in [q["text"] for q in quotes]:
             quotes.append({"text": quote, "quote_found": found, "version_id": base["version_id"]})
@@ -450,7 +540,7 @@ def gate_claims(one_draft: dict[str, Any]) -> list[dict[str, Any]]:
     for sentence in split_sentences(one_draft.get("headline")) + split_sentences(one_draft.get("summary")):
         if sentence not in seen:
             seen.add(sentence)
-            claims.append({"claim_kind": "claim_design", "text": sentence})
+            claims.append({"text": sentence})
     return claims
 
 
@@ -469,7 +559,46 @@ async def _load_source(item: Any) -> dict[str, Any]:
             log.warning("reports.draft: could not load the source version: %s", type(exc).__name__)
     if not source.get("scope_id") and source.get("scope_ids"):
         source["scope_id"] = source["scope_ids"][0]
+    if not source.get("team_id"):
+        source["team_id"] = await team_for_scope(source.get("scope_id"))
     return source
+
+
+async def team_for_scope(scope_id: Any) -> str | None:
+    """The Team of a research scope (`research_scopes.team_id`); a source item carries scopes, not a Team."""
+    if not scope_id:
+        return None
+    try:
+        from dxp import store
+
+        scope = await store.db()["research_scopes"].find_one({"_id": scope_id}) or {}
+        return scope.get("team_id")
+    except Exception as exc:
+        log.warning("reports.draft: could not read the scope's Team: %s", type(exc).__name__)
+        return None
+
+
+def retrieval_from_related(related: list[dict[str, Any]], scope_id: Any) -> dict[str, Any] | None:
+    """The retrieval record rebuilt from the related items when the caller passed none:
+    the method, the index that method reads, top_k and each score (V14)."""
+    from dxp.retrieval.indexes import TEXT_INDEX_NAMES, VECTOR_INDEX_NAMES
+
+    methods = [r.get("retrieval_method") for r in related if r.get("retrieval_method")]
+    if not methods:
+        return None
+    method = "text_search" if "text_search" in methods else methods[0]
+    names = VECTOR_INDEX_NAMES if method == "vector_search" else TEXT_INDEX_NAMES
+    return {
+        "method": method,
+        "index": "+".join(names[c] for c in ("source_items", "findings")),
+        "top_k": len(related),
+        "filter": {"scope_id": scope_id},
+        "items": [
+            {"ref": r.get("related_ref"), "version_id": (r.get("related_quote") or {}).get("version_id"),
+             "score": float(r.get("similarity") or 0.0)}
+            for r in related if r.get("related_ref")
+        ],
+    }
 
 
 async def _seeded_names(source: dict[str, Any]) -> list[str]:
@@ -498,31 +627,52 @@ async def _resolve(mentions: list[dict[str, Any]]) -> None:
             log.warning("reports.draft: could not resolve a name: %s", type(exc).__name__)
 
 
-async def _ask(source: dict[str, Any], names: list[str], related: list[dict[str, Any]], memories: list[dict[str, Any]]) -> Any:
-    from dxp import llm
-    from dxp.llm.prompts import report as prompt
-
-    guidance = ""
-    if memories:
-        guidance = prompt.GUIDANCE.format(memories="\n".join(f"{i}. {m.get('text')}" for i, m in enumerate(memories, 1)))
+def _record_fields(source: dict[str, Any], names: list[str], related: list[dict[str, Any]]) -> dict[str, Any]:
     lines = [f"- {r.get('label')}: {r.get('related_title') or r.get('related_ref')}" for r in related] or ["- none"]
+    return {
+        "source_ref": source.get("source_ref"),
+        "record": (source.get("raw_text") or source.get("evidence_text") or "")[:MAX_RECORD_CHARS],
+        "overall_status": source.get("overall_status"),
+        "has_results": source.get("has_results"),
+        "interventions": json.dumps(source.get("interventions") or [], ensure_ascii=False),
+        "names": json.dumps(names, ensure_ascii=False),
+        "related": "\n".join(lines),
+    }
+
+
+async def _call(schema: dict[str, Any], system: str, user: str) -> Any:
+    from dxp import llm
+
     try:
-        return await llm.call_structured(MODEL, prompt.SCHEMA, [
-            {"role": "system", "content": prompt.SYSTEM},
-            {"role": "user", "content": prompt.USER.format(
-                source_ref=source.get("source_ref"),
-                record=(source.get("raw_text") or source.get("evidence_text") or "")[:MAX_RECORD_CHARS],
-                overall_status=source.get("overall_status"),
-                has_results=source.get("has_results"),
-                interventions=json.dumps(source.get("interventions") or [], ensure_ascii=False),
-                names=json.dumps(names, ensure_ascii=False),
-                related="\n".join(lines),
-                guidance=guidance,
-            )},
+        return await llm.call_structured(MODEL, schema, [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ])
     except Exception as exc:
         log.warning("reports.draft: model call failed: %s", type(exc).__name__)
         return None
+
+
+async def _ask(source: dict[str, Any], names: list[str], related: list[dict[str, Any]]) -> Any:
+    """Draft 1: written from the record alone, with no memory."""
+    from dxp.llm.prompts import report as prompt
+
+    return await _call(prompt.SCHEMA, prompt.SYSTEM, prompt.USER.format(**_record_fields(source, names, related)))
+
+
+async def _ask_revision(source: dict[str, Any], names: list[str], related: list[dict[str, Any]],
+                        first: dict[str, Any], memories: list[dict[str, Any]]) -> Any:
+    """Draft 2: draft 1 revised only where a retrieved memory requires it, each change cited."""
+    from dxp.llm.prompts import report as prompt
+
+    draft_one = {
+        "headline": first["headline"], "summary": first["summary"], "gap": first["gap"],
+        "claims": [{k: c[k] for k in ("text", "claim_kind", "quote") if c.get(k)} for c in first["claims"]],
+    }
+    guidance = "\n".join(f"- {_memory_id(m)}: {m.get('text')}" for m in memories)
+    return await _call(prompt.REVISE_SCHEMA, prompt.REVISE_SYSTEM, prompt.REVISE_USER.format(
+        draft=json.dumps(draft_one, ensure_ascii=False, indent=2), memories=guidance,
+        **_record_fields(source, names, related)))
 
 
 async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: list[Relationship], memories: list[Memory]) -> dict[str, Any]:
@@ -568,18 +718,32 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
         "intervention_plain": f'"{verbatim}"' if verbatim else "unnamed",
     }
 
-    drafts = [compose(1, await _ask(source, names, related_dicts, []), base, quote_found)]
+    first = compose(1, await _ask(source, names, related_dicts), base, quote_found)
+    drafts = [first]
+    cited: list[dict[str, Any]] = []
     if memory_dicts:
-        answer = await _ask(source, names, related_dicts, memory_dicts)
+        second = {**first, "draft": 2}  # no usable revision: draft 2 is draft 1, "retrieved, no change"
+        guidance = [m for m in memory_dicts if _clean(m.get("text"))]
+        answer = await _ask_revision(source, names, related_dicts, first, guidance) if guidance else None
         if isinstance(answer, dict):
-            drafts.append(compose(2, answer, base, quote_found))
-        else:  # the second call failed: draft 2 is draft 1, so every memory shows "retrieved, no change"
-            drafts.append({**drafts[0], "draft": 2})
+            carried = {"task": first["task"], "intervention_plain": first["intervention_plain"],
+                       "collection_label": first["collection_label"]}
+            fallback = {**base, "headline": first["headline"], "summary": first["summary"], "gap": first["gap"]}
+            candidate = compose(2, {**answer, **carried}, fallback, quote_found)
+            cited = [e for e in answer.get("memory_effects") or [] if isinstance(e, dict) and e.get("changed") is not False]
+            accepted = verified_citations(first, candidate, cited, [_memory_id(m) for m in guidance])
+            second = apply_citations(first, candidate, accepted)
+            second["quotes"] = []
+            for claim in second["claims"]:
+                if claim.get("quote") and claim["quote"] not in [q["text"] for q in second["quotes"]]:
+                    second["quotes"].append({"text": claim["quote"], "quote_found": claim.get("quote_found", False),
+                                             "version_id": base["version_id"]})
+        drafts.append(second)
     for one in drafts:
         one["uncertainties"] = build_uncertainties(source, mentions, one["intervention_plain"], seeded)
     final = drafts[-1]
-    effects = memory_effects(drafts[0], final, memory_dicts) if memory_dicts else []
-    for use, memory in zip(effects, memory_dicts):
+    effects = memory_effects(first, final, memory_dicts, cited) if memory_dicts else []
+    for use in effects:
         use["source"] = use["source"] or {"decision_id": None, "report_id": None}
         use["version"] = use["version"] if use["version"] is not None else 1
         use["author"] = use["author"] or ""
@@ -587,6 +751,7 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
     retrieval = source.get("retrieval")
     return {
         "draft": final["draft"],
+        "attempt": int(source.get("attempt") or 0),
         "run_id": source.get("run_id"),
         "scope_id": source.get("scope_id"),
         "team_id": source.get("team_id"),
@@ -608,7 +773,7 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
         "related": related_dicts,
         "uncertainties": final["uncertainties"],
         "gap": final["gap"],
-        "retrieval": _plain(retrieval) if retrieval else None,
+        "retrieval": _plain(retrieval) if retrieval else retrieval_from_related(related_dicts, source.get("scope_id")),
         "memories_used": effects,
         "recommended_task": {"kind": "search_related", "params": final["task"]},
         "updates": build_updates(source, findings, mentions, final["quotes"], final["collection_label"], quote_found),

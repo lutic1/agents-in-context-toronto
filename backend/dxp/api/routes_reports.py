@@ -1,15 +1,17 @@
 """Research reports (Story 10.4): GET /reports and GET /reports/<report_id> (A19+A20).
 
 Paths, methods, parameters and response models are frozen (AD-14). Both routes
-read the `reports` collection; quotes only, never `raw_text` (V40).
+read the `reports` collection; quotes only, never `raw_text` (V40). Both need a
+known key and refuse the seed key (V67).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
+from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
 
@@ -53,8 +55,10 @@ async def _report(db, document: dict[str, Any]) -> m.Report:
 
 
 @router.get("/reports", response_model=m.ReportList, tags=["reports"])
-async def list_reports(status: str | None = Query(default=None), run_id: str | None = Query(default=None)) -> m.ReportList:
+async def list_reports(request: Request, status: str | None = Query(default=None), run_id: str | None = Query(default=None)) -> m.ReportList:
     from dxp import store
+
+    await auth.require_principal(request)  # a known key; the seed key is refused (V67)
 
     db = store.db()
     query: dict[str, Any] = {}
@@ -67,9 +71,11 @@ async def list_reports(status: str | None = Query(default=None), run_id: str | N
 
 
 @router.get("/reports/{report_id}", response_model=m.Report, tags=["reports"])
-async def get_report(report_id: str) -> m.Report:
+async def get_report(request: Request, report_id: str) -> m.Report:
     """Whatever its status; 404 for an unknown ID."""
     from dxp import store
+
+    await auth.require_principal(request)  # a known key; the seed key is refused (V67)
 
     db = store.db()
     document = await db["reports"].find_one({"_id": report_id})

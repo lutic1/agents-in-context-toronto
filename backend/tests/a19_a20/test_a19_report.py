@@ -86,27 +86,39 @@ def related():
 M1 = Memory(id="mem_1111111111111111", version=1, team_id=TEAM, author="sam",
             source={"decision_id": "dec_0000000000000001", "report_id": "rep_0000000000000001"},
             text="Do not state an outcome when the trial has no posted results; say that no results are posted.",
-            tags={"assay": "Guardant360 CDx", "claim_kind": "outcome_claim_without_results"}, status="active")
+            tags={"assay": "Guardant360 CDx", "claim_kind": "claim_performed_or_results"}, status="active")
+M2 = Memory(id="mem_2222222222222222", version=3, team_id=TEAM, author="sam",
+            source={"decision_id": "dec_0000000000000002", "report_id": "rep_0000000000000002"},
+            text="Say which stage of disease the trial enrols.", tags={"claim_kind": "claim_planned"}, status="active")
 
 TASK = {"condition": "non-small cell lung cancer", "stage": "early", "testing": ["ctDNA or plasma", "tissue profiling"]}
 SHOWED = "The trial showed that blood profiling finds actionable drivers."
 INVESTIGATES = "The trial investigates whether blood and tissue profiling find actionable drivers; no results posted."
 ANSWER_1 = {
-    "headline": "This study investigates blood and tumour tissue profiling in early-stage lung cancer.",
+    "headline": HEADLINE,
     "summary": SHOWED + " It is recruiting.",
     "claims": [{"text": SHOWED, "claim_kind": "claim_performed_or_results", "quote": Q_DESIGN},
                {"text": "It is recruiting.", "claim_kind": "claim_planned", "quote": "Overall status: RECRUITING"}],
     "gap": GAP, "task": TASK, "intervention_plain": "ctDNA and tumour NGS",
     "collection_label": "early-stage plasma-plus-tissue profiling study",
 }
-ANSWER_2 = {
+GOOD_1 = dict(ANSWER_1, headline=HEADLINE, summary=INVESTIGATES + " It is recruiting.", claims=[
+    {"text": INVESTIGATES, "claim_kind": "claim_planned", "quote": Q_DESIGN},
+    {"text": "It is recruiting.", "claim_kind": "claim_planned", "quote": "Overall status: RECRUITING"}])
+# Draft 2 is a revision of draft 1: the memory rewrites the unsupported sentence and is cited for it.
+# The model also reworded the headline on its own; that difference is cited by no memory.
+REVISION = {
     "headline": HEADLINE,
     "summary": INVESTIGATES + " It is recruiting.",
     "claims": [{"text": INVESTIGATES, "claim_kind": "claim_planned", "quote": Q_DESIGN},
                {"text": "It is recruiting.", "claim_kind": "claim_planned", "quote": "Overall status: RECRUITING"}],
-    "gap": GAP, "task": TASK, "intervention_plain": "ctDNA and tumour NGS",
-    "collection_label": "early-stage plasma-plus-tissue profiling study",
+    "gap": GAP,
+    "memory_effects": [{"memory_id": "mem_1111111111111111", "changed": True, "before": SHOWED, "after": INVESTIGATES}],
 }
+NO_CHANGE = {"headline": GOOD_1["headline"], "summary": GOOD_1["summary"], "claims": GOOD_1["claims"], "gap": GAP,
+             "memory_effects": [{"memory_id": "mem_1111111111111111", "changed": False, "before": "", "after": ""}]}
+RELATION = {"label": "supports", "rationale": "Both combine blood and tissue profiling before surgery.",
+            "new_quote": Q_DESIGN, "related_quote": "Plasma ctDNA with tissue profiling"}
 
 
 def context(run_id=RUN):
@@ -128,7 +140,10 @@ def world(monkeypatch, mongo, fake_gate):
     import dxp.llm
 
     class World:
-        answers = [ANSWER_1, ANSWER_2]
+        first = ANSWER_1        # the answer to the draft-1 call
+        revision = REVISION     # the answer to the draft-2 (revision) call
+        relation = RELATION     # the answer to a relationship call
+        write_error = None
         llm_calls = []
         ledger_calls = []
         dispatched = []
@@ -136,12 +151,13 @@ def world(monkeypatch, mongo, fake_gate):
         block_showed = True
 
     w = World()
-    w.llm_calls, w.ledger_calls, w.dispatched = [], [], []
+    w.llm_calls, w.ledger_calls, w.dispatched, w.schemas, w.settled = [], [], [], [], []
     w.mongo, w.gate = mongo, fake_gate
 
     async def call_structured(model, schema, messages):
         w.llm_calls.append(messages)
-        answer = w.answers[min(len(w.llm_calls), len(w.answers)) - 1]
+        w.schemas.append(schema["title"])
+        answer = {"report_draft": w.first, "report_revision": w.revision, "relationship": w.relation}[schema["title"]]
         if isinstance(answer, Exception):
             raise answer
         return answer
@@ -159,7 +175,10 @@ def world(monkeypatch, mongo, fake_gate):
             fake_gate.blocked = {action.kind: "team_scope"}
         if action.inputs.get("item_scope_ids") == []:
             fake_gate.blocked = {action.kind: "team_scope"}
-        return await plain_evaluate(ctx, action)
+        decision = await plain_evaluate(ctx, action)
+        if decision.outcome == "allowed":
+            decision.action_id = "act_" + decision.id[4:]
+        return decision
 
     async def ledger_file(finding_id, changes, mode, ctx):
         decisions = []
@@ -190,6 +209,20 @@ def world(monkeypatch, mongo, fake_gate):
         return Action(id=action_id, decision_id="dec_x", kind=action.kind, destination=action.destination,
                       stamp=ctx.stamp, status="delivered")
 
+    async def mark_action(action_id, status, result=None, *, session=None):
+        w.settled.append((action_id, status, result))
+        return True
+
+    insert_report = mongo["reports"].insert_one
+
+    async def insert_one(doc, **kwargs):
+        if w.write_error:
+            raise w.write_error
+        return await insert_report(doc, **kwargs)
+
+    mongo["reports"].insert_one = insert_one
+    mongo["research_scopes"].add({"_id": SCOPE, "team_id": TEAM, "name": "Plasma ctDNA genotyping assays in NSCLC"})
+    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
     monkeypatch.setattr(dxp.llm, "call_structured", call_structured)
     monkeypatch.setattr(dxp.evidence, "quote_in_source", lambda quote, raw_text: quote in raw_text, raising=False)
     monkeypatch.setattr(dxp.gate, "evaluate", evaluate)
@@ -207,9 +240,10 @@ async def demo_draft(world, memories=(M1,)):
 async def test_draft_writes_two_drafts_and_returns_the_report_fields(world):
     d = await demo_draft(world)
     assert d["draft"] == 2 and [x["draft"] for x in d["drafts"]] == [1, 2]
-    assert len(world.llm_calls) == 2
-    assert "Reviewer guidance" not in world.llm_calls[0][1]["content"]
-    assert M1.text in world.llm_calls[1][1]["content"]
+    assert world.schemas == ["report_draft", "report_revision"]
+    assert M1.text not in world.llm_calls[0][1]["content"]
+    revision = world.llm_calls[1][1]["content"]
+    assert M1.text in revision and "mem_1111111111111111" in revision and SHOWED in revision
     assert d["headline"] == HEADLINE
     assert d["gap"] == GAP
     assert d["status_line"] == "Recruiting; no results posted"
@@ -270,34 +304,69 @@ async def test_draft_records_each_memory_effect_from_the_two_real_drafts(world):
 
 
 async def test_a_memory_that_changes_nothing_is_retrieved_no_change(world):
-    world.answers = [ANSWER_2, ANSWER_2]
+    world.first, world.revision = GOOD_1, NO_CHANGE
     d = await demo_draft(world)
     assert d["memories_used"][0]["effect"] is None
+    assert {k: d["drafts"][1][k] for k in ("headline", "summary", "claims", "gap")} == {
+        k: d["drafts"][0][k] for k in ("headline", "summary", "claims", "gap")}
+
+
+async def test_draft_two_differs_from_draft_one_only_where_a_memory_is_cited(world):
+    reworded = "This trial looks at blood and tissue profiling in early lung cancer. No results posted."
+    world.revision = dict(REVISION, headline=reworded, gap="Have comparable studies posted results?")
+    d = await demo_draft(world)
+    one, two = d["drafts"]
+    assert two["headline"] == one["headline"] == HEADLINE and two["gap"] == one["gap"] == GAP
+    changes = draft_module.draft_changes(one, two)
+    assert {(c["before"], c["after"]) for c in changes} == {(SHOWED, INVESTIGATES)}
+    assert d["discovery"]["summary"] == INVESTIGATES + " It is recruiting."
+    assert d["claims"][0] == {"text": INVESTIGATES, "claim_kind": "claim_planned", "quote": Q_DESIGN, "quote_found": True}
+
+
+async def test_a_citation_that_is_not_a_real_difference_gives_no_effect_and_no_change(world):
+    world.revision = dict(REVISION, memory_effects=[
+        {"memory_id": "mem_1111111111111111", "changed": True, "before": "It is recruiting.", "after": "It is enrolling."}])
+    d = await demo_draft(world)
+    assert d["memories_used"][0]["effect"] is None
+    assert d["discovery"]["summary"] == SHOWED + " It is recruiting."  # the uncited rewrite was reverted
+
+
+async def test_only_the_cited_memory_gets_the_effect(world):
+    world.revision = dict(REVISION, memory_effects=REVISION["memory_effects"] + [
+        {"memory_id": "mem_2222222222222222", "changed": False, "before": "", "after": ""},
+        {"memory_id": "mem_unknown", "changed": True, "before": SHOWED, "after": INVESTIGATES}])
+    d = await demo_draft(world, memories=(M2, M1))
+    by_id = {u["memory_id"]: u for u in d["memories_used"]}
+    assert by_id["mem_2222222222222222"]["effect"] is None and by_id["mem_2222222222222222"]["version"] == 3
+    assert by_id["mem_1111111111111111"]["effect"] == {"target": "sentence", "before": SHOWED, "after": INVESTIGATES}
 
 
 async def test_without_memories_there_is_one_draft_and_one_model_call(world):
-    world.answers = [ANSWER_2]
+    world.first = GOOD_1
     d = await demo_draft(world, memories=())
     assert d["draft"] == 1 and len(d["drafts"]) == 1 and len(world.llm_calls) == 1
     assert d["memories_used"] == []
 
 
 async def test_draft_quotes_are_checked_against_the_version_and_pinned(world):
-    world.answers = [ANSWER_2, dict(ANSWER_2, claims=[
-        {"text": INVESTIGATES, "claim_kind": "claim_planned", "quote": "a passage the record does not contain"}])]
-    d = await demo_draft(world)
+    world.first = dict(GOOD_1, claims=[
+        {"text": INVESTIGATES, "claim_kind": "claim_planned", "quote": "a passage the record does not contain"}])
+    d = await demo_draft(world, memories=())
     assert d["discovery"]["quotes"] == [
         {"text": "a passage the record does not contain", "quote_found": False, "version_id": VERSION}]
 
 
 async def test_draft_never_says_uses_studies_or_showed_about_a_name(world):
-    bad = dict(ANSWER_2,
+    bad = dict(GOOD_1,
                headline="This study uses FoundationOne CDx in early-stage lung cancer.",
                summary="The trial studies FoundationOne Liquid. It is recruiting.",
-               claims=[{"text": "FoundationOne CDx showed high concordance.", "claim_kind": "claim_design", "quote": Q_DESIGN}],
+               claims=[{"text": "FoundationOne CDx showed high concordance.", "quote": Q_DESIGN}],
                gap="Have studies using FoundationOne CDx posted results?",
                intervention_plain="FoundationOne CDx testing", collection_label="FoundationOne CDx study")
-    world.answers = [bad, bad]
+    world.first = bad
+    world.revision = {**{k: bad[k] for k in ("headline", "summary", "claims", "gap")}, "memory_effects": [
+        {"memory_id": "mem_1111111111111111", "changed": True, "before": "It is recruiting.",
+         "after": "The trial uses FoundationOne CDx."}]}
     d = await demo_draft(world)
     assert draft_module.report_wording_flags(d) == []
     assert d["headline"] == "New trial signal: Molecular profiling in early-stage lung cancer before surgery. No results posted."
@@ -309,7 +378,7 @@ async def test_draft_never_says_uses_studies_or_showed_about_a_name(world):
 
 @pytest.mark.parametrize("answer", [RuntimeError("overloaded"), None, "refused"])
 async def test_a_model_failure_still_yields_a_draft_from_the_records_own_fields(world, answer):
-    world.answers = [answer, answer]
+    world.first = world.revision = answer
     d = await demo_draft(world)
     assert d["headline"].endswith("No results posted.") and d["gap"].endswith("?")
     assert d["discovery"]["summary"] == findings()[0]["summary"]
@@ -364,6 +433,9 @@ async def test_the_gate_sees_claims_source_fields_retrieval_and_memories(world):
     first, second = [a for _, a in world.gate.calls if "draft" in a.inputs]
     assert first.destination == "ledger" and first.target.scope_id == SCOPE and first.target.diagnostic_id is None
     assert {"claim_kind": "claim_performed_or_results", "text": SHOWED, "quote": Q_DESIGN} in first.inputs["claims"]
+    assert {"text": HEADLINE.split(". ")[0] + "."} in first.inputs["claims"]  # untagged: judged on its words
+    kinds = {c.get("claim_kind") for c in first.inputs["claims"] + second.inputs["claims"]}
+    assert kinds <= {None, "claim_performed_or_results", "claim_planned", "claim_preclinical"}
     assert first.inputs["source_fields"] == {"overall_status": "RECRUITING", "has_results": False}
     assert first.evidence_ref.version_id == VERSION and first.evidence_ref.source_ref == REF
     assert first.memories_used == [] and first.retrieval.method == "vector_search"
@@ -441,7 +513,7 @@ async def test_the_report_pins_its_version_on_quotes_relationships_and_retrieval
 
 
 async def test_a_blocked_report_writes_nothing_but_its_decision(world):
-    world.answers = [ANSWER_1, ANSWER_1]  # the unsupported claim survives into draft 2
+    world.revision = NO_CHANGE  # no memory applied: the unsupported claim survives into draft 2
     d = await demo_draft(world)
     decision = await reports.file(d, context())
     assert decision.outcome == "blocked" and decision.failed_check == "evidence_checks"
@@ -457,7 +529,7 @@ async def test_an_allowed_first_draft_leaves_no_blocked_draft_decision(world):
 
 
 async def test_a_single_draft_is_filed_as_draft_one(world):
-    world.answers = [ANSWER_2]
+    world.first = GOOD_1
     _, decision, doc = await filed(world, memories=())
     assert decision.outcome == "allowed" and doc["draft"] == 1 and doc["memories_used"] == []
     assert len([a for _, a in world.gate.calls if "draft" in a.inputs]) == 1
@@ -500,8 +572,6 @@ async def task_world(world):
         {"_id": "sv_7777777777777777", "source_ref": NEW_REF, "raw_text": "Plasma ctDNA with tissue profiling in resectable NSCLC."})
     world.mongo["source_items"].add({"_id": NEW_REF, "scope_ids": [SCOPE], "current_version_id": "sv_7777777777777777",
                                      "title": "Plasma and tissue profiling in resectable NSCLC"})
-    world.answers = [{"label": "supports", "rationale": "Both combine blood and tissue profiling before surgery.",
-                      "new_quote": Q_DESIGN, "related_quote": "Plasma ctDNA with tissue profiling"}]
     world.llm_calls.clear()
 
 
@@ -549,7 +619,18 @@ async def test_add_related_to_an_unknown_report_is_refused(world):
 
 # ------------------------------------------------------------------------------ routes
 
-async def test_get_reports_lists_by_status_and_run(world, api_client):
+@pytest.fixture
+def reader(monkeypatch):
+    """A known key: Sam. Tests of the key rules replace it."""
+    from dxp.api import auth
+
+    async def resolve_actor(api_key):
+        return Principal(id="sam", name="Sam", kind="person")
+
+    monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
+
+
+async def test_get_reports_lists_by_status_and_run(world, api_client, reader):
     await filed(world)
     listing = api_client.get("/api/v1/reports", params={"status": "pending"}).json()
     assert [r["id"] for r in listing["items"]] == [REPORT_ID] and listing["next"] is None
@@ -560,7 +641,7 @@ async def test_get_reports_lists_by_status_and_run(world, api_client):
     assert api_client.get("/api/v1/reports", params={"run_id": "run_other"}).json()["items"] == []
 
 
-async def test_get_report_returns_the_report_with_its_script_and_never_raw_text(world, api_client):
+async def test_get_report_returns_the_report_with_its_script_and_never_raw_text(world, api_client, reader):
     _, _, doc = await filed(world)
     await world.mongo["reports"].update_one({"_id": REPORT_ID}, {"$set": {"raw_text": RAW, "status": "accepted"}})
     response = api_client.get(f"/api/v1/reports/{REPORT_ID}")
@@ -575,7 +656,130 @@ async def test_get_report_returns_the_report_with_its_script_and_never_raw_text(
     assert "raw_text" not in response.text and RAW not in response.text
 
 
-def test_get_report_unknown_id_is_404_in_the_error_shape(mongo, api_client):
+def test_get_report_unknown_id_is_404_in_the_error_shape(mongo, api_client, reader):
     response = api_client.get("/api/v1/reports/rep_0000000000000000")
     assert response.status_code == 404
     assert response.json() == {"error": {"code": "not_found", "message": "Report rep_0000000000000000 not found."}}
+
+
+@pytest.mark.parametrize("path", ["/api/v1/reports", "/api/v1/reports/rep_0000000000000000"])
+def test_read_routes_need_a_known_key_and_refuse_the_seed_key(mongo, api_client, monkeypatch, path):
+    from dxp.api import auth
+    from dxp.api.errors import ApiError
+
+    async def unknown(api_key):
+        raise ApiError(401, "unknown_key", "Unknown API key.")
+
+    async def seed(api_key):
+        return Principal(id="seed", name="seed", kind="seed")
+
+    monkeypatch.setattr(auth, "resolve_actor", unknown)
+    response = api_client.get(path)
+    assert response.status_code == 401 and response.json()["error"]["code"] == "unknown_key"
+    monkeypatch.setattr(auth, "resolve_actor", seed)
+    response = api_client.get(path, headers={"X-DxP-Key": "seed-key"})
+    assert response.status_code == 403 and response.json()["error"]["code"] == "seed_key_not_accepted"
+
+
+# ------------------------------------------------------- review fixes (integration)
+
+async def test_the_team_comes_from_the_scope_when_the_item_names_none(world):
+    bare = {k: v for k, v in item().items() if k != "team_id"}
+    d = await reports.draft(bare, findings(), related(), [M1])
+    assert d["team_id"] == TEAM
+    await reports.file(d, context())
+    assert (await world.mongo["reports"].find_one({"_id": REPORT_ID}))["team_id"] == TEAM
+
+
+async def test_a_report_with_no_resolvable_team_fails_before_the_gate(world):
+    d = await reports.draft({**item(), "team_id": None, "scope_id": "scope_unknown"}, findings(), related(), [M1])
+    with pytest.raises(ValueError, match="missing team_id"):
+        await reports.file(d, context())
+    assert world.gate.calls == [] and world.mongo["reports"].docs == []
+
+
+async def test_the_retrieval_record_is_rebuilt_from_the_related_items(world):
+    d = await reports.draft({k: v for k, v in item().items() if k != "retrieval"}, findings(), related(), [M1])
+    assert d["retrieval"] == {
+        "method": "vector_search", "index": "vs_source_items+vs_findings", "top_k": 1,
+        "filter": {"scope_id": SCOPE},
+        "items": [{"ref": "ctgov:NCT00000001", "version_id": "sv_bbbbbbbbbbbbbbbb", "score": 0.83}]}
+    await reports.file(d, context())
+    action = [a for _, a in world.gate.calls if "draft" in a.inputs][0]
+    assert action.retrieval.method == "vector_search" and action.retrieval.items[0].score == 0.83
+    assert (await world.mongo["reports"].find_one({"_id": REPORT_ID}))["retrieval"]["top_k"] == 1
+
+
+async def test_a_redraft_attempt_gets_a_new_target_and_a_new_decision(world):
+    world.revision = NO_CHANGE  # the unsupported claim survives: blocked
+    blocked = await reports.file(await demo_draft(world), context())
+    assert blocked.outcome == "blocked"
+    world.revision = REVISION
+    redraft = await reports.draft(item(attempt=1), findings(), related(), [M1])
+    assert redraft["attempt"] == 1
+    decision = await reports.file(redraft, context())
+    targets = [a.inputs["id_target"] for _, a in world.gate.calls if "draft" in a.inputs]
+    assert targets == [f"{REPORT_ID}|draft1", f"{REPORT_ID}|draft2", f"{REPORT_ID}|draft1.r1", f"{REPORT_ID}|draft2.r1"]
+    assert decision.outcome == "allowed" and decision.id != blocked.id
+    doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
+    assert doc["draft"] == 2 and doc["file_decision_id"] == decision.id
+    assert [a.inputs["draft"] for _, a in world.gate.calls if "draft" in a.inputs] == [1, 2, 1, 2]
+
+
+async def test_the_collection_update_quotes_the_records_own_title_when_no_value_passed(world):
+    bare = findings()
+    bare[0]["values"] = []
+    d = await reports.draft(item(), bare, related(), [M1])
+    change = d["updates"][0]["change"]
+    assert change["evidence"] == {"source_ref": REF, "version_id": VERSION,
+                                  "quote": "Molecular profiling in early-stage lung cancer before surgery"}
+    assert change["check"]["quote_found"] is True and change["check"]["supported"] is True
+
+
+async def test_the_collection_update_is_unsupported_when_nothing_of_the_record_is_found(world):
+    bare = findings()
+    bare[0]["values"] = []
+    world.first = dict(GOOD_1, claims=[])
+    d = await reports.draft(item(title="A title the record does not carry", nct_id="NCT00000000"), bare, related(), [])
+    assert d["updates"][0]["change"]["check"]["supported"] is False
+
+
+async def test_a_relationship_with_no_source_version_is_left_out_and_counted(world):
+    unpinned = dict(related()[0], related_ref="ctgov:NCT00000002", label="related_unestablished", rationale=None,
+                    related_quote={"source_ref": "ctgov:NCT00000002", "version_id": None, "text": "", "quote_found": False})
+    d = await reports.draft(item(), findings(), related() + [unpinned], [M1])
+    await reports.file(d, context())
+    doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
+    assert [r["related_ref"] for r in doc["related"]] == ["ctgov:NCT00000001"]
+    assert doc["uncertainties"][-1] == "1 related item(s) could not be pinned to a source version and are not listed."
+
+
+async def test_a_rejected_report_write_fails_cleanly_and_marks_the_actions_failed(world):
+    from pymongo.errors import WriteError
+
+    world.block_showed = False
+    world.write_error = WriteError("Document failed validation")
+    d = await demo_draft(world)
+    with pytest.raises(file_module.ReportNotFiled) as error:
+        await reports.file(d, context())
+    assert REPORT_ID in str(error.value) and "validation" not in str(error.value)
+    assert world.ledger_calls == [] and world.dispatched == [] and world.mongo.events == []
+    assert [(status, result) for _, status, result in world.settled] == [("failed", None), ("failed", None)]
+
+
+async def test_report_level_actions_are_settled_only_through_governance(world):
+    world.block_showed = False
+    _, decision, doc = await filed(world)
+    assert world.settled == [
+        ("act_fake000000000001", "done", {"report_id": REPORT_ID}),
+        (decision.action_id, "done", {"proposal_ids": doc["proposal_ids"], "report_id": REPORT_ID}),
+    ]
+    assert all(a["kind"] == "notify_slack" for a in world.mongo["actions"].docs)  # reports wrote no action itself
+
+
+async def test_without_a_governance_settle_function_the_action_is_left_alone(world, monkeypatch):
+    import dxp.gate
+
+    monkeypatch.delattr(dxp.gate, "mark_action")
+    _, decision, _ = await filed(world)
+    assert decision.outcome == "allowed" and world.settled == []

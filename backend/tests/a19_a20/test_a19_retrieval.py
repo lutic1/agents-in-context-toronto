@@ -158,22 +158,22 @@ async def test_a_bad_embedding_setting_is_treated_as_none(seeded, monkeypatch):
 
 
 M1 = {"_id": "mem_1111111111111111@v1", "memory_id": "mem_1111111111111111", "version": 1, "team_id": "team_lb",
-      "status": "active", "tags": {"assay": "Guardant360 CDx", "claim_kind": "outcome_claim_without_results"},
+      "status": "active", "tags": {"assay": "Guardant360 CDx", "claim_kind": "claim_performed_or_results"},
       "text": "Do not state an outcome when no results are posted."}
 
 
 async def test_memories_filter_on_team_active_and_claim_kind_never_on_assay(mongo, monkeypatch):
     monkeypatch.setenv("DXP_EMBEDDING", "auto")
     mongo["memories"].on_aggregate = scored((M1, 0.77))
-    tags = {"assay": "FoundationOne Liquid CDx", "claim_kind": "outcome_claim_without_results"}
+    tags = {"assay": "FoundationOne Liquid CDx", "claim_kind": "claim_performed_or_results"}
     result = await retrieval.memories("team_lb", "early-stage profiling", tags, 3)
     assert result.method == "vector_search" and result.index == "vs_memories" and result.top_k == 3
     assert [(i.ref, i.score) for i in result.items] == [("mem_1111111111111111", 0.77)]
     assert result.filter.model_dump() == {"scope_id": None, "team_id": "team_lb", "status": "active",
-                                          "tags": {"claim_kind": "outcome_claim_without_results"}}
+                                          "tags": {"claim_kind": "claim_performed_or_results"}}
     search = stage(mongo["memories"], "$vectorSearch")[0]
     assert search["filter"] == {"$and": [{"team_id": {"$eq": "team_lb"}}, {"status": {"$eq": "active"}},
-                                         {"tags.claim_kind": {"$eq": "outcome_claim_without_results"}}]}
+                                         {"tags.claim_kind": {"$eq": "claim_performed_or_results"}}]}
     assert "assay" not in str(search["filter"])
 
 

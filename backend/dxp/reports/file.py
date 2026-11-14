@@ -14,13 +14,33 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, WriteError
 
 from dxp.api.models import Decision, EvidenceRef, ProposedAction, Report, RunContext, Target
 
 log = logging.getLogger("dxp.reports")
 
 SLACK_DESTINATION = "slack:#all-mango-db-hackathon"
+UNPINNED_RELATED = "{count} related item(s) could not be pinned to a source version and are not listed."
+
+
+class ReportNotFiled(RuntimeError):
+    """An allowed report could not be written. The message names the report only."""
+
+
+def gate_target(report_id: str, number: int, attempt: int = 0) -> str:
+    """The gate target of one draft: `<report_id>|draft<n>`, or `<report_id>|draft<n>.r<k>` on
+    redraft attempt k, so a redraft after a block is a new evaluation with its own Decision."""
+    suffix = f".r{attempt}" if attempt else ""
+    return f"{report_id}|draft{number}{suffix}"
+
+
+def _pinned(relationship: dict[str, Any]) -> bool:
+    """Both quotes name the source version they were checked against (V40)."""
+    return all(
+        isinstance(relationship.get(side), dict) and relationship[side].get("version_id") and relationship[side].get("source_ref")
+        for side in ("new_quote", "related_quote")
+    )
 
 
 def report_id_for(run_id: str | None, source_ref: str) -> str:
@@ -43,13 +63,15 @@ def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) ->
     from dxp.reports.draft import gate_claims
 
     number = int(one.get("draft") or 1)
+    attempt = int(draft.get("attempt") or 0)
     return ProposedAction(
         kind="file_proposal",
         destination="ledger",
         target=Target(report_id=report_id, scope_id=draft.get("scope_id")),
         inputs={
             "draft": number,
-            "id_target": f"{report_id}|draft{number}",
+            "attempt": attempt,
+            "id_target": gate_target(report_id, number, attempt),
             "source_ref": draft.get("source_ref"),
             "headline": one.get("headline"),
             "gap": one.get("gap"),
@@ -63,9 +85,10 @@ def report_action(report_id: str, draft: dict[str, Any], one: dict[str, Any]) ->
     )
 
 
-def report_document(report_id: str, draft: dict[str, Any], ctx: RunContext, decision: Decision,
+def report_document(report_id: str, draft: dict[str, Any], ctx: RunContext, decision: Decision | None,
                     blocked_draft_decision_id: str | None) -> dict[str, Any]:
-    """The `reports` document, validated against the frozen `Report` shape, with its script."""
+    """The `reports` document, validated against the frozen `Report` shape, with its script.
+    `decision` is None for the check made before the gate is asked."""
     from dxp.reports.relate import relationship_id
     from dxp.reports.script import script_for, script_hash
 
@@ -73,8 +96,15 @@ def report_document(report_id: str, draft: dict[str, Any], ctx: RunContext, deci
     related = []
     for relationship in draft.get("related") or []:
         relationship = _plain(relationship)
+        if not _pinned(relationship):
+            continue
         relationship["id"] = relationship_id(report_id, source_ref, relationship.get("related_ref"))
         related.append(relationship)
+    uncertainties = list(draft.get("uncertainties") or [])
+    omitted = len(draft.get("related") or []) - len(related)
+    if omitted:
+        log.warning("reports.file: %s related item(s) of %s have no source version and are left out", omitted, report_id)
+        uncertainties.append(UNPINNED_RELATED.format(count=omitted))
     fields = {
         "id": report_id,
         "run_id": ctx.run_id or draft.get("run_id"),
@@ -87,7 +117,7 @@ def report_document(report_id: str, draft: dict[str, Any], ctx: RunContext, deci
         "status_line": draft.get("status_line"),
         "discovery": draft.get("discovery"),
         "related": related,
-        "uncertainties": draft.get("uncertainties") or [],
+        "uncertainties": uncertainties,
         "gap": draft.get("gap"),
         "retrieval": draft.get("retrieval") or None,
         "memories_used": draft.get("memories_used") or [],
@@ -97,7 +127,7 @@ def report_document(report_id: str, draft: dict[str, Any], ctx: RunContext, deci
         "draft": int(draft.get("draft") or 1),
         "blocked_draft_decision_id": blocked_draft_decision_id,
         "stamp": ctx.stamp,
-        "file_decision_id": decision.id,
+        "file_decision_id": decision.id if decision else None,
         "status": "pending",
         "created_at": datetime.now(UTC),
     }
@@ -148,44 +178,84 @@ async def _notify(db, report_id: str, document: dict[str, Any], ctx: RunContext)
         log.warning("reports.file: notify_slack for %s not dispatched: %s", report_id, type(exc).__name__)
 
 
+async def _settle(decision: Decision, status: str, result: dict[str, Any] | None) -> None:
+    """Settle a report-level action through Governance, the only writer of `actions` (V65).
+    Without a Governance function for it the action is left as the gate wrote it."""
+    from dxp import gate
+
+    mark_action = getattr(gate, "mark_action", None)
+    if mark_action is None or not decision.action_id:
+        return
+    try:
+        await mark_action(decision.action_id, status, result)
+    except Exception as exc:
+        log.warning("reports.file: action %s not settled: %s", decision.action_id, type(exc).__name__)
+
+
 async def file(draft: dict[str, Any], ctx: RunContext) -> Decision:
     """Gate the report as a report-level file_proposal; allowed: store the report pending with its
     script (V41), ledger.file each update, one notify_slack action. Returns the Decision."""
     from dxp import gate, ledger, store
+    from dxp.reports.draft import team_for_scope
 
+    if not draft.get("team_id"):
+        draft = {**draft, "team_id": await team_for_scope(draft.get("scope_id"))}
     report_id = report_id_for(ctx.run_id or draft.get("run_id"), draft["source_ref"])
+    try:  # everything the report needs is checked before the gate is asked, never after
+        report_document(report_id, draft, ctx, None, None)
+    except Exception as exc:
+        missing = [k for k in ("scope_id", "team_id", "version_id", "headline", "gap") if not draft.get(k)]
+        raise ValueError(
+            f"report {report_id} cannot be filed: " + (f"missing {', '.join(missing)}" if missing else type(exc).__name__)
+        ) from None
+
     drafts = draft.get("drafts") or [draft]
     decisions: list[Decision] = []
     for one in drafts:
         decisions.append(await gate.evaluate(ctx, report_action(report_id, draft, one)))
     decision = decisions[-1]
+    earlier_allowed = [d for d in decisions[:-1] if d.outcome == "allowed"]
     if decision.outcome != "allowed":
+        for superseded in earlier_allowed:  # an allowed earlier draft wrote nothing and never will
+            await _settle(superseded, "done", {"report_id": None})
         return decision
 
     blocked_earlier = next((d.id for d in decisions[:-1] if d.outcome == "blocked"), None)
     document = report_document(report_id, draft, ctx, decision, blocked_earlier)
     db = store.db()
     try:
-        await db["reports"].insert_one(document)
-    except DuplicateKeyError:
-        document = await db["reports"].find_one({"_id": report_id}) or document  # a retry: finish the same report
+        try:
+            await db["reports"].insert_one(document)
+        except DuplicateKeyError:
+            document = await db["reports"].find_one({"_id": report_id}) or document  # a retry: finish the same report
+        except WriteError as exc:
+            raise ReportNotFiled(f"report {report_id} was allowed but could not be stored ({type(exc).__name__})") from None
 
-    for update in draft.get("updates") or []:
-        change = {**update["change"], "report_id": report_id}
-        await ledger.file(update["finding_id"], [change], ctx.mode, ctx)
-    await _refresh_proposals(db["reports"], db["proposals"], report_id)
+        for update in draft.get("updates") or []:
+            change = {**update["change"], "report_id": report_id}
+            await ledger.file(update["finding_id"], [change], ctx.mode, ctx)
+        await _refresh_proposals(db["reports"], db["proposals"], report_id)
 
-    await store.emit_event({
-        "type": "report_filed",
-        "dedupe_key": f"report_filed|{report_id}",
-        "stamp": ctx.stamp.model_dump(),
-        "mode": ctx.mode,
-        "run_id": ctx.run_id,
-        "decision_id": decision.id,
-        "report_id": report_id,
-        "outcome": "allowed",
-        "status": "pending",
-    })
+        await store.emit_event({
+            "type": "report_filed",
+            "dedupe_key": f"report_filed|{report_id}",
+            "stamp": ctx.stamp.model_dump(),
+            "mode": ctx.mode,
+            "run_id": ctx.run_id,
+            "decision_id": decision.id,
+            "report_id": report_id,
+            "outcome": "allowed",
+            "status": "pending",
+        })
+    except Exception:
+        for failed in [*earlier_allowed, decision]:
+            await _settle(failed, "failed", None)
+        raise
+    stored = await db["reports"].find_one({"_id": report_id}) or document
+    result = {"proposal_ids": list(stored.get("proposal_ids") or []), "report_id": report_id}
+    for superseded in earlier_allowed:  # the draft it gated was replaced by the filed one
+        await _settle(superseded, "done", {"report_id": report_id})
+    await _settle(decision, "done", result)
     await _notify(db, report_id, document, ctx)
     return decision
 

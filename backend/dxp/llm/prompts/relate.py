@@ -36,6 +36,8 @@ Existing evidence ({related_ref}):
 </existing_record>"""
 
 SCHEMA = {
+    "title": "relationship",
+    "description": "How the new evidence relates to the existing evidence, with one quote from each side.",
     "type": "object",
     "properties": {
         "label": {"type": "string", "enum": ["supports", "contradicts", "extends", "new_question"]},

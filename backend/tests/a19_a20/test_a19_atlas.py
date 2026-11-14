@@ -69,6 +69,7 @@ async def test_a_filed_report_passes_the_validator_and_reads_back(db, monkeypatc
 
     item = {
         "source_ref": REF, "version_id": VERSION, "nct_id": "NCT04712877", "scope_id": "scope_a19", "team_id": "team_a19",
+        "retrieval": {"method": "text_search", "index": "ts_source_items+ts_findings", "top_k": 5, "items": []},
         "raw_text": "Patients have blood and tumour tissue collected before surgery.", "overall_status": "RECRUITING",
         "has_results": False, "title": "Profiling before surgery", "seeded_names": ["FoundationOne Liquid CDx"],
         "interventions": [{"name": "ctDNA, tumor NGS", "otherNames": ["FoundationOne Liquid"]}],
@@ -84,6 +85,12 @@ async def test_a_filed_report_passes_the_validator_and_reads_back(db, monkeypatc
     stored = await db["reports"].find_one({"_id": report_id})
     assert decision.outcome == "allowed"
     assert stored["status"] == "pending" and stored["run_id"] == RUN and stored["script"]
-    report = await routes.get_report(report_id)
+    from dxp.api import auth
+
+    async def reader(request):
+        return Principal(id="sam", name="Sam", kind="person")
+
+    monkeypatch.setattr(auth, "require_principal", reader)
+    report = await routes.get_report(None, report_id)
     assert report.id == report_id and report.script_hash == stored["script_hash"]
-    assert [r.id for r in (await routes.list_reports(status="pending", run_id=RUN)).items] == [report_id]
+    assert [r.id for r in (await routes.list_reports(None, status="pending", run_id=RUN)).items] == [report_id]

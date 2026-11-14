@@ -39,48 +39,57 @@ def test_split_sentences():
     assert draft.split_sentences(None) == [] and draft.split_sentences("") == []
 
 
-def test_one_memory_gets_the_changed_sentence_before_and_after():
-    uses = draft.memory_effects(BEFORE, AFTER, [M1])
+CHANGED_BEFORE = "The trial showed that blood profiling finds drivers."
+CHANGED_AFTER = "The trial investigates whether blood profiling finds drivers; no results posted."
+CITED = [{"memory_id": "mem_1", "before": CHANGED_BEFORE, "after": CHANGED_AFTER}]
+
+
+def test_a_cited_real_difference_is_the_memorys_effect():
+    uses = draft.memory_effects(BEFORE, AFTER, [M1], CITED)
     assert uses == [{
         "memory_id": "mem_1", "version": 1, "author": "sam", "score": 0.71,
         "source": {"decision_id": "dec_1", "report_id": "rep_0"},
-        "effect": {"target": "sentence",
-                   "before": "The trial showed that blood profiling finds drivers.",
-                   "after": "The trial investigates whether blood profiling finds drivers; no results posted."},
+        "effect": {"target": "sentence", "before": CHANGED_BEFORE, "after": CHANGED_AFTER},
     }]
     assert draft.effect_text(uses[0]).startswith("changed sentence: before ")
 
 
-def test_identical_drafts_mean_retrieved_no_change():
-    uses = draft.memory_effects(BEFORE, dict(BEFORE), [M1, M2])
+def test_a_difference_nobody_cites_is_attributed_to_no_memory():
+    uses = draft.memory_effects(BEFORE, AFTER, [M1, M2])
     assert [u["effect"] for u in uses] == [None, None]
     assert draft.effect_text(uses[0]) == "retrieved, no change"
 
 
-def test_each_change_goes_to_the_memory_it_matches_and_others_show_no_change():
-    uses = draft.memory_effects(BEFORE, AFTER, [M2, M1])
+def test_identical_drafts_mean_retrieved_no_change_even_when_cited():
+    uses = draft.memory_effects(BEFORE, dict(BEFORE), [M1, M2], CITED)
+    assert [u["effect"] for u in uses] == [None, None]
+
+
+def test_a_citation_must_match_a_real_difference_exactly():
+    wrong = [{"memory_id": "mem_1", "before": "It is recruiting.", "after": CHANGED_AFTER},
+             {"memory_id": "mem_2", "before": CHANGED_BEFORE, "after": "Something else."}]
+    assert [u["effect"] for u in draft.memory_effects(BEFORE, AFTER, [M1, M2], wrong)] == [None, None]
+
+
+def test_only_the_named_memory_gets_the_effect_and_unknown_ids_are_ignored():
+    cited = [{"memory_id": "mem_404", "before": CHANGED_BEFORE, "after": CHANGED_AFTER}, dict(CITED[0], memory_id="mem_2")]
+    uses = draft.memory_effects(BEFORE, AFTER, [M1, M2], cited)
     by_id = {u["memory_id"]: u["effect"] for u in uses}
-    assert by_id["mem_2"] is None
-    assert by_id["mem_1"]["after"].endswith("no results posted.")
-    assert [u["memory_id"] for u in uses] == ["mem_2", "mem_1"]
+    assert by_id["mem_1"] is None and by_id["mem_2"]["after"] == CHANGED_AFTER
 
 
-def test_explicit_attribution_wins_only_when_it_names_a_real_change():
-    after_sentence = "The trial investigates whether blood profiling finds drivers; no results posted."
-    uses = draft.memory_effects(BEFORE, AFTER, [M1, M2], attribution={"mem_2": after_sentence})
-    by_id = {u["memory_id"]: u["effect"] for u in uses}
-    assert by_id["mem_2"]["after"] == after_sentence and by_id["mem_1"] is None
-    ignored = draft.memory_effects(BEFORE, AFTER, [M1, M2], attribution={"mem_2": "It is recruiting."})
-    by_id = {u["memory_id"]: u["effect"] for u in ignored}
-    assert by_id["mem_2"] is None and by_id["mem_1"] is not None
-
-
-def test_a_change_matching_no_memory_goes_to_the_best_ranked_one():
-    before = {"headline": "Alpha beta."}
-    after = {"headline": "Gamma delta."}
-    uses = draft.memory_effects(before, after, [M2, M1])
-    assert uses[0]["effect"] == {"target": "sentence", "before": "Alpha beta.", "after": "Gamma delta."}
-    assert uses[1]["effect"] is None
+def test_apply_citations_keeps_draft_one_except_for_the_cited_change():
+    one = {"draft": 1, "headline": "Alpha one. Beta.", "summary": "Gamma. Delta.", "gap": "Why?",
+           "claims": [{"text": "Gamma.", "claim_kind": "claim_planned", "quote": "g"}]}
+    candidate = {"draft": 2, "headline": "Alpha two. Beta.", "summary": "Gamma changed. Delta moved.", "gap": "Why?",
+                 "claims": [{"text": "Gamma changed.", "claim_kind": "claim_planned", "quote": "g2"}]}
+    cited = [{"memory_id": "mem_1", "before": "Gamma.", "after": "Gamma changed."}]
+    accepted = draft.verified_citations(one, candidate, cited, ["mem_1"])
+    two = draft.apply_citations(one, candidate, accepted)
+    assert two["headline"] == "Alpha one. Beta." and two["summary"] == "Gamma changed. Delta."
+    assert two["claims"] == [{"text": "Gamma changed.", "claim_kind": "claim_planned", "quote": "g2"}]
+    assert {(c["before"], c["after"]) for c in draft.draft_changes(one, two)} == {("Gamma.", "Gamma changed.")}
+    assert two["draft"] == 2 and one["summary"] == "Gamma. Delta."
 
 
 def test_removed_and_added_sentences_are_changes():
@@ -91,19 +100,22 @@ def test_removed_and_added_sentences_are_changes():
 
 
 def test_a_changed_claim_kind_is_a_label_change():
-    before = {"claims": [{"text": "Blood profiling finds drivers.", "claim_kind": "outcome_claim"}]}
-    after = {"claims": [{"text": "Blood profiling finds drivers.", "claim_kind": "design_claim"}]}
-    uses = draft.memory_effects(before, after, [M1])
-    assert uses[0]["effect"] == {"target": "label", "before": "outcome_claim", "after": "design_claim"}
+    before = {"claims": [{"text": "Blood profiling finds drivers.", "claim_kind": "claim_performed_or_results"}]}
+    after = {"claims": [{"text": "Blood profiling finds drivers.", "claim_kind": "claim_planned"}]}
+    assert draft.draft_changes(before, after) == [
+        {"target": "label", "before": "claim_performed_or_results", "after": "claim_planned"}]
+    cited = [{"memory_id": "mem_1", "before": "claim_performed_or_results", "after": "claim_planned"}]
+    assert draft.memory_effects(before, after, [M1], cited)[0]["effect"]["target"] == "label"
 
 
 def test_no_memories_and_missing_drafts_are_handled():
-    assert draft.memory_effects(BEFORE, AFTER, []) == []
-    assert draft.memory_effects(None, None, [M1])[0]["effect"] is None
+    assert draft.memory_effects(BEFORE, AFTER, [], CITED) == []
+    assert draft.memory_effects(None, None, [M1], CITED)[0]["effect"] is None
 
 
 def test_memory_id_may_come_as_id():
-    uses = draft.memory_effects(BEFORE, AFTER, [{"id": "mem_9", "text": "no results posted"}])
+    uses = draft.memory_effects(BEFORE, AFTER, [{"id": "mem_9", "text": "no results posted"}],
+                                [dict(CITED[0], memory_id="mem_9")])
     assert uses[0]["memory_id"] == "mem_9" and uses[0]["effect"] is not None
 
 
@@ -115,10 +127,19 @@ def test_memory_id_may_come_as_id():
     ("FoundationOne CDx is studied before surgery.", "studies"),
     ("FoundationOne Liquid showed high concordance.", "showed"),
     ("The trial shows that foundationone cdx finds drivers.", "showed"),
+    ("The trial will use FoundationOne CDx on tissue.", "uses"),
+    ("The trial aims to study FoundationOne Liquid.", "studies"),
+    ("Results show FoundationOne CDx finds drivers.", "showed"),
+    ("The trial tests FoundationOne CDx.", "tests"),
+    ("The trial will evaluate FoundationOne Liquid in plasma.", "evaluates"),
+    ("Investigators assess FoundationOne CDx before surgery.", "assesses"),
+    ("The sponsor utilises FoundationOne Liquid.", "uses"),
+    ("FoundationOne CDx has been evaluated in tissue.", "evaluates"),
+    ("The study demonstrates that FoundationOne CDx works.", "showed"),
 ])
 def test_uses_studies_showed_about_a_named_product_is_flagged(sentence, verb):
     flags = draft.wording_flags(sentence, NAMES)
-    assert flags and flags[0]["verb"] == verb and flags[0]["sentence"] == sentence
+    assert verb in [f["verb"] for f in flags] and all(f["sentence"] == sentence for f in flags)
 
 
 @pytest.mark.parametrize("text", [
@@ -126,6 +147,9 @@ def test_uses_studies_showed_about_a_named_product_is_flagged(sentence, verb):
     "'FoundationOne CDx' is named in the record (otherNames of \"ctDNA, tumor NGS\").",
     "The record names FoundationOne CDx, which is not proof of use.",
     "The trial uses blood samples. The record names FoundationOne Liquid.",
+    "This study names FoundationOne CDx among its other names.",
+    "FoundationOne CDx is a tissue test; FoundationOne Liquid is named separately.",
+    "The record lists FoundationOne CDx, and a blood test is used for plasma samples.",
 ])
 def test_required_and_mention_wording_is_not_flagged(text):
     assert draft.wording_flags(text, NAMES) == []
