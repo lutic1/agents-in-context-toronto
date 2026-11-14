@@ -2,7 +2,7 @@
 
 Text for the Agents in Context Toronto submission form (Problem Statement 1, "Agents You Can Audit"). R1 pastes it in with the video link by 16:55.
 
-**Wording status.** Every behaviour below is written as planned behaviour until the matching row of "Verified on the sandbox" in the README has passed. Before submitting, R1 resolves each `[[PENDING: ...]]` marker, and deletes any sentence about a feature whose check did not pass. R1 confirms each core behaviour against the A16 pass 1 result in `docs/demo-and-reset.md` before submitting, and deletes any sentence about a behaviour that did not pass. R1 deletes any MongoDB bullet whose marker is not resolved to proven, and each optional-extras sentence whose marker is not confirmed. A marker left in the form is a failed submission check.
+**Wording status.** Every behaviour below is written as planned behaviour until the matching row of "Verified on the sandbox" in the README has passed. Before submitting, R1 resolves each marker that starts with the word PENDING in double square brackets, and deletes any sentence about a feature whose check did not pass. R1 confirms each core behaviour against the A16 pass 1 result in `docs/demo-and-reset.md` before submitting, and deletes any sentence about a behaviour that did not pass. R1 deletes any MongoDB bullet whose marker is not resolved to proven, and each optional-extras sentence whose marker is not confirmed. A marker left in the form is a failed submission check.
 
 ## Form fields
 
@@ -17,7 +17,7 @@ Text for the Agents in Context Toronto submission form (Problem Statement 1, "Ag
 
 ## One line
 
-DxP is a proactive diagnostic-evidence research agent that discovers newly updated clinical trials in a team's scope, checks every claim and action against policies stored in MongoDB Atlas, and never lets its work become accepted knowledge without a human approval.
+DxP is a proactive diagnostic-evidence research agent, built to discover newly updated clinical trials in a team's scope, check every claim and action against policies planned to be stored in MongoDB Atlas, and never let its work become accepted knowledge without a human approval.
 
 ## Description
 
@@ -30,9 +30,9 @@ DxP is that agent, built around those answers. Its agent, `dxp-curator`, works f
 - **remembers** the team's reviewer corrections and shows exactly which memory changed its wording;
 - **checks** every claim and every action against versioned policies before it takes effect; a blocked action changes nothing and is still recorded;
 - **files one pending report** that names one evidence gap, and sends **one Slack alert** that links back to it;
-- **waits for a human.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant; what that task later finds stays pending until a reviewer decides on it.
+- **waits for a human.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant; if the task runs, what it finds stays pending until a reviewer decides on it. If it does not run, DxP says "Follow-up task authorised; not run".
 
-The demo uses real ClinicalTrials.gov data fetched during the event. When a trial record mentions an assay name, DxP says the name is "named in the record" A name in a record is not evidence that the trial used or studied that product. DxP is built to describe each assay name as "named in the record", and its claim check is planned to block any performance or results claim the source version does not support. A person checks a full report against its source version before it is shown (V44). [[PENDING: the demo anchor trial and its one-line signal, verified against the live API at 10:45 (OD2)]]
+The demo is planned to use ClinicalTrials.gov data fetched during the event [[PENDING: whether any prepared data file was loaded instead (docs/clearance.md)]]. When a trial record mentions an assay name, DxP says the name is "named in the record". A name in a record is not evidence that the trial used or studied that product. DxP is built to describe each assay name as "named in the record", and its claim check is planned to block any performance or results claim the source version does not support. A person is planned to check a full report against its source version before it is shown. [[PENDING: result of that source check (A16 pass 1)]] [[PENDING: the demo anchor trial and its one-line signal, verified against the live API at 10:45 (OD2)]]
 
 ### How to stop or roll back an agent mid-run
 
@@ -51,7 +51,7 @@ Only capabilities proven on the sandbox may stay in this list. [[PENDING: which 
 
 - schema validation, so a malformed grant, policy, decision or task cannot be saved [[PENDING: proven or not (I1)]];
 - conditional updates and transactions, so one Slack alert is claimed once, a stop settles once, and an approval and its task authorisation are saved together [[PENDING: proven or not (I1, I3)]];
-- [[PENDING: Vector Search or text search, whichever ran (OD1)]] for related evidence and for the team's memories, with scores shown and never used as evidence;
+- [[PENDING: Vector Search or text search, whichever ran, proven or not (OD1, I1)]] for related evidence and for the team's memories, with scores shown and never used as evidence;
 - versioned documents, so grants, policy sets, memories and source versions are never edited in place and every audit answer can be replayed [[PENDING: proven or not (I1, I3)]];
 - the decisions and actions collections as the audit history [[PENDING: proven or not (I3)]];
 - [[PENDING: change streams for live run updates, only if they passed (S5, OD5); otherwise delete this line, the screens polled]].
@@ -74,4 +74,6 @@ DxP supports research review. It gives no medical advice and is not a clinical d
 
 ## Short version (about 50 words, if the form has a short field)
 
-DxP is a research agent that discovers updated clinical trials in a team's scope, relates them to the team's evidence, checks every action against policies in MongoDB Atlas, and files one pending report. Nothing is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo.
+R1 pastes this only after the longer text is confirmed. If the MongoDB capability is not proven, drop "in MongoDB Atlas".
+
+DxP is a research agent that discovers updated clinical trials in a team's scope, relates them to the team's evidence, checks every action against policies in MongoDB Atlas, and files one pending report. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo.
