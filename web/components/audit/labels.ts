@@ -96,18 +96,33 @@ export function entrySubject(entry: AuditEntry): string {
 
 // ---- Checks ------------------------------------------------------------------
 
-const CHECK_NAMES = [
-  "Grant active",
-  "Diagnostic in team scope",
-  "Destination and action match the grant",
-  "Evidence checks passed",
-  "Run still authorised",
+/** The five gate checks in order: the API's ID for each, and its fixed name (V68). */
+const CHECKS = [
+  { id: "grant_active", name: "Grant active" },
+  { id: "team_scope", name: "Diagnostic in team scope" },
+  { id: "destination_action", name: "Destination and action match the grant" },
+  { id: "evidence_checks", name: "Evidence checks passed" },
+  { id: "run_authorised", name: "Run still authorised" },
 ] as const;
 
-/** The API's check text when it is already a name; otherwise the check's fixed name by position (V68). */
-export function checkName(check: string, index: number): string {
+/**
+ * The name of a gate check. The API names a check by its ID (`grant_active`); when it
+ * already sends a name, that is kept. A text that is neither falls back to the check's
+ * fixed name by position, when the caller knows it.
+ */
+export function checkName(check: string, index?: number): string {
+  const byId = CHECKS.find((c) => c.id === check);
+  if (byId) return byId.name;
   if (/^[A-Z][a-z]+ /.test(check)) return check;
-  return CHECK_NAMES[index] ?? check;
+  return (index === undefined ? undefined : CHECKS[index]?.name) ?? check;
+}
+
+/** The blocked line's check: its name, never its ID. */
+export function failedCheckName(entry: Pick<AuditEntry, "failed_check" | "checks">): string {
+  const failed = entry.failed_check;
+  if (!failed) return "a check";
+  const position = (entry.checks ?? []).findIndex((c) => c.check === failed);
+  return checkName(failed, position >= 0 ? position : undefined);
 }
 
 const CLAIM_NAMES: Record<string, string> = {
@@ -219,13 +234,23 @@ export function asLedgerResult(result: Result): LedgerResult | null {
 
 // ---- Small shared helpers ------------------------------------------------------
 
-/** A registry ID such as NCT04712877. */
-export function isNct(ref: string): boolean {
-  return /^NCT\d{8}$/.test(ref);
+/**
+ * The registry ID inside a source ref, or null. The API stores a trial as
+ * `clinicaltrials.gov:NCT04712877` (D40); the ID itself is `NCT04712877`.
+ */
+export function nctId(ref: string): string | null {
+  const bare = ref.replace(/^clinicaltrials\.gov:/i, "");
+  return /^NCT\d{8}$/.test(bare) ? bare : null;
 }
 
-export function trialUrl(nct: string): string {
-  return `https://clinicaltrials.gov/study/${encodeURIComponent(nct)}`;
+/** A source ref that names a ClinicalTrials.gov record, with or without its `clinicaltrials.gov:` prefix. */
+export function isNct(ref: string): boolean {
+  return nctId(ref) !== null;
+}
+
+/** The ClinicalTrials.gov page of a trial; the ref may carry its prefix. */
+export function trialUrl(ref: string): string {
+  return `https://clinicaltrials.gov/study/${encodeURIComponent(nctId(ref) ?? ref)}`;
 }
 
 /** An input value as one line of text, for the Inputs list. */

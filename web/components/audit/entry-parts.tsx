@@ -4,6 +4,7 @@ import {
   Ban,
   Brain,
   CircleDashed,
+  CircleMinus,
   Equal,
   EqualNot,
   GitBranchPlus,
@@ -42,7 +43,8 @@ export function ChecksList({ checks }: { checks: CheckResult[] }) {
           const name = checkName(c.check, i);
           const failed = c.passed === false;
           const na = c.passed === "n/a";
-          const Icon = failed ? ShieldX : ShieldCheck;
+          // Not applicable is neither a pass nor a failure: a neutral icon, not the passed shield.
+          const Icon = failed ? ShieldX : na ? CircleMinus : ShieldCheck;
           return (
             <li key={`${c.check}-${i}`} className="text-table">
               <span className="flex flex-wrap items-baseline gap-x-2">

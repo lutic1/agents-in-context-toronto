@@ -8,6 +8,7 @@ import { EntryShell, ReviewStatus, entryAnchor, type AuditContext } from "@/comp
 import {
   asLedgerResult,
   destinationName,
+  failedCheckName,
   type AuditEntry,
   type Report,
   type Task,
@@ -345,13 +346,15 @@ function RevertBlock({
   if (blocked) {
     return (
       <p className="text-body font-semibold">
-        Revert blocked: {entry.failed_check ?? "a check"} failed. Nothing changed.
+        Revert blocked: {failedCheckName(entry)} failed. Nothing changed.
       </p>
     );
   }
 
   const revert = report.data?.revert ?? null;
   const proposalIds = asLedgerResult(entry.result)?.proposal_ids ?? [];
+  // How many updates came out: the reverse proposals the revert filed, else the report's own list.
+  const removed = proposalIds.length > 0 ? proposalIds.length : (report.data?.proposal_ids.length ?? 0);
   const by = displayName(revert?.by ?? entry.stamp?.principal ?? "the Reviewer");
   const at = revert?.at ?? entry.decided_at;
   const slack = ctx.audit.entries.filter(
@@ -364,7 +367,10 @@ function RevertBlock({
         <StatusPill status="reverted" />
         <p className="text-body font-semibold">
           Approval reverted by {by}
-          {at ? ` at ${formatTime(at)}` : ""}: 1 update removed from accepted knowledge.
+          {at ? ` at ${formatTime(at)}` : ""}
+          {removed > 0
+            ? `: ${removed} ${removed === 1 ? "update" : "updates"} removed from accepted knowledge.`
+            : "."}
         </p>
       </div>
       {revert?.note ? <p className="text-table">Note: {revert.note}</p> : null}

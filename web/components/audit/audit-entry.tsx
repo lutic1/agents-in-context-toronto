@@ -27,6 +27,7 @@ import {
   asSlackResult,
   entryState,
   entrySubject,
+  failedCheckName,
   isClaimBlocked,
   kindName,
   policySetText,
@@ -99,7 +100,7 @@ export function EntryShell({
       >
         <header className="flex flex-col gap-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h3 className="flex flex-wrap items-baseline gap-x-2 text-heading">
+            <h3 data-entry-heading="" tabIndex={-1} className="flex flex-wrap items-baseline gap-x-2 text-heading">
               <span>{kindName(entry)}</span>
               <span className="text-table font-normal text-muted-foreground">
                 <SubjectText entry={entry} />
@@ -142,7 +143,7 @@ function BlockedLine({ entry, ctx }: { entry: AuditEntry; ctx: AuditContext }) {
   return (
     <div className="flex flex-col gap-1 text-body">
       <p>
-        Blocked before it ran: {entry.failed_check ?? "a check"} failed{set ? " under policy set " : ""}
+        Blocked before it ran: {failedCheckName(entry)} failed{set ? " under policy set " : ""}
         {set ? <Mono>{set}</Mono> : null}.
       </p>
       {detail ? <p className="text-table text-muted-foreground">{detail}</p> : null}
