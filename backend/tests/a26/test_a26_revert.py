@@ -260,3 +260,61 @@ def test_recover_reverting_finishes_an_interrupted_revert(world, client, feature
     asyncio.run(rv.recover_reverting())
     assert world.report()["status"] == "reverted" and world.report()["revert"]["step"] == "done"
     assert world.db.data["proposals"][REVERSE_ID]["status"] == "applied"
+
+
+# --- review fixes (Luis, 1138009) ---------------------------------------------------------------
+
+def test_the_agent_key_is_refused_before_the_gate_and_cannot_lock_sam_out(world, client, features) -> None:
+    from a24.conftest import AGENT_KEY
+
+    features("revert")
+    approve(client, world)
+    calls = len(world.gate_calls)
+    res = revert(client, key=AGENT_KEY)
+    assert res.status_code == 403 and res.json()["error"]["code"] == "person_only"
+    assert len(world.gate_calls) == calls and kinds(world, "revert_report") == []
+    assert world.report()["status"] == "accepted"
+    after = revert(client)  # Sam can still revert
+    assert after.status_code == 200 and world.report()["status"] == "reverted"
+
+
+def test_the_seed_key_is_refused_with_no_decision(world, client, features) -> None:
+    features("revert")
+    approve(client, world)
+    res = revert(client, key="test-dxp-seed-key")
+    assert res.status_code in (401, 403)  # refused by the key lookup, before the gate either way
+    assert kinds(world, "revert_report") == [] and world.report()["status"] == "accepted"
+
+
+def test_a_report_with_a_diagnostic_update_is_409_before_the_gate_and_never_sticks(world, client, features) -> None:
+    features("revert")
+    approve(client, world)
+    world.db.data["proposals"][PROPOSAL_ID]["diagnostic_id"] = derive("dx_", "guardant360 cdx")
+    calls = len(world.gate_calls)
+    res = revert(client)
+    assert res.status_code == 409 and res.json()["error"]["code"] == "not_reversible"
+    assert len(world.gate_calls) == calls and kinds(world, "revert_report") == []
+    assert world.report()["status"] == "accepted"
+
+
+def test_the_loser_of_a_concurrent_revert_settles_its_action_done(world, client, features, monkeypatch) -> None:
+    features("revert")
+    approve(client, world)
+    from dxp.api import models as m
+    from dxp.reports.revert import revert as do_revert
+
+    settled = []
+    real = gate.mark_action
+
+    async def spy(action_id, status, result=None, **kwargs):
+        settled.append(status)
+        return await real(action_id, status, result, **kwargs)
+
+    monkeypatch.setattr(gate, "mark_action", spy)
+    sam = m.Principal(id="sam", name="Sam", kind="person", grant_id="sam", actions=["revert_report"])
+
+    async def both():
+        return await asyncio.gather(do_revert(REPORT_ID, NOTE, sam), do_revert(REPORT_ID, NOTE, sam))
+
+    asyncio.run(both())
+    assert "failed" not in settled and world.report()["status"] == "reverted"

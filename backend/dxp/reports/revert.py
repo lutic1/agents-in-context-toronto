@@ -50,6 +50,27 @@ class NotRevertable(ValueError):
         self.status = status
 
 
+class NotReversible(ValueError):
+    """The report has an applied update this revert cannot reverse (a Diagnostic value, A26
+    reverses scope collections only). Raised before the gate and before any claim (409)."""
+
+    def __init__(self, report_id: str, proposal_ids: list[str]) -> None:
+        super().__init__(f"report {report_id} has updates that cannot be reverted here: {', '.join(proposal_ids)}")
+        self.report_id = report_id
+        self.proposal_ids = proposal_ids
+
+
+async def _irreversible(report: dict[str, Any]) -> list[str]:
+    """Applied, non-reverse proposals of the report that write a Diagnostic."""
+    ids = list(report.get("proposal_ids") or [])
+    if not ids:
+        return []
+    found = rd.db()["proposals"].find(
+        {"_id": {"$in": ids}, "status": "applied", "op": {"$ne": "remove"}, "diagnostic_id": {"$ne": None}},
+        {"_id": 1})
+    return sorted([str(p["_id"]) async for p in found])
+
+
 def revert_decision_id(report_id: str) -> str:
     """The gate's ID for a report's one `revert_report` Decision (V48, AD-31)."""
     return derive("dec_", "-", REVERT_KIND, "-", report_id)
@@ -91,6 +112,9 @@ async def revert(report_id: str, note: str, reviewer: Principal) -> tuple[Report
         return await _result(report_id, None)
     if status != "accepted":
         raise NotRevertable(report_id, status)
+    blocked_ids = await _irreversible(report)
+    if blocked_ids:  # checked before the gate and the claim, so the report never sticks in `reverting`
+        raise NotReversible(report_id, blocked_ids)
 
     grant = await rd.reviewer_grant(reviewer.id)
     request_id = rd.new_request_id()
@@ -119,7 +143,11 @@ async def revert(report_id: str, note: str, reviewer: Principal) -> tuple[Report
         {"$set": {"status": "reverting", "revert": revert_record}},
     )
     await finish_reverting(report_id)
-    await rd.settle_action(decision, "done" if res.modified_count else "failed")
+    # A concurrent call with the same (request-independent) Decision may have claimed first: the
+    # revert happened, so this action is done too.
+    current = await rd.get_report(report_id) or {}
+    done = bool(res.modified_count) or (current.get("revert") or {}).get("decision_id") == decision["_id"]
+    await rd.settle_action(decision, "done" if done else "failed")
     return await _result(report_id, decision)
 
 

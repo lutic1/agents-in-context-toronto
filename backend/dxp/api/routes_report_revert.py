@@ -46,6 +46,10 @@ async def revert_report(report_id: str, body: m.ReportRevertRequest, request: Re
     if not feature_enabled(REVERT_FLAG):
         raise ApiError(404, "not_found", "Not found.")
     reviewer = await decision_route._caller(request)
+    # Only a person reverts. The revert Decision ID does not depend on the request and a blocked
+    # revert is final, so an agent key reaching the gate would lock Sam out of this report for good.
+    if reviewer.kind != "person":
+        raise ApiError(403, "person_only", "Only a person can revert an approval.")
     if not (body.note or "").strip():
         raise ApiError(400, "note_required", "A revert needs a note.")
 
@@ -56,6 +60,8 @@ async def revert_report(report_id: str, body: m.ReportRevertRequest, request: Re
         report, decision, removed = await rv.revert(report_id, body.note, reviewer)
     except rd.ReportNotFound as exc:
         raise ApiError(404, "not_found", "Report not found.") from exc
+    except rv.NotReversible as exc:
+        raise ApiError(409, "not_reversible", "This report has updates that cannot be reverted here.") from exc
     except rv.NotRevertable as exc:
         raise ApiError(409, "not_revertable",
                        f"Report is {exc.status}; only an accepted report can be reverted.") from exc
