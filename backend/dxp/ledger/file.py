@@ -38,7 +38,20 @@ def alias_id(name: str) -> str:
 
 
 def diagnostic_id_for(name: str) -> str:
+    """The ID a new Diagnostic for ``name`` gets (AD-3). Not its ID when an alias exists:
+    use ``resolve_alias`` for that."""
     return deps.derive("dx_", alias_id(name))
+
+
+async def resolve_alias(name: str, session: Any = None) -> str:
+    """The Diagnostic ``name`` names: the ``aliases`` entry for ``alias_id(name)`` when there
+    is one, else the ID ``ensure_diagnostic`` would create (review item 7, AD-3). An alias
+    such as "F1 Liquid" for FoundationOne Liquid CDx resolves to that Diagnostic, so check 2
+    judges the real one."""
+    found = await deps.db()["aliases"].find_one({"_id": alias_id(name)}, session=session)
+    if found and found.get("diagnostic_id"):
+        return found["diagnostic_id"]
+    return diagnostic_id_for(name)
 
 
 async def ensure_diagnostic(name: str, ctx: Any, *, display_name: str | None = None) -> str:
@@ -142,9 +155,21 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
     s = ctx.session
     if change.field == EVIDENCE_COLLECTION and change.diagnostic_id is None and not change.scope_id:
         raise ValueError("an evidence-collection change names its scope_id (V35)")
+    if not change.diagnostic_id and not change.creates_alias and not (
+        change.field == EVIDENCE_COLLECTION and change.scope_id
+    ):
+        # Review item 2: a change with no Diagnostic is only the scope's evidence collection
+        # (V35, V43). Anything else would file, then wedge apply and recovery in applying.
+        raise ValueError(
+            f"change to {change.field!r} names no Diagnostic; only an {EVIDENCE_COLLECTION!r} change "
+            "with a scope_id may have diagnostic_id null (V35, V43)"
+        )
+    if not (change.evidence or {}).get("version_id"):
+        # V40: every proposal and value entry pins the exact source version it used.
+        raise ValueError("a change's evidence names its source version_id (V40)")
 
     alias = change.creates_alias
-    dx_id = change.diagnostic_id or (diagnostic_id_for(alias) if alias else None)
+    dx_id = change.diagnostic_id or (await resolve_alias(alias, s) if alias else None)
     diagnostic = await db["diagnostics"].find_one({"_id": dx_id}, session=s) if dx_id else None
     source_ref = change.evidence.get("source_ref")
     source_item = None

@@ -126,3 +126,31 @@ def test_failed_claim_policies_in_policy_order():
         {"claim_kind": "claim_performed_or_results", "text": "The assay showed results."},
     ])
     assert c.failed_claim_policies(out) == ["claim_performed_or_results", "claim_planned", "claim_preclinical"]
+
+
+def test_item5_an_eligibility_sentence_is_not_a_result():
+    """Review item 5 (Luis, 6881072627): the probe. "Tumor NGS was performed" is not supported
+    by an eligibility sentence; the quote must state a result, otherwise has_results: true."""
+    quote = "Inclusion: patients in whom tumor NGS was performed within 90 days are eligible"
+    claim = {"claim_kind": "claim_performed_or_results", "text": "Tumor NGS was performed.", "quote": quote}
+    found = [{"text": quote, "quote_found": True}]
+    out = judge([claim], source={"overall_status": "RECRUITING", "has_results": False}, quotes=found)
+    assert out[0]["passed"] is False and out[0]["failed_policies"][0] == "claim_performed_or_results"
+    assert "states no result" in out[0]["detail"]
+    # a bare "was performed" outside any eligibility wording is not a result either
+    bare = "Tumor NGS was performed on resected specimens"
+    out = judge([{**claim, "quote": bare}], source={"overall_status": "COMPLETED", "has_results": False},
+                quotes=[{"text": bare, "quote_found": True}])
+    assert out[0]["passed"] is False
+    # has_results: true still supports the same claim
+    out = judge([claim], source={"overall_status": "COMPLETED", "has_results": True}, quotes=found)
+    assert out[0]["passed"] is True
+    # a quote that states a result supports it
+    result = "Tumor NGS identified actionable drivers in 31 of 60 resected tumours"
+    out = judge([{**claim, "quote": result}], source={"overall_status": "COMPLETED", "has_results": False},
+                quotes=[{"text": result, "quote_found": True}])
+    assert out[0]["passed"] is True, out
+    # the redraft still passes under either claim kind
+    for kind in ("claim_performed_or_results", "claim_planned"):
+        out = judge([{"claim_kind": kind, "text": "NCT04712877 is recruiting; no results posted."}])
+        assert out[0]["passed"] is True, out

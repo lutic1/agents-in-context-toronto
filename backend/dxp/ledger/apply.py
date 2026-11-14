@@ -21,10 +21,12 @@ Outcomes of step 2 that are recorded, never raised:
 
 * ``stage_not_later`` (AD-5: a ``lifecycle_stage`` applies only when the stored
   stage is earlier): the proposal is set ``rejected`` with ``reason:
-  "stage_not_later"``; the Diagnostic is not written.
+  "stage_not_later"``; the Diagnostic is not written; ``proposal_rejected`` is
+  emitted with ``status: "stage_not_later"`` for the audit.
 * ``held`` (AD-2: a ``baseline`` value for a ``single`` field that already has
   a current value): the proposal goes back to ``pending`` with ``reason:
-  "held_for_review"``; the stored value is never overwritten.
+  "held_for_review"``; the stored value is never overwritten; ``proposal_pending``
+  is emitted with ``status: "held_for_review"`` for the audit.
 
 IDs: a value entry's ``value_id`` is ``derive("v_", proposal_id)``, so the
 ``v_`` prefix joins the AD-3 list (``dx_``, ``f_``, ``p_``, ``e_``, ``dec_``,
@@ -32,17 +34,20 @@ IDs: a value entry's ``value_id`` is ``derive("v_", proposal_id)``, so the
 
 ``recover_applying()`` reruns steps 2 to 5 for every proposal stuck in
 ``applying``; each step is idempotent, so it is safe to run any number of
-times. It runs at API start, at the start of every run and on every decision
+times. A proposal it cannot finish is logged and skipped, never raised. It runs at API start, at the start of every run and on every decision
 call (D26).
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from dxp.api.models import Proposal
 from dxp.gate.decisions import deps, to_api
 from dxp.ledger.types import EDGE_NODE_TYPES, FACET_FIELDS
+
+log = logging.getLogger(__name__)
 
 MAX_RETRIES = 20
 
@@ -232,6 +237,28 @@ async def emit_ledger_event(event_type: str, p: dict[str, Any], *, session: Any 
     )
 
 
+async def _emit_outcome(event_type: str, status: str, p: dict[str, Any], session: Any) -> int:
+    """The audit event of a recorded apply outcome (``stage_not_later``, ``held_for_review``),
+    deduplicated on ``"<type>|<status>|<p_id>"``."""
+    return await deps.emit_event(
+        {
+            "type": event_type,
+            "dedupe_key": f"{event_type}|{status}|{p['_id']}",
+            "mode": p.get("mode"),
+            "run_id": p.get("run_id"),
+            "stamp": p.get("stamp"),
+            "decision_id": p.get("decision_id"),
+            "action_id": p.get("action_id"),
+            "diagnostic_id": p.get("diagnostic_id"),
+            "proposal_id": p["_id"],
+            "report_id": p.get("report_id"),
+            "field": p.get("field"),
+            "status": status,
+        },
+        session=session,
+    )
+
+
 async def _emit_applied(p: dict[str, Any], session: Any) -> None:
     """Step 4, deduplicated."""
     await emit_ledger_event("value_applied", p, session=session)
@@ -279,6 +306,8 @@ async def _complete(p: dict[str, Any], review: str | None, session: Any) -> dict
             {"$set": {"status": "rejected", "reason": "stage_not_later", "decided_at": deps.now()}},
             session=session,
         )
+        # Recorded for the audit: proposal_rejected with status stage_not_later.
+        await _emit_outcome("proposal_rejected", "stage_not_later", p, session)
         return await db["proposals"].find_one({"_id": p["_id"]}, session=session)
     if outcome == "held":
         await db["proposals"].update_one(
@@ -286,6 +315,8 @@ async def _complete(p: dict[str, Any], review: str | None, session: Any) -> dict
             {"$set": {"status": "pending", "reason": "held_for_review"}},
             session=session,
         )
+        # Recorded for the audit: proposal_pending with status held_for_review.
+        await _emit_outcome("proposal_pending", "held_for_review", p, session)
         return await db["proposals"].find_one({"_id": p["_id"]}, session=session)
 
     await _upsert_edges(p, session)
@@ -411,6 +442,12 @@ async def recover_applying_ids(*, session: Any = None) -> list[str]:
     ]
     done: list[str] = []
     for p in stuck:
-        await _complete(p, None, session)
+        # One proposal that cannot be finished never blocks the others, API start, run start
+        # or a decision (review item 2): it is logged and left in applying.
+        try:
+            await _complete(p, None, session)
+        except Exception:  # per proposal: logged and skipped
+            log.exception("recover_applying: could not finish proposal %s; left in applying", p.get("_id"))
+            continue
         done.append(p["_id"])
     return done

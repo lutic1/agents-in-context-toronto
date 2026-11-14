@@ -48,10 +48,14 @@ def run_ctx(**kw):
     return GateCtx(**base)
 
 
-def loaded(grant=None, run_status="running", admission_status="admitted", **kw):
+SCOPE_KEY = f"{SCOPE_ID}|file_proposal|-|p_1"  # the D22 item_key of scope_change()
+
+
+def loaded(grant=None, run_status="running", admission_status="admitted", item_key=SCOPE_KEY, **kw):
     return Loaded(grant=grant if grant is not None else lbdx(), policies=POLICIES, now=NOW,
                   run={"_id": "run_1", "status": run_status},
-                  admission={"_id": "adm_1", "run_id": "run_1", "status": admission_status}, **kw)
+                  admission={"_id": "adm_1", "run_id": "run_1", "status": admission_status, "item_key": item_key},
+                  **kw)
 
 
 def scope_change(**kw):
@@ -138,7 +142,7 @@ def test_check2_search_limits_and_terms():
                      scope={"scope_id": SCOPE_ID, "diagnostic_ids": PLASMA_DX},
                      actions=["search_source", "file_related_evidence"], destinations=["source:clinicaltrials.gov", "ledger"])
     scope = {"assays": ["Guardant360 CDx"], "aliases": ["ctDNA"], "condition": "non-small cell lung cancer"}
-    ld = loaded(grant=task, scope=scope)
+    ld = loaded(grant=task, scope=scope, item_key="task_1|search_source|-|-")
     ctx = run_ctx(grant_id="task-abc")
     ok = GateAction(kind="search_source", destination="source:clinicaltrials.gov",
                     target={"task_id": "task_1"}, query={"terms": ["ctDNA"], "condition": "non-small cell lung cancer"},
@@ -218,6 +222,7 @@ def test_check4_slack_needs_a_report_filed_allowed():
                 report_file_decision={"_id": "dec_1", "outcome": "blocked"})
     assert outcome(run_ctx(), action, ld)[1] == "evidence_checks"
     ld.report_file_decision = {"_id": "dec_1", "outcome": "allowed"}
+    ld.admission["item_key"] = "rep_1|notify_slack|-|-"
     assert outcome(run_ctx(), action, ld)[1] is None
 
 
@@ -293,3 +298,45 @@ def test_check3_knows_answer_question_as_a_human_kind():
     action.validate()
     checks, failed, _ = outcome(rctx, action, Loaded(grant=grant, policies=POLICIES, now=NOW))
     assert failed is None and checks[3]["passed"] == "n/a"
+
+
+def test_item2_check2_blocks_a_change_with_no_diagnostic_and_no_scope():
+    """Review item 2 (Luis, 6881072627): {field: biomarkers, value: EGFR} with no Diagnostic and
+    no scope is blocked by check 2, for an agent filing and under the seed grant's scope { all }."""
+    action = GateAction(kind="file_proposal", destination="ledger",
+                        target={"diagnostic_id": None, "proposal_id": "p_nt", "field": "biomarkers", "value": "EGFR"},
+                        checks=[GOOD_CHECK])
+    checks, failed, _ = outcome(run_ctx(), action, loaded())
+    assert failed == "team_scope" and "names no Diagnostic and no scope" in checks[1]["detail"]
+    seed = grant_doc("seed", principal="seed", kind="seed", scope={"all": True}, actions=["apply_value"],
+                     destinations=["ledger"])
+    seed_action = GateAction(kind="apply_value", destination="ledger",
+                             target={"diagnostic_id": None, "proposal_id": "p_nt", "field": "biomarkers"})
+    seed_ctx = GateCtx(kind="seed", principal="seed", grant_id="seed", mode="baseline")
+    assert outcome(seed_ctx, seed_action, loaded(grant=seed))[1] == "team_scope"
+    # the scope's evidence collection (diagnostic_id null, scope_id set) is still allowed
+    assert outcome(run_ctx(), scope_change(), loaded())[1] is None
+
+
+def test_item6_check5_matches_the_admission_item_key_to_the_action():
+    """Review item 6 (Luis, 6881072627): an admission for NCT_OTHER does not authorise an
+    action on NCT_THIS; nor does one for another kind, Diagnostic or target (D22, AD-21)."""
+    from dxp.gate.checks import item_key_for
+
+    this = GateAction(kind="file_proposal", destination="ledger",
+                      target={"diagnostic_id": PLASMA_DX[0], "proposal_id": "p_this", "field": "biomarkers"},
+                      evidence_ref={"source_ref": "clinicaltrials.gov:NCT_THIS"}, checks=[GOOD_CHECK])
+    for key in (
+        f"clinicaltrials.gov:NCT_OTHER|file_proposal|{PLASMA_DX[0]}|-",  # another source item
+        f"clinicaltrials.gov:NCT_THIS|notify_slack|{PLASMA_DX[0]}|-",  # another kind
+        f"clinicaltrials.gov:NCT_THIS|file_proposal|{PLASMA_DX[1]}|-",  # another Diagnostic
+        f"clinicaltrials.gov:NCT_THIS|file_proposal|{PLASMA_DX[0]}|p_other",  # another target
+        "item1",  # not an item_key at all
+    ):
+        checks, failed, _ = outcome(run_ctx(), this, loaded(item_key=key))
+        assert failed == "run_authorised", key
+        assert "is not for this action" in checks[4]["detail"], checks[4]
+    for key in (f"clinicaltrials.gov:NCT_THIS|file_proposal|{PLASMA_DX[0]}|-",
+                f"clinicaltrials.gov:NCT_THIS|file_proposal|{PLASMA_DX[0]}|p_this",
+                item_key_for(this)):
+        assert outcome(run_ctx(), this, loaded(item_key=key))[1] is None, key

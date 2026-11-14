@@ -22,18 +22,23 @@ from dxp.gate.decisions import api_decision, deps
 
 async def _load_policies(ctx: GateCtx) -> tuple[str | None, list[dict[str, Any]]]:
     """The run's pinned policy set; outside a run (or unpinned), the current set (AD-18)."""
+    s = ctx.session
     if ctx.policy_set_version:
-        if await deps.policy_set(ctx.policy_set_version) is None:
+        if await deps.policy_set(ctx.policy_set_version, session=s) is None:
             raise LookupError(f"policy set {ctx.policy_set_version} not found")
-        return ctx.policy_set_version, await deps.policies_in_set(ctx.policy_set_version)
+        return ctx.policy_set_version, await deps.policies_in_set(ctx.policy_set_version, session=s)
     version, policies = await deps.current_set()
+    if s is not None:
+        # The current set's document is immutable once recorded; its members are read on the
+        # caller's session like every other read of the evaluation.
+        policies = await deps.policies_in_set(version, session=s) or policies
     return version, list(policies)
 
 
 async def _load(ctx: GateCtx, action: GateAction) -> tuple[Loaded, str | None]:
     db = deps.db()
     s = ctx.session
-    grant = await deps.current_grant(ctx.grant_id)
+    grant = await deps.current_grant(ctx.grant_id, session=s)
     policy_set_version, policies = await _load_policies(ctx)
     loaded = Loaded(grant=grant, policies=policies, now=deps.now())
     if ctx.kind == "run":

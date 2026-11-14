@@ -174,11 +174,18 @@ class World:
     def report_id(self) -> str:
         return self.rep("NCT04712877")
 
-    async def admit(self, key: str | None = None, run_id: str | None = None, status: str = "admitted") -> str:
+    async def admit(self, key: str | None = None, run_id: str | None = None, status: str = "admitted", *,
+                    kind: str = "file_proposal", dx: str | None = None, head: str = ANCHOR,
+                    tail: str = "-") -> str:
+        """One admission (D22). The ``item_key`` is ``"<head>|<kind>|<dx or '-'>|<tail>"``; check 5
+        allows an action only under an admission whose key names it (review item 6). Admitting
+        the same key again returns the existing admission, as ``runs.admit`` does."""
         self._adm += 1
         run_id = run_id or self.run_id
-        item_key = key or f"item{self._adm}"
+        item_key = key or f"{head}|{kind}|{dx or '-'}|{tail}"
         adm_id = derive("adm_", run_id, item_key)
+        if await self.db["admissions"].find_one({"_id": adm_id}) is not None:
+            return adm_id
         await self.db["admissions"].insert_one({
             "_id": adm_id, "run_id": run_id, "item_key": item_key, "status": status,
             "admitted_at": NOW, "expires_at": NOW + timedelta(minutes=10),

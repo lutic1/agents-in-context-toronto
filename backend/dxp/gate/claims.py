@@ -10,8 +10,9 @@ The three claim policies:
 
 * ``claim_performed_or_results``: a sentence stating that an assay was
   performed, detected something, showed or produced results needs
-  ``has_results: true`` or its own checked quote saying it was performed with
-  results. A claim of this kind that makes no such statement passes.
+  ``has_results: true`` or its own checked quote stating a result (an
+  eligibility or design sentence that only says an assay "was performed" is
+  not a result). A claim of this kind that makes no such statement passes.
 * ``claim_planned``: when the trial is NOT_YET_RECRUITING or RECRUITING (or
   otherwise planned), it must be described as planned or ongoing.
 * ``claim_preclinical``: cell-line or animal evidence must be labelled
@@ -49,15 +50,33 @@ _PERFORMED = re.compile(
     re.IGNORECASE,
 )
 
-# Past-tense performed or results wording: what a quote must say to support a performance claim.
-_PERFORMED_PAST = re.compile(
+# Past-tense RESULT wording: what a quote must say to support a performance claim. A quote
+# that only says an assay "was performed" states no result (review item 5), so the bare
+# performance verbs are not here.
+_RESULT_PAST = re.compile(
     r"\b("
-    r"showed|demonstrated|detected|found that|produced|yielded|achieved|revealed|confirmed|"
-    r"was performed|were performed|has been performed|have been performed|resulted in|"
-    r"results showed|reported (?:a|an|that)"
+    r"showed|demonstrated|detected|found that|yielded|achieved|revealed|identified|"
+    r"resulted in|results showed|results demonstrated|reported (?:a|an|that)|"
+    r"(?:sensitivity|specificity|concordance|accuracy|detection rate) (?:was|were|of)"
     r")\b",
     re.IGNORECASE,
 )
+
+# Eligibility, design or plan wording: a quote like this describes who may enrol or what will
+# be done, never a result ("patients in whom tumor NGS was performed within 90 days are eligible").
+_NOT_A_RESULT = re.compile(
+    r"\b("
+    r"inclusion|exclusion|eligible|eligibility|criteria|criterion|must have|must be|required to|"
+    r"will be|will undergo|to be performed|primary outcome|secondary outcome|outcome measures?"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def quote_states_a_result(quote: str) -> bool:
+    """True when a quote reports a result: past-tense result wording and no eligibility,
+    design or plan wording."""
+    return bool(_RESULT_PAST.search(quote or "")) and not _NOT_A_RESULT.search(quote or "")
 
 # Wording that describes a trial as planned or still running.
 _PLANNED_WORDS = re.compile(
@@ -137,13 +156,13 @@ def _judge(policy: str, text: str, quote: str, source: Mapping[str, Any], quotes
         if source.get("has_results") is True:
             return True, "the source has posted results (has_results: true)"
         # Only the claim's own quote, found word for word, may support it, and only when it
-        # says in the past tense that something was performed or produced results.
-        if quote and quote in quotes and _PERFORMED_PAST.search(quote):
-            return True, f"the claim's own checked quote says it was performed with results: {quote[:300]!r}"
+        # states a result; otherwise has_results: true is required.
+        if quote and quote in quotes and quote_states_a_result(quote):
+            return True, f"the claim's own checked quote states a result: {quote[:300]!r}"
+        why = "has no checked quote of its own" if not (quote and quote in quotes) else "has a checked quote that states no result"
         return False, (
             "states that something was performed or produced results, but the source has "
-            f"has_results: {source.get('has_results')!r} and the claim's own checked quote does not say "
-            "it was performed with results"
+            f"has_results: {source.get('has_results')!r} and the claim {why}"
         )
     if policy == CLAIM_PLANNED:
         status = (source.get("overall_status") or "").upper()

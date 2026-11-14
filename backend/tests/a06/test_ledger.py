@@ -68,7 +68,7 @@ async def test_creating_a_diagnostic_outside_scope_is_blocked_before_any_write(w
 
 async def test_live_change_to_in_scope_diagnostic_is_pending_never_applied(world):
     w = world
-    adm = await w.admit()
+    adm = await w.admit(dx=w.dx_f1l)
     [r] = await ledger.file_detailed("f_1", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
                                     "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
     assert r.status == "filed"
@@ -78,7 +78,7 @@ async def test_live_change_to_in_scope_diagnostic_is_pending_never_applied(world
 
 async def test_filing_twice_and_concurrent_findings_leave_no_duplicates(world):
     w = world
-    adm = await w.admit()
+    adm = await w.admit(dx=w.dx_f1l)
     change = {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD}
     a = await ledger.file_detailed("f_1", change, "live", w.run_ctx(adm))
     b = await ledger.file_detailed("f_1", change, "live", w.run_ctx(adm))
@@ -147,7 +147,7 @@ async def test_modes_and_contexts_are_enforced(world):
 
 
 async def _pending_diag(w, finding="f_1", value="EGFR", run_ctx=None):
-    adm = await w.admit()
+    adm = await w.admit(dx=w.dx_f1l)
     [r] = await ledger.file_detailed(finding, {"field": "biomarkers", "value": value, "diagnostic_id": w.dx_f1l,
                                       "evidence": EVIDENCE, "check": GOOD}, "live", run_ctx or w.run_ctx(adm))
     return r.proposal_id
@@ -226,7 +226,7 @@ async def test_edges_keep_their_first_run_id(world):
     # a later run re-proposes the same value after it was superseded off current
     await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"fields.biomarkers": []}})
     await w.add_run("run_test0002")
-    adm = await w.admit(run_id="run_test0002")
+    adm = await w.admit(run_id="run_test0002", dx=w.dx_f1l)
     ctx = w.run_ctx(adm, run_id="run_test0002")
     ctx["stamp"] = {**ctx["stamp"], "run_id": "run_test0002"}
     second = await _pending_diag(w, finding="f_run2", run_ctx=ctx)
@@ -317,7 +317,7 @@ async def test_stage_not_later_at_apply_is_a_recorded_outcome(world):
     """AD-5: the stage moved on between filing and apply; apply records it, never raises."""
     w = world
     await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"lifecycle_stage": "discovery"}})
-    adm = await w.admit()
+    adm = await w.admit(dx=w.dx_f1l)
     [r] = await ledger.file_detailed("f_stage", {"field": "lifecycle_stage", "value": "clinical_validation",
                                                  "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD},
                                      "live", w.run_ctx(adm))
@@ -345,17 +345,18 @@ async def test_the_ledger_writes_no_finding(world):
 
 async def test_reject_report_proposals_rejects_only_pending_ones_of_that_report_once(world):
     w = world
-    adm = await w.admit()
+    adm, adm_dx = await w.admit(), await w.admit(dx=w.dx_f1l)
     ctx_a = w.run_ctx(adm, report_id=w.rep("a"))
+    ctx_dx = w.run_ctx(adm_dx, report_id=w.rep("a"))
     [scope_p] = await ledger.file_detailed("f_anchor", scope_change(), "live", ctx_a)
     [bio_p] = await ledger.file_detailed("f_bio", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
-                                                   "evidence": EVIDENCE, "check": GOOD}, "live", ctx_a)
+                                                   "evidence": EVIDENCE, "check": GOOD}, "live", ctx_dx)
     [applied_p] = await ledger.file_detailed("f_alk", {"field": "biomarkers", "value": "ALK", "diagnostic_id": w.dx_f1l,
-                                                       "evidence": EVIDENCE, "check": GOOD}, "live", ctx_a)
+                                                       "evidence": EVIDENCE, "check": GOOD}, "live", ctx_dx)
     await ledger.apply(applied_p.proposal_id)
     [other_p] = await ledger.file_detailed("f_other", {"field": "biomarkers", "value": "KRAS",
                                                        "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD},
-                                           "live", w.run_ctx(adm, report_id=w.rep("b")))
+                                           "live", w.run_ctx(adm_dx, report_id=w.rep("b")))
     rej = await w.evaluate(w.reviewer_ctx(), {"kind": "decide_report", "destination": "ledger",
                                               "target": {"report_id": w.rep("a"), "scope_id": SCOPE_ID}})
     applied_before = await w.db["proposals"].find_one({"_id": applied_p.proposal_id})
@@ -428,3 +429,83 @@ async def test_ledger_file_never_reads_findings(world):
     finally:
         type(w.db).__getitem__ = original
     assert "findings" not in touched
+
+
+async def test_item2_a_no_target_change_is_refused_and_recovery_never_wedges(world):
+    """Review item 2 (Luis, 6881072627): the probe {field: biomarkers, value: EGFR} with no
+    Diagnostic and no scope is refused by ledger.file before any record; and a proposal stuck in
+    applying that cannot be finished no longer makes recover_applying raise for every caller."""
+    w = world
+    adm = await w.admit()
+    before = await w.business_state()
+    n_decisions = await w.count("decisions")
+    with pytest.raises(ValueError, match="names no Diagnostic"):
+        await ledger.file("f_nt", [{"field": "biomarkers", "value": "EGFR", "evidence": EVIDENCE, "check": GOOD}],
+                          "live", w.run_ctx(adm))
+    with pytest.raises(ValueError, match="names no Diagnostic"):  # a scope alone is only for evidence_collection
+        await ledger.file("f_nt2", [{"field": "biomarkers", "value": "EGFR", "scope_id": SCOPE_ID,
+                                     "evidence": EVIDENCE, "check": GOOD}], "live", w.run_ctx(adm))
+    assert await w.business_state() == before and await w.count("decisions") == n_decisions
+
+    # A proposal already wedged (filed before this fix), next to one recovery can finish.
+    good = await _pending_diag(w)
+    await w.db["proposals"].update_one({"_id": good}, {"$set": {"status": "applying"}})
+    wedged = derive("p_", "f_old", "biomarkers", "EGFR")
+    stored_good = await w.db["proposals"].find_one({"_id": good})
+    await w.db["proposals"].insert_one({**stored_good, "_id": wedged, "diagnostic_id": None, "target": None,
+                                        "finding_id": "f_old"})
+    done = await apply_mod.recover_applying_ids()  # never raises
+    await ledger.recover_applying()
+    assert done == [good]
+    assert (await w.db["proposals"].find_one({"_id": good}))["status"] == "applied"
+    assert (await w.db["proposals"].find_one({"_id": wedged}))["status"] == "applying"
+
+
+async def test_item7_an_existing_alias_is_looked_up_before_deriving_a_diagnostic_id(world):
+    """Review item 7 (Luis, 6881072627): an alias "F1 Liquid" for the in-scope FoundationOne Liquid
+    CDx resolves to it, so the change is filed on that Diagnostic, not blocked at team_scope."""
+    w = world
+    await w.db["aliases"].insert_one({"_id": normalise_name("F1 Liquid"), "diagnostic_id": w.dx_f1l,
+                                      "name": "F1 Liquid", "created_mode": "baseline"})
+    n_dx = await w.count("diagnostics")
+    adm = await w.admit(dx=w.dx_f1l)
+    [r] = await ledger.file_detailed("f_alias", {"field": "biomarkers", "value": "EGFR", "assay_name": "F1 Liquid",
+                                                 "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
+    assert r.status == "filed", (r.reason, r.decision and r.decision.checks)
+    assert r.diagnostic_id == w.dx_f1l and r.diagnostic_id != dx("F1 Liquid")
+    assert (await w.db["proposals"].find_one({"_id": r.proposal_id}))["diagnostic_id"] == w.dx_f1l
+    assert await w.count("diagnostics") == n_dx
+
+
+async def test_evidence_version_id_is_required(world):
+    """V40 (review risk): a change whose evidence names no source version is refused, nothing written."""
+    w = world
+    adm = await w.admit(dx=w.dx_f1l)
+    before = await w.business_state()
+    no_version = {k: v for k, v in EVIDENCE.items() if k != "version_id"}
+    with pytest.raises(ValueError, match="version_id"):
+        await ledger.file("f_nv", [{"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
+                                    "evidence": no_version, "check": GOOD}], "live", w.run_ctx(adm))
+    assert await w.business_state() == before
+
+
+async def test_stage_not_later_and_held_outcomes_emit_audit_events(world):
+    """Review risk: the recorded apply outcomes each emit one event for the audit."""
+    w = world
+    await ledger.file_detailed("f_m1", {"field": "modality", "value": "ngs", "diagnostic_id": w.dx_f1l,
+                               "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    [held] = await ledger.file_detailed("f_m2", {"field": "modality", "value": "pcr", "diagnostic_id": w.dx_f1l,
+                                        "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    [ev] = [e async for e in w.db["events"].find({"type": "proposal_pending", "proposal_id": held.proposal_id})]
+    assert ev["status"] == "held_for_review" and ev["stamp"]["kind"] == "seed"
+
+    await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"lifecycle_stage": "discovery"}})
+    adm = await w.admit(dx=w.dx_f1l)
+    [r] = await ledger.file_detailed("f_stage", {"field": "lifecycle_stage", "value": "clinical_validation",
+                                                 "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD},
+                                     "live", w.run_ctx(adm))
+    await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"lifecycle_stage": "regulatory_approval"}})
+    await ledger.apply(r.proposal_id)
+    await ledger.apply(r.proposal_id)  # a repeat emits nothing new
+    evs = [e async for e in w.db["events"].find({"type": "proposal_rejected", "proposal_id": r.proposal_id})]
+    assert len(evs) == 1 and evs[0]["status"] == "stage_not_later" and evs[0]["decision_id"] == r.decision_id

@@ -66,7 +66,19 @@ class _Deps:
     def normalise_name(self, text: str) -> str:
         return self._pick("normalise_name", "dxp.identity")(text)
 
-    async def current_grant(self, grant_id: str) -> dict[str, Any] | None:
+    async def current_grant(self, grant_id: str, *, session: Any = None) -> dict[str, Any] | None:
+        """The latest version of a grant, any status (A03's ``current_grant``).
+
+        Inside a caller's transaction (``session``) the same read is made on the session,
+        so check 1 judges the grant as of the transaction's snapshot.
+        """
+        if session is not None and "current_grant" not in self._overrides:
+            found = await self.db()["grants"].find({"grant_id": grant_id}, session=session).sort(
+                "version", -1).to_list(1)
+            if not found:
+                return None
+            grant_model = self._real("dxp.gate.policy_sets", "grant_model")
+            return as_doc(grant_model(found[0]))
         return as_doc(await _maybe_await(self._pick("current_grant", "dxp.gate.policy_sets")(grant_id)))
 
     async def current_set(self) -> tuple[str, list[dict[str, Any]]]:
@@ -79,12 +91,22 @@ class _Deps:
         policies = await _maybe_await(self._real("dxp.gate.policy_sets", "policies_in_set")(version))
         return version, [as_doc(p) for p in policies]
 
-    async def policy_set(self, version: str) -> dict[str, Any] | None:
+    async def policy_set(self, version: str, *, session: Any = None) -> dict[str, Any] | None:
         """A recorded ``policy_sets`` document (a run's pinned set), or ``None``."""
+        if session is not None and "policy_set" not in self._overrides:
+            return await self.db()["policy_sets"].find_one({"_id": version}, session=session)
         return await _maybe_await(self._pick("policy_set", "dxp.gate.policy_sets")(version))
 
-    async def policies_in_set(self, version: str) -> list[dict[str, Any]]:
-        """The member policy documents of a recorded set (A03)."""
+    async def policies_in_set(self, version: str, *, session: Any = None) -> list[dict[str, Any]]:
+        """The member policy documents of a recorded set, in member order (A03)."""
+        if session is not None and "policies_in_set" not in self._overrides:
+            recorded = await self.policy_set(version, session=session)
+            if not recorded:
+                return []
+            members = list(recorded.get("members") or [])
+            docs = await self.db()["policies"].find({"_id": {"$in": members}}, session=session).to_list(None)
+            by_id = {d["_id"]: d for d in docs}
+            return [as_doc(by_id[m]) for m in members if m in by_id]
         found = await _maybe_await(self._pick("policies_in_set", "dxp.gate.policy_sets")(version))
         return [as_doc(p) for p in found]
 
@@ -319,7 +341,19 @@ def _is_dup(exc: BaseException) -> bool:
 
 
 async def insert_if_absent(coll: Any, doc: dict[str, Any], *, session: Any = None) -> tuple[dict[str, Any], bool]:
-    """Insert ``doc``; on a duplicate key return the stored one. ``(doc, inserted)``."""
+    """Insert ``doc``; on a duplicate key return the stored one. ``(doc, inserted)``.
+
+    With a ``session`` (a caller's transaction, ``evaluate_in`` and ``apply_with``) it reads
+    first and inserts only when absent: a caught duplicate-key error aborts an Atlas
+    transaction, so it is never relied on there. A concurrent insert of the same ``_id``
+    then surfaces as the transaction's write conflict, which ``with_transaction`` retries.
+    """
+    if session is not None and getattr(session, "in_transaction", False):
+        stored = await coll.find_one({"_id": doc["_id"]}, session=session)
+        if stored is not None:
+            return stored, False
+        await coll.insert_one(doc, session=session)
+        return doc, True
     try:
         await coll.insert_one(doc, session=session)
         return doc, True
@@ -391,9 +425,18 @@ async def get(decision_id: str, *, session: Any = None) -> dict[str, Any] | None
 
 def api_decision(doc: dict[str, Any]) -> Any:
     """The stored decision as ``api.models.Decision`` (``_id`` mapped to ``id``)."""
-    from dxp.api.models import Decision
+    from typing import get_args
 
-    return Decision.model_validate(to_api(doc))
+    from dxp.api.models import Decision, Destination
+
+    api = to_api(doc)
+    destination = api.get("destination")
+    if destination is not None and destination not in get_args(Destination):
+        # A blocked Decision for an unknown destination (check 3, review item 3) keeps the
+        # destination as requested, so the audit shows where the action tried to go.
+        decision = Decision.model_validate({**api, "destination": "ledger"})
+        return decision.model_copy(update={"destination": destination})
+    return Decision.model_validate(api)
 
 
 __all__: list[str] = [

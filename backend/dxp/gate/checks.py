@@ -64,6 +64,8 @@ KNOWN_DESTINATIONS = frozenset(
 EVIDENCE_KINDS = frozenset(
     {"file_proposal", "file_related_evidence", "notify_slack", "generate_briefing", "generate_avatar_video"}
 )
+# A per-change write needs a Diagnostic or a scope to land on (check 2).
+TARGETED_KINDS = frozenset({"file_proposal", "apply_value"})
 # Of those, these derive from a filed report and pass only when it was filed allowed.
 REPORT_DERIVED_KINDS = frozenset({"notify_slack", "generate_briefing", "generate_avatar_video"})
 
@@ -255,8 +257,8 @@ class GateAction:
         """Refuse a malformed action before any Decision is written."""
         if self.kind not in KNOWN_KINDS | SUPERSEDED_KINDS:
             raise ValueError(f"unknown action kind {self.kind!r} (AD-14)")
-        if self.destination not in KNOWN_DESTINATIONS:
-            raise ValueError(f"unknown destination {self.destination!r} (AD-14)")
+        # An unknown destination is not a contract error: it reaches check 3, which records a
+        # blocked Decision naming it (AD-19, S2). Only an unknown kind is refused here.
         for c in self.claims:
             if c.get("claim_kind") not in claim_checks.CLAIM_POLICIES:
                 # The decisions validator allows only the three claim kinds, and the drafter
@@ -351,6 +353,20 @@ def _target_diagnostics(action: GateAction) -> list[str]:
 
 def check_team_scope(ctx: GateCtx, action: GateAction, loaded: Loaded) -> dict[str, Any]:
     grant = loaded.grant or {}
+    if (
+        action.kind in TARGETED_KINDS
+        and not action.is_report_level
+        and not _target_diagnostics(action)
+        and action.target.get("scope_id") is None
+    ):
+        # A change with no Diagnostic and no scope has nothing to apply to; filed, it would
+        # wedge in applying (review item 2). Blocked under every grant, the seed's included.
+        return _result(
+            "team_scope",
+            False,
+            f"{action.kind} names no Diagnostic and no scope (field {action.target.get('field')!r}); "
+            "a change targets an in-scope Diagnostic or the scope's evidence collection (V35, V43)",
+        )
     scope = grant.get("scope") or {}
     if scope.get("all") is True:
         if grant.get("principal") == "seed" and grant.get("kind") == "seed":
@@ -545,6 +561,67 @@ def check_evidence(ctx: GateCtx, action: GateAction, loaded: Loaded) -> tuple[di
 
 # --- check 5 -----------------------------------------------------------------
 
+_REF_KEYS = ("source_ref", "scope_id", "task_id", "report_id", "proposal_id", "value_id", "memory_id", "action_id")
+
+
+def action_refs(action: GateAction) -> set[str]:
+    """What an admission's ``item_key`` may name for this action: its source item, scope,
+    task, report and the IDs of its target."""
+    refs = {str(action.target[k]) for k in _REF_KEYS if action.target.get(k)}
+    if (action.evidence_ref or {}).get("source_ref"):
+        refs.add(str(action.evidence_ref["source_ref"]))
+    if (action.query or {}).get("scope_id"):
+        refs.add(str(action.query["scope_id"]))
+    return refs
+
+
+def _action_target_forms(action: GateAction) -> set[str]:
+    forms = action_refs(action)
+    if action.id_target:
+        forms.add(action.id_target)
+    try:
+        from dxp.gate.decisions import target_key  # late: decisions imports this module
+
+        forms.add(target_key(action.kind, action.target, action.inputs))
+    except ValueError:
+        pass
+    return forms
+
+
+def item_key_for(action: GateAction, head: str | None = None, tail: str = "-") -> str:
+    """The D22 ``item_key`` for an action: ``"<source_ref or scope_id or task_id>|<kind>|
+    <diagnostic_id or '-'>|<target or '-'>"`` (AD-21). ``head`` defaults to the action's
+    source item, else its scope, task or report."""
+    if head is None:
+        src = action.target.get("source_ref") or (action.evidence_ref or {}).get("source_ref")
+        head = src or action.target.get("scope_id") or action.target.get("task_id") or action.target.get("report_id") or "-"
+    return f"{head}|{action.kind}|{action.target.get('diagnostic_id') or '-'}|{tail}"
+
+
+def admission_mismatch(item_key: Any, action: GateAction) -> str | None:
+    """Why an admission's ``item_key`` does not name this action, or ``None`` when it does.
+
+    One admission per action (D22, AD-21): the key's kind and Diagnostic must be the
+    action's; its first part must be the action's source item, scope, task or report;
+    and its target part, unless ``-``, must be the action's AD-3 target or one of its IDs.
+    """
+    if not isinstance(item_key, str) or item_key.count("|") < 2:
+        return f"item_key {item_key!r} does not name an action (<ref>|<kind>|<diagnostic_id>|<target>)"
+    head, kind, dx, *rest = item_key.split("|")
+    tail = "|".join(rest) or "-"
+    if kind != action.kind:
+        return f"item_key {item_key!r} admits kind {kind!r}, not {action.kind!r}"
+    expected_dx = action.target.get("diagnostic_id") or "-"
+    if dx != expected_dx:
+        return f"item_key {item_key!r} admits Diagnostic {dx!r}, not {expected_dx!r}"
+    refs = action_refs(action)
+    if refs and head not in refs:
+        return f"item_key {item_key!r} admits {head!r}, not this action's {sorted(refs)}"
+    if tail != "-" and tail not in _action_target_forms(action):
+        return f"item_key {item_key!r} admits target {tail!r}, not this action's target"
+    return None
+
+
 
 def check_run_authorised(ctx: GateCtx, action: GateAction, loaded: Loaded) -> dict[str, Any]:
     if ctx.kind != "run":
@@ -561,6 +638,9 @@ def check_run_authorised(ctx: GateCtx, action: GateAction, loaded: Loaded) -> di
         return _result("run_authorised", False, f"admission {adm.get('_id')} belongs to another run")
     if adm.get("status") != "admitted":
         return _result("run_authorised", False, f"admission {adm.get('_id')} is {adm.get('status')}")
+    mismatch = admission_mismatch(adm.get("item_key"), action)
+    if mismatch:
+        return _result("run_authorised", False, f"admission {adm.get('_id')} is not for this action: {mismatch}")
     return _result("run_authorised", PASSED, f"admission {adm.get('_id')} admitted; run is {run.get('status')}")
 
 

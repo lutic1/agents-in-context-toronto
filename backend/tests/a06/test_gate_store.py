@@ -74,7 +74,7 @@ async def test_each_check_blocks_on_its_own_and_leaves_records_and_slack_untouch
     cases["evidence_checks"] = (w.run_ctx(adm), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_e"},
         checks=[{"quote_found": True, "supported": False, "confidence": 0.9}]))
-    released = await w.admit(status="released")
+    released = await w.admit(status="released", tail="p_r")
     cases["run_authorised"] = (w.run_ctx(released), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_r"}))
     for expected, (ctx, action) in cases.items():
@@ -166,7 +166,7 @@ async def test_blocked_claim_on_report_draft_then_redraft_allowed(world):
     assert d1["claims"][0]["failed_policies"] == ["claim_performed_or_results", "claim_planned"]
     assert d1.decision_id == derive("dec_", w.run_id, "file_proposal", "-", f"{w.rep('a')}|draft1")
     assert await w.count("actions") == 0 and await w.count("reports") == 0
-    adm2 = await w.admit()
+    adm2 = await w.admit(head=SCOPE_ID, tail=f"{w.rep('a')}|draft2")
     d2 = await w.evaluate(w.run_ctx(adm2), {**base,
         "target": {"report_id": w.rep("a"), "draft": 2, "scope_id": SCOPE_ID},
         "claims": [{"claim_kind": "claim_performed_or_results",
@@ -197,7 +197,7 @@ async def test_evaluate_takes_the_frozen_run_context_and_proposed_action(world):
     from dxp.api.models import Principal, ProposedAction, RunContext, Stamp
 
     w = world
-    adm = await w.admit()
+    adm = await w.admit(head=SCOPE_ID)
     ctx = RunContext(
         run_id=w.run_id, principal=Principal(id="dxp-curator", name="dxp-curator", kind="agent"),
         stamp=Stamp(kind="run", run_id=w.run_id, agent="dxp-curator", initiated_by="sam", principal="dxp-curator",
@@ -217,17 +217,26 @@ async def test_evaluate_takes_the_frozen_run_context_and_proposed_action(world):
     assert blocked.claims[0].passed is False
 
 
-async def test_unknown_kinds_and_destinations_are_contract_errors(world):
+async def test_unknown_kinds_are_contract_errors_but_unknown_destinations_are_recorded_blocks(world):
+    """Review item 3 (Luis, 6881072627): notify_slack to slack:#general reaches check 3 and
+    records a blocked Decision (AD-19, S2); only an unknown kind is refused before any record."""
     import pytest
 
     w = world
-    adm = await w.admit()
-    with pytest.raises(ValueError):
-        await gate.evaluate(w.run_ctx(adm), {"kind": "notify_slack", "destination": "slack:#random",
+    adm = await w.admit(kind="notify_slack", head=w.rep("1"))
+    before = await w.business_state()
+    d = await gate.evaluate(w.run_ctx(adm), {"kind": "notify_slack", "destination": "slack:#general",
                                              "target": {"report_id": w.rep("1")}})
+    assert isinstance(d, Decision) and d.outcome == "blocked" and d.failed_check == "destination_action"
+    assert d.destination == "slack:#general" and "unknown destination 'slack:#general'" in d.checks[2].detail
+    stored = await w.db["decisions"].find_one({"_id": d.id})
+    assert stored["destination"] == "slack:#general" and stored["outcome"] == "blocked"
+    ev = await w.db["events"].find_one({"_id": stored["seq"]})
+    assert ev["type"] == "action_blocked" and ev["decision_id"] == d.id
+    assert await w.business_state() == before and await w.count("actions") == 0
     with pytest.raises(ValueError):
         await gate.evaluate(w.run_ctx(adm), scope_action(kind="launch_rocket"))
-    assert await w.count("decisions") == 0
+    assert await w.count("decisions") == 1
 
 
 async def test_a_blocked_decision_always_lists_five_checks_in_order(world):
@@ -247,7 +256,7 @@ async def test_a_blocked_decision_always_lists_five_checks_in_order(world):
         n = gate.CHECK_ORDER.index(expected)
         assert all(c.passed is True for c in d.checks[:n]) and d.checks[n].passed is False
         assert all(c.passed == "n/a" and c.detail.startswith(f"not evaluated: check {n + 1}") for c in d.checks[n + 1:])
-    released = await w.admit(status="released")
+    released = await w.admit(status="released", tail="p_5d")
     d = await gate.evaluate(w.run_ctx(released), scope_action(
         target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5d"}))
     assert d.failed_check == "run_authorised" and len(d.checks) == 5
@@ -328,3 +337,91 @@ async def test_the_fake_backend_applies_a03_validators(world):
         pytest.skip("checks the in-memory backend only; Atlas applies the validators itself")
     with pytest.raises(FakeWriteError):
         await w.db["proposals"].insert_one({"_id": "p_bad", "op": "add", "status": "pending"})
+
+
+async def test_item6_an_admission_for_another_item_does_not_authorise_the_action(world):
+    """Review item 6 (Luis, 6881072627): the probe. An admission for NCT_OTHER does not authorise
+    an action on this trial; check 5 blocks and nothing but the Decision is written."""
+    w = world
+    other = await w.admit(head="clinicaltrials.gov:NCT_OTHER")
+    before = await w.business_state()
+    d = await w.evaluate(w.run_ctx(other), scope_action())
+    assert d.blocked and d.failed_check == "run_authorised"
+    assert "is not for this action" in d["checks"][4]["detail"] and "NCT_OTHER" in d["checks"][4]["detail"]
+    assert await w.business_state() == before
+    this = await w.admit()
+    assert (await w.evaluate(w.run_ctx(this), scope_action(target={
+        "diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_this"}))).allowed
+
+
+class _Txn:
+    """A stand-in for a client session inside a transaction (fake backend only)."""
+
+    in_transaction = True
+
+
+async def test_insert_if_absent_in_a_transaction_reads_first_and_never_catches_a_duplicate(world):
+    """Review risk: a caught duplicate-key error aborts an Atlas transaction, so inside one the
+    insert is made only after a read finds nothing."""
+    import pytest
+
+    from dxp.gate.decisions import insert_if_absent
+
+    from .fakedb import FakeDB
+
+    w = world
+    if not isinstance(w.db, FakeDB):
+        pytest.skip("uses a stand-in session; the Atlas path is covered by evaluate_in in A24's tests")
+    coll = w.db["aliases"]
+    calls: list[str] = []
+    real_insert = coll.insert_one
+
+    async def counting_insert(doc, session=None):
+        calls.append(doc["_id"])
+        return await real_insert(doc, session=session)
+
+    coll.insert_one = counting_insert
+    doc = {"_id": "txn alias", "diagnostic_id": w.dx_f1l, "name": "txn alias", "created_mode": "live"}
+    _, inserted = await insert_if_absent(coll, doc, session=_Txn())
+    again, inserted_again = await insert_if_absent(coll, {**doc, "name": "other"}, session=_Txn())
+    assert inserted is True and inserted_again is False and again["name"] == "txn alias"
+    assert calls == ["txn alias"]  # the second call never attempted the insert
+
+
+async def test_evaluate_in_reads_the_grant_and_pinned_policies_on_the_session(world, monkeypatch):
+    """Review risk: inside a caller's transaction the grant and policy reads use its session."""
+    import pytest
+
+    from dxp.gate import policy_sets
+
+    from .fakedb import FakeDB
+
+    w = world
+    if not isinstance(w.db, FakeDB):
+        pytest.skip("uses a stand-in session")
+    seen: list[tuple[str, object]] = []
+    for name in ("grants", "policies", "policy_sets"):
+        coll = w.db[name]
+        real_find, real_find_one = coll.find, coll.find_one
+
+        def find(flt=None, session=None, _n=name, _f=real_find, **kw):
+            seen.append((_n, session))
+            return _f(flt, session=session, **kw)
+
+        async def find_one(flt=None, session=None, _n=name, _f=real_find_one, **kw):
+            seen.append((_n, session))
+            return await _f(flt, session=session, **kw)
+
+        coll.find, coll.find_one = find, find_one
+
+    async def not_on_the_session(*a, **k):
+        raise AssertionError("read outside the session")
+
+    monkeypatch.setattr(policy_sets, "current_grant", not_on_the_session)
+    monkeypatch.setattr(policy_sets, "policy_set", not_on_the_session)
+    monkeypatch.setattr(policy_sets, "policies_in_set", not_on_the_session)
+    txn = _Txn()
+    adm = await w.admit()
+    d = await gate.evaluate_in(w.run_ctx(adm), scope_action(), txn)
+    assert d.outcome == "allowed"
+    assert {n for n, s in seen if s is txn} == {"grants", "policies", "policy_sets"}
