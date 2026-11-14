@@ -56,6 +56,7 @@ This document provides the complete epic and story breakdown for DxProvida (DxP)
 - **Capped search wording (V42).** An empty task result reads "No matching results found among the records searched", always with the query, the number of records searched and the limit.
 - **No resolved Diagnostic (V43).** A report whose update targets the scope collection (`diagnostic_id: null`) goes through the gate, the apply, Slack ("Review in DxP" only), the audit and the UI without assuming a `dx_id`; I1 and I3 assert it.
 - **Rehearsal source check (V44).** One report and its script are checked against the exact source version they used and, separately, that version against the live registry record; a difference there is "changed since the run", not an error.
+- **A third teammate, Gregorio (V47, approved by Luis).** Gregorio (Claude Max plan, deep back-end coding) owns A19+A20 (Stories 10.2 to 10.4), A21+A22 (Stories 10.5, 10.6) and A25 (Story 10.9, stretch). His agents review his PRs first; desk L still merges them in the planned order, and the contract keeper checks contract changes. The two bundles start at 10:45 as drafts under L1 (amending V31), and Gregorio runs the OD1 check at 10:45, decided with Luis by 11:45. The Ready and Merged forecasts are unchanged.
 
 ## Requirements Inventory
 
@@ -131,7 +132,7 @@ Later development, not built on Saturday: FR6 (performance by tumour type and st
 - NFR5: Real behaviour on camera. Updated 14 Nov: the video and the live demo show a real Slack alert arriving in `#all-mango-db-hackathon`, a real blocked action and a real stop, each made live. Synthetic history may set the scene; it does not stand in for these.
 - NFR6: Synthetic data. Synthetic Teams, grants, profiles, history, corrections and rules are labelled synthetic wherever they appear.
 - NFR7: Event rules. Updated 13 Nov: only work built during the event may be highlighted. The README separates prepared material from what was built on 14 November, in a table; the demo shows only what was built that day. No coding before 10:45 unless an organiser permits it in writing.
-- NFR8: Time. Updated 13 Nov: hacking runs 10:45 to 17:00 on the Atlas Sandbox, two people, including recording and submitting; code freeze 16:30; the 60-second video is recorded 16:30 to 16:50; submission (description, public repository, video, team members) by 16:55, due at 17:00; the 3-minute live demo for judging at 17:15.
+- NFR8: Time. Updated 13 Nov: hacking runs 10:45 to 17:00 on the Atlas Sandbox, two people (three since V47: Luis, Vlad and Gregorio), including recording and submitting; code freeze 16:30; the 60-second video is recorded 16:30 to 16:50; submission (description, public repository, video, team members) by 16:55, due at 17:00; the 3-minute live demo for judging at 17:15.
 - NFR9: Model limits. Before a run, the team confirms that the Claude API key works and that its rate limits allow the selected trial set at the chosen concurrency (at most 16 concurrent calls in a run).
 - NFR10: MongoDB as the advantage. The video and description name which MongoDB capability powers which behaviour: grants and policies with schema validation, atomic conditional updates for claim and stop, change streams for the live feed, and the audit history.
 - NFR11: Attribution. Every Evidence shows its source and that source's data date; the app footer carries the credits line.
@@ -295,15 +296,15 @@ Within one research scope the agent discovers newly updated ClinicalTrials.gov t
 |---|---|---|---|
 | The anchor's exact mention "FoundationOne CDx" resolves to the seeded FoundationOne CDx, and "FoundationOne Liquid" stays unresolved and appears in the report's uncertainties (V34) | Medium | High | Exact-name matching only (Story 1.2, A02), extraction constrained to exact seeded names or `unresolved` (Story 1.5, A08); asserted at I1 |
 | The FDA list can be fetched and parsed during the event | Medium | High | A13 by 13:15; otherwise seed only the Diagnostics the selected set names, typed from the FDA page during the event |
-| Both developers productive from hour one | Medium | High | Story 1.1 contract stub, frozen by 11:45 |
-| OD1: the Atlas Sandbox supports Vector Search indexes and Automated Embedding, or a Voyage AI key is allowed | Unverified | High | Checked in A19 at the start; otherwise related retrieval and memory ranking fall back to Atlas Search text search, labelled "related by text search", never "Vector Search" (Stories 10.2, 10.6) |
+| Every developer (Luis, Vlad and Gregorio, V47) productive from hour one | Medium | High | Story 1.1 contract stub, frozen by 11:45; Gregorio's two bundles draft from 10:45 (L1, V47) |
+| OD1: the Atlas Sandbox supports Vector Search indexes and Automated Embedding, or a Voyage AI key is allowed | Unverified | High | Checked by Gregorio at 10:45 and decided with Luis by 11:45 (V47); otherwise related retrieval and memory ranking fall back to Atlas Search text search, labelled "related by text search", never "Vector Search" (Stories 10.2, 10.6) |
 | OD2: on Saturday the live ClinicalTrials.gov API returns NCT04712877 (the expected candidate) as updated after the cursor, RECRUITING, without results; its update date is unverified until 10:45 (V36) | Unverified | High | At 10:45 the live API is queried for the scan; the demo anchor is whichever in-scope early-stage trial is actually updated after the chosen cursor, with date, status and results verified in the response, framed as V33 with no claim about which assay it studies (Stories 10.1, 10.7) |
 | OD3: ElevenLabs key and quota | Unverified | Low | The script stays on the page as text and the player says "unavailable"; the report page still works (Story 10.11, V29) |
 | OD4: organiser clearance items from D1 and D57 (prepared data, logo, Slack channel volume) | Unverified | Medium | As in D1 and D57; all demo data, including M1, is created during the event (V15) |
 | OD5: change streams on the sandbox | n/a | None | No longer needed: the live feed (Story 9.9) is cut and screens poll |
 | OD6: `mongodump` and `mongorestore` against the sandbox for the reset | Unverified | Medium | Reset by rerunning the setup (FDA seed, prior collection, index, M1 through the UI), which takes longer (Stories 1.2, 8.2) |
 | Merge queue: about 22 Luis PRs landing 13:15 to 13:45 at about 10 minutes each | High | High | PR bundling (A21+A22, A19+A20, A23 in A06, A18+A14, A07+A11) and staggered merges from 12:30 (proposal section 7); A24 and A25 are split again so A25 can be cut without touching the core (V28) |
-| L1 (draft starts, approved by Luis, V31): only A06 and A08 start at 10:45 as drafts against the AD-14 shapes; A19+A20 and A21+A22 start after the contract (11:45) | Medium | Medium | Each draft carries a 20-minute rebase budget after the contract freeze; any contract change after 11:45 goes through the contract keeper, with the rebase cost stated. Proof and fallback as for L2 |
+| L1 (draft starts, approved by Luis, V31, amended by V47): A06, A08, A19+A20 and A21+A22 start at 10:45 as drafts against the AD-14 shapes (V31 started the two bundles after the contract at 11:45; V47 moves them to 10:45 under Gregorio, building only contract-independent parts until 11:45) | Medium | Medium | Each draft carries a 20-minute rebase budget after the contract freeze; four open drafts mean more rebases at 11:45, and the 13:00 fallback still applies; any contract change after 11:45 goes through the contract keeper, with the rebase cost stated. Proof and fallback as for L2 |
 | L2 (second merge desk, approved by Luis, V31): Vlad merges only A05, A13, A14 and A09, and only once green in CI and passed by Luis's review agent and the contract keeper | Medium | High | A failing CI or a conflict sends the PR back to its author and never waits on Vlad's desk; Vlad's review is a scope and secrets check, not a backend review. Proof step at 12:30: the first two merges through Vlad's desk (A05, A13) are timed against the 10-minute budget. Fallback if L1 or L2 fails by 13:00: one desk, and the V28 cut line applied at once (A25, B06 and B08 out), which takes three merges off Luis's queue; the core then fits with one rehearsal pass and no float (the emergency path) |
 | The report page (B04) is near-critical | Medium | High | Two builders in Vlad's lane, forecast 13:45; checked in I3 |
 | The Slack webhook posts to `#all-mango-db-hackathon` at 10:45 | High | High | Created and tested before the event; `SLACK_WEBHOOK_URL` kept only in `.env` and the Modal secret; A09 is never stubbed, so a missing or broken webhook is fixed before anything else |
@@ -336,7 +337,7 @@ The **Time** on each story follows the rules measured on the CVH pilot build (1�
 
 ## How every story lands: PR and merge
 
-Each story names its **Owner** (Luis or Vlad) and its **PRs**. Since the pivot, a PR ID such as A06, B02 or I1 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first. Luis owns the A PRs and the integration PRs (the critical path: contract, ledger and gate, runs and stop, extraction, the Slack notifier, integration); Vlad owns the B PRs (the screens, the web skeleton, the report page B04, the report briefing B06, the HeyGen avatar video B08 and the submission package), with Luis's review agent on Vlad's lane. A14 (Luis, with A18 folded in) builds Story 1.1's Record read model and `GET /diagnostics/<dx_id>`; A01 owns `GET /schema` (D36). A06 owns `ledger/apply.py`, so the seed and I1 do not depend on A14 (D26). R1 (Luis and Vlad, 16:30 to 16:55) records and submits the video; it is a task with no branch. The earlier P and V IDs are retired (the V1 to V24 decision IDs of the discovery-agent proposal are a different series). A deferred, cut or superseded story has no PR. Since 14 November several PRs are bundled (see "PR bundling" under the points and time summary); a bundle's PRs line names it as, for example, `A19+A20`. Two scheduling levers in `development-plan.md` and `build-schedule.md` are **risks with a proof step and a fallback, approved by Luis (V31, replacing V23)**: L1, only A06 and A08 start at 10:45 as drafts against AD-14, each with a 20-minute rebase budget after the contract freeze (A19+A20 and A21+A22 start after 11:45; any contract change after 11:45 goes through the contract keeper, with the rebase cost stated); L2, Vlad's desk merges only A05, A13, A14 and A09, and only once green in CI and passed by Luis's review agent and the contract keeper (a failing CI or a conflict goes back to its author; Vlad checks scope and secrets, the agent reviews the backend). Proof at 12:30: the first two merges through Vlad's desk (A05, A13), timed against the 10-minute budget. Fallback if L1 or L2 fails by 13:00: one desk and the V28 cut line at once (A25, B06 and B08 out), one rehearsal pass and no float. See "Build risks".
+Each story names its **Owner** (Luis, Vlad or Gregorio) and its **PRs**. Since the pivot, a PR ID such as A06, B02 or I1 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first. Luis owns the A PRs, except Gregorio's three, and the integration PRs (the critical path: contract, ledger and gate, runs and stop, extraction, the Slack notifier, integration); Vlad owns the B PRs (the screens, the web skeleton, the report page B04, the report briefing B06, the HeyGen avatar video B08 and the submission package), with Luis's review agent on Vlad's lane; Gregorio owns A19+A20, A21+A22 and A25 (V47), reviewed first by his own agents and merged on Luis's desk L. A14 (Luis, with A18 folded in) builds Story 1.1's Record read model and `GET /diagnostics/<dx_id>`; A01 owns `GET /schema` (D36). A06 owns `ledger/apply.py`, so the seed and I1 do not depend on A14 (D26). R1 (Luis and Vlad, 16:30 to 16:55) records and submits the video; it is a task with no branch. The earlier P and V IDs are retired (the V1 to V24 decision IDs of the discovery-agent proposal are a different series). A deferred, cut or superseded story has no PR. Since 14 November several PRs are bundled (see "PR bundling" under the points and time summary); a bundle's PRs line names it as, for example, `A19+A20`. Two scheduling levers in `development-plan.md` and `build-schedule.md` are **risks with a proof step and a fallback, approved by Luis (V31, replacing V23)**: L1, only A06, A08, A19+A20 and A21+A22 start at 10:45 as drafts against AD-14 (the two bundles added by V47; V31 had started them after 11:45), each with a 20-minute rebase budget after the contract freeze (any contract change after 11:45 goes through the contract keeper, with the rebase cost stated); L2, Vlad's desk merges only A05, A13, A14 and A09, and only once green in CI and passed by Luis's review agent and the contract keeper (a failing CI or a conflict goes back to its author; Vlad checks scope and secrets, the agent reviews the backend). Proof at 12:30: the first two merges through Vlad's desk (A05, A13), timed against the 10-minute budget. Fallback if L1 or L2 fails by 13:00: one desk and the V28 cut line at once (A25, B06 and B08 out), one rehearsal pass and no float. See "Build risks".
 
 A story is done only when it is merged into `main` and working on the Atlas Sandbox deploy. Every story with points follows these steps:
 
@@ -1626,8 +1627,8 @@ So that new evidence is found by the agent instead of by someone remembering to 
 
 ### Story 10.2: Embeddings and Vector Search retrieval of related evidence
 
-**Points:** 2 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, new infrastructure: index and embeddings) · **Lane:** [API] · **Covers:** FR48 (embeddings and related-evidence retrieval), V3, AD-15 restored · **Core** · **Owner:** Luis
-**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (Embeddings, the vector index and retrieval feeding the relationships and the report, Luis; one PR with Stories 10.3 and 10.4). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, new infrastructure: index and embeddings) · **Lane:** [API] · **Covers:** FR48 (embeddings and related-evidence retrieval), V3, AD-15 restored · **Core** · **Owner:** Gregorio (V47)
+**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (Embeddings, the vector index and retrieval feeding the relationships and the report, Gregorio, V47; one PR with Stories 10.3 and 10.4). Cards in `development-plan.md`.
 
 As the agent,
 I want each new trial matched to the most related evidence and findings already in my scope,
@@ -1647,8 +1648,8 @@ So that a discovery is connected to what the team already knows, not reported in
 
 ### Story 10.3: Relationship classification with quotes from both sides
 
-**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR49 (relationship classification), FR5, FR18, NFR1, V4, AD-6 · **Core** · **Owner:** Luis
-**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (with Stories 10.2 and 10.4, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR49 (relationship classification), FR5, FR18, NFR1, V4, AD-6 · **Core** · **Owner:** Gregorio (V47)
+**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (with Stories 10.2 and 10.4, Gregorio, V47). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want the agent to say whether a new trial supports, contradicts or extends existing evidence, or raises a new question, and to show me the words on both sides,
@@ -1669,8 +1670,8 @@ So that I can check every connection instead of trusting a score.
 
 ### Story 10.4: Research report filed as a pending proposal
 
-**Points:** 3 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR50 (research report as a pending proposal), FR15, NFR2, V5, D8 · **Core** · **Owner:** Luis
-**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (report assembly, with Stories 10.2 and 10.3, Luis); I1 `integration/i1-discovery-loop` (Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR50 (research report as a pending proposal), FR15, NFR2, V5, D8 · **Core** · **Owner:** Gregorio (V47)
+**PRs:** A19+A20 bundle `story/10.2-retrieval-report` (report assembly, with Stories 10.2 and 10.3, Gregorio, V47); I1 `integration/i1-discovery-loop` (Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want each discovery delivered as one pending research report with its evidence, connections, uncertainties, the memories used, one evidence gap and one recommended next task that answers it,
@@ -1698,8 +1699,8 @@ So that I review a complete piece of research in one place, and nothing becomes 
 
 ### Story 10.5: Reviewer memory store with correct and revoke
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR51 (reviewer memory: creation), FR52 (correct or revoke a memory), NFR2, NFR15, V6 · **Core** · **Owner:** Luis
-**PRs:** A21+A22 bundle `story/10.5-memory` (Memory store, correct and revoke, retrieval and its effect, Luis; one PR with Story 10.6); I1 `integration/i1-discovery-loop` (M1 created through the real UI in setup step 2, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR51 (reviewer memory: creation), FR52 (correct or revoke a memory), NFR2, NFR15, V6 · **Core** · **Owner:** Gregorio (V47)
+**PRs:** A21+A22 bundle `story/10.5-memory` (Memory store, correct and revoke, retrieval and its effect, Gregorio, V47; one PR with Story 10.6); I1 `integration/i1-discovery-loop` (M1 created through the real UI in setup step 2, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want my corrections kept as attributable team memories that I can correct or revoke,
@@ -1721,8 +1722,8 @@ So that the agent learns from me in the open, and I stay in control of what it r
 
 ### Story 10.6: Memory retrieval and its visible effect in reports
 
-**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR51 (reviewer memory: use and effect), V6 · **Core** · **Owner:** Luis
-**PRs:** A21+A22 bundle `story/10.5-memory` (with Story 10.5, Luis); I1 `integration/i1-discovery-loop` (Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] · **Covers:** FR51 (reviewer memory: use and effect), V6 · **Core** · **Owner:** Gregorio (V47)
+**PRs:** A21+A22 bundle `story/10.5-memory` (with Story 10.5, Gregorio, V47); I1 `integration/i1-discovery-loop` (Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want the agent to use my earlier corrections on the next relevant discovery and show me exactly what each one changed,
@@ -1794,8 +1795,8 @@ So that accepting research is a single, attributable act and the agent's next st
 
 ### Story 10.9: The follow-up task runs under its own grant and gate
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR55 (follow-up task under its own grant and gate), FR31, FR33, FR34, FR38, V9, V26, V33 · **Stretch** (V39: the loop is forecast green at about 14:35, after the 14:30 gate; joins I3, to 15:15, only if merged and the loop is green by 14:30, V30) · **Owner:** Luis
-**PRs:** A25 `story/10.9-task-run` (the task run, split from A24 again so it can be cut without touching the core, V28, Luis); B02 `story/9.7-run-console` (the task's run shown as "Follow-up task" with a link back to its report, Vlad); I3 `integration/i3-approve-task` (Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR55 (follow-up task under its own grant and gate), FR31, FR33, FR34, FR38, V9, V26, V33 · **Stretch** (V39: the loop is forecast green at about 14:35, after the 14:30 gate; joins I3, to 15:15, only if merged and the loop is green by 14:30, V30) · **Owner:** Gregorio (V47)
+**PRs:** A25 `story/10.9-task-run` (the task run, split from A24 again so it can be cut without touching the core, V28, Gregorio, V47); B02 `story/9.7-run-console` (the task's run shown as "Follow-up task" with a link back to its report, Vlad); I3 `integration/i3-approve-task` (Luis). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
 I want the authorised follow-up task to run as its own run, under its own narrow grant and its own gate,

@@ -360,23 +360,23 @@ owners:
     prs: "A05, B02, I1"
     scope: core
   10-2-embeddings-and-vector-search-retrieval-of-related-evidence:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A19+A20"
     scope: core
   10-3-relationship-classification-with-quotes-from-both-sides:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A19+A20"
     scope: core
   10-4-research-report-filed-as-a-pending-proposal:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A19+A20, I1"
     scope: core
   10-5-reviewer-memory-store-with-correct-and-revoke:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A21+A22, I1"
     scope: core
   10-6-memory-retrieval-and-its-visible-effect-in-reports:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A21+A22, I1"
     scope: core
   10-7-claim-accuracy-policies-block-unsupported-claims-before-fili:
@@ -388,7 +388,7 @@ owners:
     prs: "A24, B04, I3"
     scope: core
   10-9-the-follow-up-task-runs-under-its-own-grant-and-gate:
-    owner: "Luis"
+    owner: "Gregorio"
     prs: "A25, B04, I3b"
     scope: stretch
   10-10-report-page-with-decisions-and-the-memory-panel:

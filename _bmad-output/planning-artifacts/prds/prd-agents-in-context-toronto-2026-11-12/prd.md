@@ -703,7 +703,7 @@ These are risks with a proof step and a fallback, not assumptions. The float fig
 
 | # | Risk | Mitigation |
 |---|---|---|
-| L1 | Draft starts: only A06 and A08 start at 10:45 as drafts, because their shapes are the most stable; A19 with A20, and A21 with A22, start after the contract (11:45). Drafts may need rework when the contract freezes | Each draft carries a 20-minute rebase budget after the contract freeze. Any contract change after 11:45 goes through the contract keeper, with the rebase cost stated |
+| L1 | Draft starts: only A06 and A08 start at 10:45 as drafts, because their shapes are the most stable; A19 with A20, and A21 with A22, start after the contract (11:45). Drafts may need rework when the contract freezes. *(Amended by V47: Gregorio owns A19+A20, A21+A22 and A25; the two bundles also start at 10:45 as drafts under this rule, so L1 covers four drafts, and desk L still merges them.)* | Each draft carries a 20-minute rebase budget after the contract freeze. Any contract change after 11:45 goes through the contract keeper, with the rebase cost stated |
 | L2 | Second merge desk: Vlad merges only A05, A13, A14 and A09, and only once green in CI and passed by Luis's review agent and the contract keeper | A failing CI or a conflict sends the PR back to its author and never waits on Vlad's desk. Vlad's review is a scope and secrets check, not a backend review; the backend review is the agent's. Proof step at 12:30: the first two merges through Vlad's desk (A05, A13), timed against the 10-minute budget |
 | Fallback | L1 or L2 fails by 13:00 | One desk, and the V28 cut line applied at once (A25, B06 and B08 out), which takes three merges off Luis's queue. The core then fits with one rehearsal pass and no float: the emergency path |
 
