@@ -13,7 +13,7 @@ This schedule keeps the whole scope of `epics.md`. The PR-by-PR assignment that 
 
 ## Assumptions
 
-- Coding starts about 9:39 and runs to 18:00: about 8 hours 20 minutes. Clock times below start from 9:39.
+- Coding starts about 9:39. Until the submission deadline is confirmed, the plan assumes the earliest plausible one, 18:00 with the video included: coding stops at 17:15, the video is recorded 17:15 to 17:45 and the submission goes in by 17:55. Clock times below start from 9:39.
 - Capacity: Luis runs up to 44 agents on Luis's Claude plan and holds the product's API key. Vlad has Claude Pro plus $300 of API credit and runs Sonnet 5.5 at high effort through ten subagents. Agents build, review, test and integrate; Luis and Vlad decide and merge.
 - Task durations are agent cycle times: the story's time in `epics.md` (developer estimate × CVH factor), split where a story has separable parts. A cycle time runs from start to merge and includes tests and review.
 - A module can be built against its contract before the modules it calls exist. Story 1.1 and task C3 publish those contracts in the first 90 minutes. Real wiring happens in the two integration tasks, I1 and I2.
@@ -32,7 +32,7 @@ This schedule keeps the whole scope of `epics.md`. The PR-by-PR assignment that 
 | Memory adapter → resume summary | 14:15 | 39 minutes |
 | Every other screen and API | by 13:54 | an hour or more |
 
-Final acceptance runs 14:54 to 15:24 and the rehearsal 15:24 to 16:09. That leaves **about 1 hour 50 minutes before 18:00**, but three paths arrive within six minutes of each other, so a slip on any of them moves the end. These are forecasts from a model, not a validated run; the milestones below are where the day checks them.
+Final acceptance runs 14:54 to 15:24 and the rehearsal 15:24 to 16:09. That leaves **about 1 hour 6 minutes before the 17:15 code freeze**, but three paths arrive within six minutes of each other, so a slip on any of them moves the end. These are forecasts from a model, not a validated run; the milestones below are where the day checks them.
 
 What keeps the paths this short:
 
@@ -150,10 +150,12 @@ Cuts are triggered by a missed milestone, not decided in advance.
 | 13:18 | Screens on seeded records (P41) | Fix before more screens merge; a broken contract shows here first |
 | 13:54 | 50-item run passes: one forced failure, no duplicates (P15) | Run the Baseline anyway, on whatever passes. Skip the separate dry run (P17) and pick camera items from the P15 data |
 | 14:24 | Screens on the small real ingest (P42) | Fix the read model or the screen before the Baseline finishes |
-| 14:48 | Baseline in production and the snapshot saved (P16) | Rehearse on the dev database, and record from production after 18:00 |
+| 14:48 | Baseline in production and the snapshot saved (P16) | Rehearse on the dev database; record from production at 17:15 if the Baseline is in by then |
 | 14:54 | Graph page, changed highlight and Home hero merged (P35, P36, P37) | Rehearse with the graph as it is; the Home hero falls back to the welcome panel alone |
 | 15:24 | Final acceptance on production data (P38) | Drop the stories that are not on the Demo path from the rehearsal; leave them deployed if they work |
-| 16:09 | Rehearsal done and the database restored (P39) | Use the time to 18:00 to fix and rehearse again |
+| 16:09 | Rehearsal done and the database restored (P39) | Use the time to 17:15 to fix and rehearse again |
+| 17:15 | Code freeze; record the video (Story 8.4) | Record what works; the video names only behaviour shown live |
+| 17:55 | Submission in: description, repository link, video | Submit what exists at 17:55 |
 
 If a fallback is triggered, these go first, in this order, because no Demo path story needs them: 7.1, 1.11, 1.10, 4.8, 4.6 with 4.7, 4.5, 4.4, then 3.4 with 3.5.
 
@@ -187,9 +189,14 @@ Extra agents only help if two of them never edit the same module at once.
 ## Not modelled
 
 - Claude API rate limits: the pipeline is set to 16 concurrent calls (Story 1.7), and agents share the same account's limits.
-- The time Luis and Vlad spend reading and merging pull requests: 58 merges in about 8 hours 20 minutes: 39 on Luis's lane (one every 13 minutes or so) and 19 on Vlad's.
+- The time Luis and Vlad spend reading and merging pull requests: 58 merges in about 7 hours 36 minutes: 39 on Luis's lane (one every 12 minutes or so) and 19 on Vlad's.
 - Account and key setup, assumed done on Friday.
 
-## Open questions
+## Open items
 
-1. When is the submission due? `epics.md` plans the video after 18:00, about 30 minutes. If the video must be in by 18:00, coding ends about 17:15; the path above still fits, with about 40 minutes to spare.
+| Item | Owner | Due | Until it is resolved |
+|---|---|---|---|
+| Update the architecture spine's AD-14 with the fields and routes `epics.md` adds (listed under "Departures" there), so agents have one reference | Luis | Before P01 merges, about 10:39 on Saturday | P01's card is the reference for those fields; no other PR codes against them before P01 merges |
+| Confirm the submission deadline with the organisers, and whether it includes the video | Luis | 9:39 on Saturday | Plan for the earliest plausible deadline: code freeze 17:15, record 17:15 to 17:45, submit by 17:55 |
+
+The PASS from sprint planning means the plan and tracking are ready. It does not prove the delivery schedule fits; the milestones above are how the day tests that.
