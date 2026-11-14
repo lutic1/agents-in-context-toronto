@@ -14,6 +14,8 @@ the process starts is seen at once.
 
 from __future__ import annotations
 
+import inspect
+from collections.abc import Awaitable
 from typing import Any, Protocol
 
 from .core import derive, normalise_name
@@ -81,7 +83,9 @@ def _is_seeded_trade_name(doc: dict[str, Any]) -> bool:
     return doc.get("created_mode") != "live"
 
 
-def resolve_exact(name: str | None, *, aliases: AliasLookup | None = None) -> str | None:
+def resolve_exact(
+    name: str | None, *, aliases: AliasLookup | None = None
+) -> str | None | Awaitable[str | None]:
     """Return the ``dx_`` ID of the seeded Diagnostic whose FDA trade name
     equals ``name`` after ``normalise_name()``, or ``None``.
 
@@ -89,6 +93,11 @@ def resolve_exact(name: str | None, *, aliases: AliasLookup | None = None) -> st
     "FoundationOne Liquid CDx" to the plasma one; "FoundationOne Liquid",
     "Guardant360" and "FoundationOne" resolve to nothing (V34, V37).
     Reads only; never writes, never creates a Diagnostic.
+
+    The store's collections are async (A01, ``AsyncCollection``), so with the
+    default store, or any async collection, this returns an awaitable: callers
+    in async code ``await`` it when ``inspect.isawaitable()`` says so. A sync
+    collection (tests, scripts) gets the value directly.
     """
     if name is None:
         return None
@@ -98,7 +107,17 @@ def resolve_exact(name: str | None, *, aliases: AliasLookup | None = None) -> st
     if not key:
         return None
     collection = aliases if aliases is not None else _default_aliases()
-    doc = collection.find_one({"_id": key})
+    found = collection.find_one({"_id": key})
+    if inspect.isawaitable(found):
+        return _finish_async(found, key)
+    return _finish(found, key)
+
+
+def _finish(doc: Any, key: str) -> str | None:
     if doc is None or not _is_seeded_trade_name(doc):
         return None
     return doc.get("diagnostic_id") or derive("dx_", key)
+
+
+async def _finish_async(found: Awaitable[Any], key: str) -> str | None:
+    return _finish(await found, key)

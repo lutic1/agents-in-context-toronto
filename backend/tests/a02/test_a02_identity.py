@@ -284,3 +284,38 @@ def test_identity_exports_the_frozen_names():
     params = list(inspect.signature(resolve_exact).parameters.values())
     assert params[0].name == "name"
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in params[1:])
+
+
+# --- async collections (A01's store returns AsyncCollection) -------------------------------
+
+
+class _AsyncAliases:
+    def __init__(self, docs):
+        self.docs = docs
+
+    async def find_one(self, filter, *args, **kwargs):
+        return self.docs.get(filter["_id"])
+
+
+def test_an_async_collection_resolves_through_await():
+    import asyncio
+    import inspect
+
+    from dxp.identity import diagnostic_id
+
+    docs = {"foundationone cdx": {"_id": "foundationone cdx", "diagnostic_id": diagnostic_id("FoundationOne CDx")}}
+    pending = resolve_exact("FoundationOne CDx", aliases=_AsyncAliases(docs))
+    assert inspect.isawaitable(pending)
+    assert asyncio.run(pending) == diagnostic_id("FoundationOne CDx")
+    assert asyncio.run(resolve_exact("FoundationOne Liquid", aliases=_AsyncAliases(docs))) is None
+
+
+def test_the_default_store_collection_is_async_and_resolves(monkeypatch):
+    import asyncio
+
+    store = pytest.importorskip("dxp.store")
+
+    docs = {"foundationone cdx": {"_id": "foundationone cdx", "created_mode": "live"}}
+    monkeypatch.setattr(store, "collection", lambda name: _AsyncAliases(docs))
+    # A live-created alias is not an FDA trade name, even through the store.
+    assert asyncio.run(resolve_exact("FoundationOne CDx")) is None
