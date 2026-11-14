@@ -232,6 +232,27 @@ async def test_an_unexpected_error_after_the_claim_settles_the_action(fake_db, g
     assert entry_of(fake_db)["status"] == "failed"
 
 
+async def test_an_unexpected_error_before_anything_is_sent_settles_failed(fake_db, gate, eleven, ctx, monkeypatch):
+    """Luis's review of #42: an error before the ElevenLabs call (here claiming the cache entry) is
+    `failed`, not `unknown`, because nothing can have been sent (AD-20)."""
+
+    async def boom(*_, **__):
+        raise RuntimeError("bug before sending")
+
+    monkeypatch.setattr(audio, "_claim_entry", boom)
+    with pytest.raises(RuntimeError):
+        await audio.generate(REPORT_ID, ctx)
+    assert action_doc(fake_db)["status"] == "failed"
+    assert eleven.convert_calls == []
+
+
+async def test_the_default_voice_is_elevenlabs_jessica(monkeypatch):
+    """The default is a raw ElevenLabs voice ID, never the LiveAvatar voice record's UUID."""
+    monkeypatch.delenv("ELEVENLABS_VOICE_ID", raising=False)
+    assert audio.DEFAULT_VOICE_ID == "cgSgspJ2msm6clMCkdW9"
+    assert audio._voice_id() == "cgSgspJ2msm6clMCkdW9"
+
+
 async def test_an_unknown_report_and_a_report_without_a_script(fake_db, gate, eleven, ctx):
     with pytest.raises(audio.ReportNotFound):
         await audio.generate("rep_missing", ctx)
@@ -248,7 +269,7 @@ async def test_the_voice_is_the_configured_one_else_dxps_chosen_voice(fake_db, g
     monkeypatch.delenv("ELEVENLABS_VOICE_ID")
     fake_db.collection("audio").docs.clear()
     await audio.generate(REPORT_ID, ctx)
-    assert eleven.convert_calls[1]["voice_id"] == "4d175bd2-b678-46f6-bb01-38b2270147fa"
+    assert eleven.convert_calls[1]["voice_id"] == "cgSgspJ2msm6clMCkdW9"
     assert entry_of(fake_db)["voice_id"] == audio.DEFAULT_VOICE_ID
 
     monkeypatch.setenv("ELEVENLABS_VOICE_ID", "  ")  # blank is not a choice
