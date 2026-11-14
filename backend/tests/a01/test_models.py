@@ -60,3 +60,17 @@ def test_scope_keeps_condition_aliases_and_priority_refs() -> None:
     dumped = scope.model_dump()
     assert dumped["condition_aliases"] == ["NSCLC"] and dumped["priority_refs"] == ["clinicaltrials.gov:NCT04712877"]
     assert m.Scope(id="s", name="n", team_id="t", assays=[], condition="c", cursor={}).priority_refs == []
+
+
+def test_interview_shapes_and_kind() -> None:
+    import pytest
+    from pydantic import ValidationError
+    from typing import get_args
+
+    assert "answer_question" in get_args(m.ActionKind)
+    assert m.InterviewRequest(question="Has it posted results?").question
+    with pytest.raises(ValidationError):
+        m.InterviewRequest(question="")
+    answer = m.InterviewResponse(answer="The accepted record doesn't answer that.", refused=True,
+                                 refusal_reason="not_in_record", decision_id="dec_1")
+    assert answer.citations == [] and answer.refused

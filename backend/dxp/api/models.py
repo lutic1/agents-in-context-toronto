@@ -50,6 +50,7 @@ ActionKind = Literal[
     "review_value",
     "resolve_notification",
     "revert_report",  # V48, AD-31
+    "answer_question",  # V70: Interview this evidence (interview flag)
     # superseded by decide_report (V8); granted to no one
     "decide_proposal",
 ]
@@ -1192,6 +1193,35 @@ class ReportRevertRequest(Shape):
     """V48: note required before the gate (400)."""
 
     note: str
+
+
+class InterviewRequest(Shape):
+    """V70: one question about an accepted report (interview flag)."""
+
+    question: str = Field(min_length=1, max_length=500)
+
+
+class InterviewCitation(Shape):
+    """A verbatim quote stored on the accepted report, pinned to the version it came from (V40)."""
+
+    quote: str
+    source_ref: str
+    version_id: str | None = None
+    field: str | None = Field(default=None, description="where on the report the quote sits, e.g. discovery or related")
+
+
+class InterviewResponse(Shape):
+    """V70: an answer built only from the report's own verbatim quotes, every sentence cited.
+
+    `refused` is true for a medical-advice question (one fixed refusal, no model call) or when
+    the gate blocked the `answer_question` action; `answer` then carries the refusal text.
+    """
+
+    answer: str
+    citations: list[InterviewCitation] = Field(default_factory=list)
+    refused: bool = False
+    refusal_reason: str | None = Field(default=None, description="medical_advice | not_in_record | blocked")
+    decision_id: str
 
 
 class TeamSeenRequest(Shape):
