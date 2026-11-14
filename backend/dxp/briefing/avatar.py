@@ -1,24 +1,23 @@
-"""The live avatar session for a report's script (Story 10.12, B08; V29, V41; AD-30).
+"""The LiveAvatar session token minter (Story 10.12, B08; V29, V70; AD-30).
 
-Vlad changed the avatar on 14 Nov from a pre-rendered HeyGen video to a HeyGen LiveAvatar, a live
-and interactive avatar. The change is pending Luis's approval as a new ruling (to be numbered V70).
-It is contained in this module and `api/routes_avatar.py`, and in `web/app/reports/[report_id]/avatar/`.
+V70: the live avatar belongs to the interview page, not the report page. This module and
+`api/routes_avatar.py` are only the server side of it: a token minter for `POST /reports/{id}/avatar`.
 
 What the backend does, and no more:
 
-1. The report must exist and carry its stored script (`report.script`, V41); this module never
-   builds one.
+1. The report must exist and be ACCEPTED. Any other status is a 409 before the gate and before any
+   provider call.
 2. The request is gated as `generate_avatar_video` to `video:heygen` under the Reviewer's grant
-   (`sam@v1`), before any call to LiveAvatar. A blocked Decision makes no call.
-3. Once allowed, it mints one FULL-mode session token on the server with
-   `POST https://api.liveavatar.com/v1/sessions/token` (header `X-API-KEY`, from `LIVEAVATAR_API_KEY`),
-   with a short `max_session_duration`, and returns only the session token and the session id.
-4. It records a `media` document `{ report_id, status, provider_video_id = session id, ... }`.
-   The token itself is never stored, logged, traced or returned anywhere else.
+   (`sam@v1`), before any call to LiveAvatar. The Decision is recorded allowed or blocked; a blocked
+   Decision makes no call.
+3. Once allowed, it reads `LIVEAVATAR_API_KEY` (server side only) and mints one short-lived FULL-mode
+   session token with `POST https://api.liveavatar.com/v1/sessions/token` (header `X-API-KEY`).
+4. The token goes back only in `AvatarResponse.session_token` (with `session_expires_at`), the contract
+   from A01. It is never stored, logged, traced, or put in `Media` or any document.
+5. It records a `media` document `{ report_id, status, decision_id, provider, ... }` without the token.
 
-Nothing here runs unless a Reviewer asks (V29), and nothing waits on it: the report, the Slack alert,
-the decision, the task and the rehearsal never call this module. A missing key, a missing avatar id
-or a provider failure leaves the media `unavailable`; the script stays on the page as text.
+Nothing here runs unless a Reviewer asks (V29), and nothing waits on it. A missing key or a provider
+failure leaves the media `unavailable` and the response without a token.
 
 Docs: https://docs.liveavatar.com/api-reference/full-mode/sessions/create-session-token.md
       https://docs.liveavatar.com/docs/full-mode/overview.md
@@ -30,12 +29,10 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 
 import httpx
-from pydantic import BaseModel
-
 from dxp import gate
 from dxp.api import auth
 from dxp.api.errors import ApiError
@@ -57,19 +54,18 @@ log = logging.getLogger("dxp.briefing.avatar")
 LIVEAVATAR_API_URL = "https://api.liveavatar.com"
 TOKEN_PATH = "/v1/sessions/token"
 KEY_ENV = "LIVEAVATAR_API_KEY"  # the only secret; read here only, never logged or returned
-# The plan, .env.example and docs/deploy.md still name HEYGEN_API_KEY (OD7). Until those files
-# are brought in step, it is read as a fallback so a deployment set up from them still works.
-KEY_FALLBACK_ENV = "HEYGEN_API_KEY"
 AVATAR_ID_ENV = "LIVEAVATAR_AVATAR_ID"  # not secret: which LiveAvatar avatar speaks (a UUID)
 SANDBOX_ENV = "LIVEAVATAR_SANDBOX"  # "true" asks for sandbox mode, which consumes no credits
 MAX_SECONDS_ENV = "LIVEAVATAR_MAX_SECONDS"
+# Verified against the sandbox on 14 Nov: used when LIVEAVATAR_AVATAR_ID is unset (always is_sandbox).
+SANDBOX_AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a"
 
-# About ten seconds of script, so a short ceiling: 2 credits a minute in FULL mode caps one
-# session at 4 credits.
-DEFAULT_MAX_SESSION_SECONDS = 120
+# A short ceiling: FULL mode costs 2 credits a minute, so one session is capped at 6 credits.
+DEFAULT_MAX_SESSION_SECONDS = 180
 REQUEST_TIMEOUT_SECONDS = 15.0
 
-UnavailableReason = Literal["blocked", "no_key", "no_avatar", "provider_error"]
+UnavailableReason = Literal["blocked", "no_key", "provider_error"]
+
 
 
 # ---------------------------------------------------------------------------
@@ -103,16 +99,16 @@ class HttpLiveAvatarClient:
         self._base_url = base_url
 
     async def create_session_token(self, *, avatar_id: str, max_session_duration: int, is_sandbox: bool) -> SessionToken:
+        # FULL mode needs exactly one of avatar_persona or voice_agent, otherwise 422.
         body: dict[str, Any] = {
             "mode": "FULL",
             "avatar_id": avatar_id,
-            "max_session_duration": max_session_duration,
-            # The page keeps the microphone off and never calls startListening. Push to talk
-            # makes the agent ignore audio outside a push window as well.
+            "is_sandbox": is_sandbox,
+            # The interview page keeps the microphone off until the Reviewer pushes to talk.
             "interactivity_type": "PUSH_TO_TALK",
+            "max_session_duration": max_session_duration,
+            "avatar_persona": {"language": "en"},
         }
-        if is_sandbox:
-            body["is_sandbox"] = True
         try:
             async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as http:
                 response = await http.post(
@@ -199,21 +195,14 @@ def _store() -> AvatarStore:
 # ---------------------------------------------------------------------------
 
 
-class AvatarSession(BaseModel):
-    """What the browser needs to join the live session, and nothing else (the proposed contract
-    change in the B08 report: `AvatarResponse.session`)."""
-
-    session_id: str
-    session_token: str
-    max_session_duration: int
-    provider: Literal["liveavatar"] = "liveavatar"
-
-
 @dataclass
 class AvatarOutcome:
+    """The token and its expiry live only here, in memory, until the route puts them in AvatarResponse."""
+
     media: Media
     decision: Decision
-    session: AvatarSession | None = None
+    session_token: str | None = None
+    session_expires_at: datetime | None = None
     reason: UnavailableReason | None = None
 
 
@@ -290,9 +279,9 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
     report = await store.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")
-    script = report.get("script")
-    if not isinstance(script, str) or not script.strip():
-        raise ApiError(409, "no_script", "This report has no stored script yet.")
+    if report.get("status") != "accepted":
+        # Before the gate and before any provider call: only an accepted report is interviewed (V70).
+        raise ApiError(409, "report_not_accepted", "The avatar is available only for an accepted report.")
     script_hash = report.get("script_hash")
 
     # 1. The gate, before any call to LiveAvatar. The Decision is recorded allowed or blocked.
@@ -302,32 +291,33 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
             kind="generate_avatar_video",
             destination="video:heygen",
             target=Target(report_id=report_id),
-            # The exact text the avatar will speak (report.script, V41), so check 4 can compare it.
-            inputs={"text": script, "script_hash": script_hash, "provider": "liveavatar", "mode": "FULL"},
+            inputs={"provider": "liveavatar", "mode": "FULL"},
             evidence_ref=EvidenceRef(report_id=report_id),
         ),
     )
     if decision.outcome != "allowed":
-        return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, None, "blocked")
+        return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="blocked")
 
     # 2. Allowed: mint the token, or record why the avatar is unavailable.
-    session: AvatarSession | None = None
+    token: SessionToken | None = None
+    expires_at: datetime | None = None
     reason: UnavailableReason | None = None
-    api_key = os.environ.get(KEY_ENV, "").strip() or os.environ.get(KEY_FALLBACK_ENV, "").strip()
+    api_key = os.environ.get(KEY_ENV, "").strip()
     avatar_id = os.environ.get(AVATAR_ID_ENV, "").strip()
+    is_sandbox = os.environ.get(SANDBOX_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    if not avatar_id:
+        avatar_id, is_sandbox = SANDBOX_AVATAR_ID, True
     max_seconds = _max_seconds()
     if not api_key:
         reason = "no_key"
-    elif not avatar_id:
-        reason = "no_avatar"
     else:
         try:
+            minted_at = _now()
             token = await _client(api_key).create_session_token(
-                avatar_id=avatar_id,
-                max_session_duration=max_seconds,
-                is_sandbox=os.environ.get(SANDBOX_ENV, "").strip().lower() in {"1", "true", "yes", "on"},
+                avatar_id=avatar_id, max_session_duration=max_seconds, is_sandbox=is_sandbox
             )
-            session = AvatarSession(session_id=token.session_id, session_token=token.session_token, max_session_duration=max_seconds)
+            # The token cannot outlive the session it opens, so the session ceiling bounds its expiry.
+            expires_at = minted_at + timedelta(seconds=max_seconds)
         except LiveAvatarError as exc:
             # The status only: never the response body, the headers or the key.
             log.warning("LiveAvatar did not issue a session token (status %s)", exc.status)
@@ -336,14 +326,14 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
             log.warning("LiveAvatar session token request failed unexpectedly")
             reason = "provider_error"
 
-    # 3. Record the media. The token is not stored.
+    # 3. Record the media: report_id, status, decision_id, provider. The token is not stored.
     doc: dict[str, Any] = {
         "_id": derive("media_", decision.id),
         "report_id": report_id,
         "kind": "avatar_video",
-        "provider": "heygen",
-        "provider_video_id": session.session_id if session else None,
-        "status": "ready" if session else "unavailable",
+        "provider": "heygen",  # Media.provider is Literal["heygen"] (A01); a contract change, see the B08 report
+        "provider_video_id": token.session_id if token else None,
+        "status": "ready" if token else "unavailable",
         "video_url": None,
         "script_hash": script_hash,
         "decision_id": decision.id,
@@ -354,7 +344,7 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
         await store.insert_media(doc)
     except Exception:  # noqa: BLE001 - failing to record must not lose a minted token or break the report
         log.warning("Could not record the avatar media for %s", report_id)
-    return AvatarOutcome(media_model(doc), decision, session, reason)
+    return AvatarOutcome(media_model(doc), decision, token.session_token if token else None, expires_at, reason)
 
 
 async def render_avatar(report_id: str, ctx: RunContext) -> tuple[Media, Decision]:
