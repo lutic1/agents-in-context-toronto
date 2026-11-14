@@ -116,6 +116,15 @@ export function ReportView({ reportId }: { reportId: string }) {
         <ScriptPanel script={report.script} />
 
         <DecisionBar reportId={report.id} />
+
+        {features.interview && report.status === "accepted" ? (
+          // A plain <a>, not a Next <Link>: the interview page must load fully so the browser applies its own
+          // Permissions-Policy (V73 allows the microphone only on the interview route).
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a href={`/reports/${encodeURIComponent(report.id)}/interview`} className={buttonVariants({ variant: "default" }) + " self-start"}>
+            Interview this evidence
+          </a>
+        ) : null}
       </div>
 
       <div className="min-w-0">
