@@ -8,7 +8,7 @@ import pytest
 
 from dxp.api.errors import ApiError
 from dxp.interview import cards, compose, service, texts
-from dxp.interview.verify import verify_answer
+from dxp.interview.verify import CLAIM_KINDS, claim_tags, verify_answer
 
 from .conftest import (
     PENDING_VERSION_ID,
@@ -132,8 +132,16 @@ async def test_one_gate_evaluation_records_the_question_and_the_cited_quotes(sto
     assert action.inputs["cited"] == [{"quote_id": quote_id(Q_STATUS), "version_id": VERSION_ID}]
     assert action.inputs["report_version_id"] == VERSION_ID
     assert action.evidence_ref.report_id == REPORT_ID and action.evidence_ref.version_id == VERSION_ID
-    assert Q_STATUS not in str(action.inputs), "quote text is not copied into the Decision"
+    without_checked = {k: v for k, v in action.inputs.items() if k != "checked_quotes"}
+    assert Q_STATUS not in str(without_checked), "quote text is only in checked_quotes, which A06's claim checks read"
+    assert action.inputs["checked_quotes"] == [{"text": Q_STATUS, "quote_found": True}]
+    assert action.inputs["source_fields"] == {"overall_status": "RECRUITING", "has_results": False}
     assert response.decision_id == "dec_fake000000000001"
+
+
+def _tagged(claims) -> list[str]:
+    """The claim kinds the lane's patterns matched (every kind is sent; the detail says which were tagged)."""
+    return [c.claim_kind for c in claims if ": tagged by" in (c.detail or "")]
 
 
 # --- the exact fallback ----------------------------------------------------------------------------------
@@ -475,8 +483,9 @@ async def test_a_performance_quote_is_tagged_for_the_gate_when_results_exist(sto
     response = await service.answer_question(REPORT_ID, "What concordance did FoundationOne CDx show?", ctx)
     assert Q_PERFORMED in response.answer
     claims = fake_gate.calls[0][1].claims
-    assert [c.claim_kind for c in claims] == ["claim_performed_or_results"]
-    assert claims[0].text == Q_PERFORMED
+    assert [c.claim_kind for c in claims] == list(CLAIM_KINDS), "all three kinds go to the gate for every cited quote"
+    assert _tagged(claims) == ["claim_performed_or_results"]
+    assert {c.text for c in claims} == {Q_PERFORMED}
 
 
 async def test_the_gate_blocking_a_claim_refuses_the_answer(store, fake_llm, fake_gate, ctx) -> None:
@@ -493,9 +502,9 @@ async def test_the_gate_blocking_a_claim_refuses_the_answer(store, fake_llm, fak
 async def test_a_negated_results_quote_is_not_a_performance_claim(store, fake_llm, fake_gate, ctx) -> None:
     fake_llm.ids = [quote_id(Q_STATUS)]
     await service.answer_question(REPORT_ID, "Are results posted?", ctx)
-    kinds = [c.claim_kind for c in fake_gate.calls[0][1].claims]
-    assert "claim_performed_or_results" not in kinds
-    assert kinds == ["claim_planned"], "RECRUITING wording is tagged for the planned or recruiting check"
+    claims = fake_gate.calls[0][1].claims
+    assert [c.claim_kind for c in claims] == list(CLAIM_KINDS)
+    assert _tagged(claims) == ["claim_planned"], "RECRUITING wording is tagged for the planned or recruiting check; no results claim"
 
 
 async def test_preclinical_wording_is_tagged(store, fake_llm, fake_gate, ctx) -> None:
@@ -505,8 +514,10 @@ async def test_preclinical_wording_is_tagged(store, fake_llm, fake_gate, ctx) ->
     store.reports[REPORT_ID] = report
     store.raw[VERSION_ID] = RAW_TEXT + " " + quote
     fake_llm.ids = [quote_id(quote)]
-    await service.answer_question(REPORT_ID, "What do the mouse xenograft models say?", ctx)
-    assert "claim_preclinical" in [c.claim_kind for c in fake_gate.calls[0][1].claims]
+    response = await service.answer_question(REPORT_ID, "What do the mouse xenograft models say?", ctx)
+    assert "claim_preclinical" in claim_tags(quote)
+    assert response.answer == texts.NOT_IN_RECORD, "preclinical wording outside a plain status line is not used"
+    assert quote not in response.model_dump_json()
 
 
 # --- prompt injection inside quote text ------------------------------------------------------------------
@@ -645,3 +656,56 @@ def test_no_secret_names_in_the_lane() -> None:
     root = pathlib.Path(__file__).resolve().parents[2] / "dxp" / "interview"
     source = "\n".join(p.read_text() for p in root.glob("*.py"))
     assert not re.search(r"API_KEY|MONGODB_URI|os\.environ|getenv", source)
+
+
+# --- performance wording outside the first regex list (red-team round) ---------------------------------------
+
+UNLISTED_PERFORMANCE = [
+    "The assay successfully called all variants in plasma samples.",
+    "FoundationOne Liquid captured every actionable alteration.",
+    "FoundationOne Liquid works well in early-stage NSCLC.",
+    "The assay catches relapse earlier than imaging.",
+    "Both assays agreed on all calls.",
+    "FoundationOne Liquid helped find resistance mutations.",
+    "FoundationOne Liquid revealed resistance mutations.",
+    "FoundationOne Liquid was run on 40 plasma samples from patients.",
+    "Researchers ran FoundationOne CDx on tissue and FoundationOne Liquid on plasma.",
+    "FoundationOne Liquid was applied to 100 blood draws.",
+    "FoundationOne Liquid has been employed in 40 patients.",
+    "Patients were monitored with FoundationOne Liquid.",
+    "Patients undergo FoundationOne Liquid.",
+    "FoundationOne Liquid is utilized.",
+    "In mice, the assay flagged the tumour.",
+    "A xenograft model was used to check the panel.",
+    "The panel will be tested in a planned cohort.",
+]
+
+
+@pytest.mark.parametrize("quote", UNLISTED_PERFORMANCE)
+async def test_unlisted_performance_wording_is_never_used_without_results(quote, store, fake_llm, fake_gate, ctx) -> None:
+    report = make_report()
+    report["discovery"]["quotes"].append({"text": quote, "quote_found": True, "version_id": VERSION_ID})
+    store.reports[REPORT_ID] = report
+    store.raw[VERSION_ID] = RAW_TEXT + " " + quote
+    fake_llm.ids = [quote_id(quote)]
+    response = await service.answer_question(REPORT_ID, "What does the record say about FoundationOne Liquid?", ctx)
+    assert response.answer == texts.NOT_IN_RECORD
+    assert quote not in response.model_dump_json()
+    assert response.citations == []
+
+
+async def test_every_claim_kind_is_sent_to_the_gate_for_every_cited_quote(store, fake_llm, fake_gate, ctx) -> None:
+    fake_llm.ids = [quote_id(Q_PURPOSE), quote_id(Q_NAMES)]
+    await service.answer_question(REPORT_ID, "Which other names and what molecular profiling does the record list?", ctx)
+    claims = fake_gate.calls[0][1].claims
+    assert len(claims) == 6
+    assert [c.claim_kind for c in claims] == list(CLAIM_KINDS) * 2
+    assert {c.text for c in claims} == {Q_PURPOSE, Q_NAMES}
+
+
+@pytest.mark.parametrize("quote", ["Overall status: RECRUITING. No results posted.", "Estimated enrollment: 120 participants.", "Start date: 2024-03"])
+def test_a_plain_status_line_is_not_blocked_by_the_planned_floor(quote) -> None:
+    from dxp.interview.verify import claim_guard_blocks
+
+    card = cards.Card(quote_id="qt_x", text=quote, source_ref=SOURCE_REF, version_id=VERSION_ID, field="discovery")
+    assert claim_guard_blocks(card, make_report()) is False

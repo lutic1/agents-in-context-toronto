@@ -8,7 +8,7 @@ Every check fails closed. The answer is returned only if all of these hold:
 4. the lead-in is one of the fixed ones, and says nothing like "uses", "studies" or "showed":
    a name is "named in the record" (V37);
 5. the answer text holds nothing but lead-ins, verbatim quotes and citation markers;
-6. the claim wording in a quote is tagged for the gate's claim checks, which decide it (AD-19).
+6. all three claim kinds are sent to the gate for every cited quote, tagged where the wording matches; the gate decides (AD-19).
 """
 
 from __future__ import annotations
@@ -23,8 +23,9 @@ from dxp.api.models import ClaimCheck
 from dxp.interview.cards import Card
 from dxp.interview.compose import MARKER, Sentence, lead_in_for, render
 
-__all__ = ["Verification", "claim_guard_blocks", "claim_tags", "default_quote_check", "verify_answer"]
+__all__ = ["CLAIM_KINDS", "Verification", "claim_guard_blocks", "claim_tags", "default_quote_check", "verify_answer"]
 
+CLAIM_KINDS = ("claim_performed_or_results", "claim_planned", "claim_preclinical")
 QuoteCheck = Callable[[str, str], "bool | Awaitable[bool]"]
 
 # What a lead-in may never say about a name or a trial (V33, V37) or about a result.
@@ -42,13 +43,22 @@ _PERFORMED = re.compile(
     r"accura\w*|agreement|outperform\w*|yielded|positive\s+percent|negative\s+percent|limit\s+of\s+detection|"
     r"identif\w*|classif\w*|achiev\w*|auc|ppv|npv|predict\w*|valid\w*|recover\w*|observed|response|responses|survival|improv\w*|"
     r"caught|found|genotyp\w*\s+(?:the|a|all)|was\s+used|were\s+used|uses?|stud(?:y|ies)\s+(?:the|a|an)|evaluated|measured|reliab\w*|"
-    r"correctly|missed|false\s+(?:positive|negative)s?|true\s+(?:positive|negative)s?|prevalence|reduc\w*|increas\w*|outcomes?\s+(?:was|were))\b"
+    r"correctly|missed|false\s+(?:positive|negative)s?|true\s+(?:positive|negative)s?|prevalence|reduc\w*|increas\w*|outcomes?\s+(?:was|were)|"
+    # Wording that says what was done with a product or what it did (red-team round: "ran", "captured", "helped find").
+    r"calls?|called|calling|captur\w*|catch(?:es)?|work(?:s|ed)\s+well|agree[ds]?|help(?:s|ed)|finds?|reveal(?:s|ed)|ran|run|"
+    r"appl(?:y|ies|ied)|employ(?:s|ed)|utili[sz]\w*|monitor\w*|undergo\w*|undergone|underwent|receiv(?:e|es|ed)|compar\w*|sequenc\w*|assayed|"
+    r"flag(?:s|ged)|inform(?:s|ed)(?!\s+consent))\b"
     # A percentage or a ratio ("12 of 14") is a figure from a result, whatever verb is around it.
     r"|\d+(?:\.\d+)?\s*(?:%|percent\b)|\b\d+\s+of\s+(?:the\s+)?\d+\b",
     re.IGNORECASE,
 )
 # A record name with a verb that says what was done with it: "used", "studied", "tested" (V37).
-_NAME_VERB = re.compile(r"\b(?:use[sd]?|using|stud(?:y|ies|ied|ying)|evaluat\w*|test(?:s|ed|ing)?|measur\w*|assess\w*|analy[sz]\w*|profil\w*)\b", re.IGNORECASE)
+_NAME_VERB = re.compile(
+    r"\b(?:use[sd]?|using|stud(?:y|ies|ied|ying)|evaluat\w*|test(?:s|ed|ing)?|measur\w*|assess\w*|analy[sz]\w*|profil\w*|"
+    r"call(?:s|ed)?|captur\w*|catch(?:es)?|caught|work(?:s|ed)?|agree[ds]?|help(?:s|ed)?|find|finds|found|reveal(?:s|ed)?|ran|run|"
+    r"appl(?:y|ies|ied)|employ(?:s|ed)?|utili[sz]\w*|monitor\w*|undergo\w*|receiv\w*|compar\w*|sequenc\w*|assay(?:s|ed)?|flag(?:s|ged)?|inform(?:s|ed)?)\b",
+    re.IGNORECASE,
+)
 _PLANNED = re.compile(
     r"\b(?:planned|plans?|will|anticipated|expected|estimated|not\s+yet\s+recruiting|recruit\w*|enrol\w*|ongoing|completed|terminated|withdrawn)\b",
     re.IGNORECASE,
@@ -101,14 +111,31 @@ def claim_tags(text: str, names: list[str] | None = None) -> list[str]:
     return kinds
 
 
+# A plain status field line of the record ("Overall status: RECRUITING. No results posted."). Planned or preclinical
+# wording is only let through when the quote is one of these; any other quote that tags it is not used.
+_PLAIN_STATUS_LINE = re.compile(
+    r"^\s*(?:overall\s+status|status|estimated\s+enrollment|enrollment|enrollment\s+type|start\s+date|completion\s+date|"
+    r"primary\s+completion\s+date|study\s+type|phase|study\s+first\s+posted|last\s+update\s+posted)\s*:",
+    re.IGNORECASE,
+)
+
+
 def claim_guard_blocks(card: Card, report: dict[str, Any]) -> bool:
-    """A local floor under the gate's claim check (V7, AD-19): a quote that states a performance or a
-    result is not used unless the report's discovery has posted results (`has_results` true), whatever
-    the trial status. A related record's own results are not on the report, so a related quote with
-    that wording is never used here. The gate still decides everything that passes."""
+    """A local floor under the gate's claim check (V7, AD-19), and for now the only enforcer (the real gate does
+    not yet run claim checks for answer_question; see the lane report). Fails closed:
+
+    - a quote that states a performance or a result is not used unless the report's discovery has posted
+      results (`has_results` true); a related record's own results are not on the report, so a related quote with
+      that wording is never used here;
+    - a quote that tags planned or preclinical wording is not used unless it is a plain status field line.
+
+    The gate still decides everything that passes."""
     from dxp.interview.cards import mention_names
 
-    if "claim_performed_or_results" not in claim_tags(card.text, mention_names(report)):
+    tags = claim_tags(card.text, mention_names(report))
+    if ("claim_planned" in tags or "claim_preclinical" in tags) and not _PLAIN_STATUS_LINE.match(card.text):
+        return True
+    if "claim_performed_or_results" not in tags:
         return False
     if card.field != "discovery":
         return True
@@ -171,10 +198,10 @@ async def verify_answer(
         problem = _lead_in_ok(sentence, names)
         if problem:
             problems.append(f"{label}: {problem}")
-        for kind in claim_tags(card.text, names):
-            claims.append(
-                ClaimCheck(claim_kind=kind, text=card.text[:300], passed=False, detail=f"{label}, {card.quote_id}: tagged by the interview lane; the gate decides")
-            )
+        tagged = set(claim_tags(card.text, names))
+        for kind in CLAIM_KINDS:
+            how = "tagged by the interview lane" if kind in tagged else "not tagged by the lane's patterns"
+            claims.append(ClaimCheck(claim_kind=kind, text=card.text[:300], passed=False, detail=f"{label}, {card.quote_id}: {how}; the gate decides"))
 
     if answer != render(sentences):
         problems.append("answer text is not the rendering of its cited sentences")

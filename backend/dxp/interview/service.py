@@ -95,11 +95,15 @@ async def build_answer(
 
 
 def _action(report_id: str, report: dict[str, Any], question: str, draft: _Draft, rule: str | None) -> m.ProposedAction:
+    discovery = report.get("discovery") or {}
     inputs: dict[str, Any] = {
         "question": _truncate(question),
         "outcome": draft.outcome,
         "report_version_id": report.get("version_id"),
         "cited": [{"quote_id": c.quote_id, "version_id": c.version_id} for c in draft.cards],
+        # What A06's GateAction.coerce reads for the claim checks (the report's own fields, never the model's).
+        "source_fields": {"overall_status": discovery.get("trial_status"), "has_results": discovery.get("has_results")},
+        "checked_quotes": [{"text": c.text, "quote_found": True} for c in draft.cards],
     }
     if rule:
         inputs["rule"] = rule
