@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from dxp.api.models import Memory, Retrieval
+from dxp import retrieval
+from dxp import store as database
+from dxp.api.models import Memory, MemoryUse, Retrieval, RetrievalFilter, RetrievalItem
+from dxp.memory import store as memory_store
 
 ACTIVE = "active"
 DEFAULT_TOP_K = 3
@@ -110,11 +113,38 @@ def _is_number(value: Any) -> bool:
     return value == value and value not in (float("inf"), float("-inf"))
 
 
+def memory_uses(memories: list[Memory], found: Retrieval) -> list[MemoryUse]:
+    """One `MemoryUse` per retrieved memory, in order, with its score and no effect yet.
+
+    The effect is filled in by `reports.draft` from its two drafts (AD-28).
+    """
+    scores = {item.ref: item.score for item in found.items}
+    return [MemoryUse(memory_id=memory.id, version=memory.version, author=memory.author, source=memory.source,
+                      score=scores.get(memory.id), effect=None) for memory in memories]
+
+
 # ---------------------------------------------------------------------------
 # Retrieval (frozen signature)
 # ---------------------------------------------------------------------------
 
 
 async def retrieve(team_id: str, text: str, tags: dict[str, Any] | None) -> tuple[list[Memory], Retrieval]:
-    """Only active versions of the Team, ranked by retrieval.memories."""
-    raise NotImplementedError("memory.retrieve (A21+A22)")
+    """Only active versions of the Team, ranked by retrieval.memories.
+
+    Filters on the Team, `active` and `tags.claim_kind`, never on the assay (V22). The returned
+    Retrieval lists only the memories returned, in the same order, each `ref` a memory ID.
+    """
+    wanted = search_tags(tags)
+    found = await retrieval.memories(team_id, text, wanted, DEFAULT_TOP_K)
+    items = [item.model_dump() for item in found.items]
+    memory_ids = sorted({memory_id for memory_id in (memory_id_of(item["ref"]) for item in items) if memory_id})
+    documents: list[dict[str, Any]] = []
+    if memory_ids and _is_text(team_id):
+        documents = await database.collection(memory_store.COLLECTION).find(
+            {"team_id": team_id, "memory_id": {"$in": memory_ids}}).to_list()
+    ranked = rank(documents, items, team_id, tags, DEFAULT_TOP_K)
+    result = found.model_copy(update={
+        "filter": RetrievalFilter(team_id=team_id, status=ACTIVE, tags=wanted),
+        "items": [RetrievalItem(ref=memory["memory_id"], score=score) for memory, score in ranked],
+    })
+    return [memory_store.to_model(memory) for memory, _ in ranked], result
