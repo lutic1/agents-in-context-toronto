@@ -507,3 +507,53 @@ async def test_the_mongo_store_claim_is_a_conditional_update(monkeypatch) -> Non
     assert await real.settle_action("act_x", "failed") is False
     assert docs["act_x"]["status"] == "delivered" and docs["act_x"]["observed_at"] is not None
     assert [e["status"] for e in events] == ["dispatching", "delivered"]
+
+
+def test_an_allowed_decision_without_an_action_is_refused(api_client, reviewer, fake_gate, live, media_store, monkeypatch) -> None:
+    """Luis's review of #43: an allowed Decision always carries its action (AD-20); without one there is
+    nothing to claim or settle, so nothing is sent."""
+    import dxp.gate
+
+    allowed_with_action = dxp.gate.evaluate
+
+    async def no_action(ctx, action):
+        decision = await allowed_with_action(ctx, action)
+        return decision.model_copy(update={"action_id": None})
+
+    monkeypatch.setattr(dxp.gate, "evaluate", no_action)
+    body = post(api_client).json()
+    assert body["session_token"] is None and body["media"]["status"] == "unavailable"
+    assert live.calls == [] and media_store.media == []
+
+
+async def test_an_event_failure_after_the_claim_does_not_strand_the_action(monkeypatch) -> None:
+    """Luis's review of #43: the claim is made even if the event cannot be emitted, so the caller goes on
+    to settle the action instead of leaving it `dispatching`."""
+    from dxp import store as dxp_store
+
+    docs: dict[str, dict] = {"act_y": {"_id": "act_y", "status": "queued", "stamp": None}}
+
+    class Res:
+        def __init__(self, n: int) -> None:
+            self.modified_count = n
+
+    class Coll:
+        async def update_one(self, flt, update):
+            doc = docs.get(flt["_id"])
+            if doc is None or doc["status"] != flt["status"]:
+                return Res(0)
+            doc.update(update["$set"])
+            return Res(1)
+
+        async def find_one(self, flt):
+            return docs.get(flt["_id"])
+
+    async def broken_emit(event, **kw):
+        raise RuntimeError("event store down")
+
+    monkeypatch.setattr(dxp_store, "collection", lambda name: Coll())
+    monkeypatch.setattr(dxp_store, "emit_event", broken_emit)
+    real = avatar.MongoAvatarStore()
+    assert await real.claim_action("act_y") is True
+    assert await real.settle_action("act_y", "delivered", {"media_id": "m", "provider_video_id": "s"}) is True
+    assert docs["act_y"]["status"] == "delivered"
