@@ -2,7 +2,7 @@
 title: Sprint Change Proposal, restore the discovery-agent vision
 status: approved
 approved_by: Luis
-approved: 2026-11-14 (V1 to V45, including the V45 memory-creation recovery limitation; V47 and V48 approved by Luis)
+approved: 2026-11-14 (V1 to V45, including the V45 memory-creation recovery limitation; V47 and V48 approved by Luis; V49 to V69 build-day rulings approved by Luis)
 created: 2026-11-14
 scope: major
 supplements: sprint-change-proposal-2026-11-13.md, readiness-fixes-2026-11-14.md, sprint-change-proposal-2026-11-14-slack.md
@@ -589,3 +589,57 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
     Item 1 (the pitch line) is never cut. Follow-up task execution (A25) stays stretch. Trade-off, kept as Luis set it: revert and the live stream answer the statement's own words ("roll back", "change streams") and so arguably matter more to the judges than the ElevenLabs briefing, which is cut after them.
   - **Emergency path.** If L1 or L2 fails by 13:00, A26 and A27 are out with A25, B06 and B08.
   - **Story numbers.** Story 9.11 already exists (cut), so the live-stream story is Story 9.12. Revert is Story 10.13, in Epic 10 beside the approval it reverses (10.8).
+
+## 13. Build-day rulings: decisions V49 to V69
+
+These rulings were approved by Luis on 14 Nov during the build, win over V1 to V48 where they differ, and were recorded from his review of the open PRs.
+
+### Scope and discovery
+
+- **V49. OD2 scan cursor.** The scan cursor is 2026-11-11. Luis checked the live record: the anchor NCT04712877 was updated 2026-11-12, so it is after the cursor (closes OD2 for V36). PRs: A03, A05.
+- **V50. Research scope shape.** AD-14 wins on shapes. PRs: A01, A03, A05.
+  - The scope keeps `name` (not `title`).
+  - `aliases` are search terms only. V34 removed trade-name aliases, not search terms.
+  - `version: 1`, which discovery uses for the conditional cursor update. Each cursor advance also does `$inc: { version: 1 }`, conditional on the version read at scan start (implemented in A05, PR #27).
+- **V51. Condition alias.** The scope has `condition_aliases: ["NSCLC"]`, a search term only. It widens the ClinicalTrials.gov condition query, because NCT04712877 lists its condition only as "NSCLC". The gate and the report keep judging the plain condition. PRs: A03, A05.
+- **V52. Priority references.** The scope has `priority_refs: ["NCT04712877"]`, seeded by A03, which gives the scan an explicit order. There is no environment variable for this, because an environment variable changes behaviour without showing in the audit. The scan records the order it used in `runs.scan.source_refs`. PRs: A03, A05.
+- **V53. Processed marker.** The marker is `source_items.processed.<scope_id>.<version_id>` and holds the `processed_at` timestamp (the per-scope, per-version rule of V40). PRs: A05, A10.
+- **V54. Prior collection filing.** Each trial-level Finding of the prior collection is filed in baseline mode under `seed@v1`, as an entry in `source_items.collections.<scope_id>` (V35, AD-25). PRs: A05, A06.
+
+### Ledger and records
+
+- **V55. Who writes Findings.** Findings are written by the ingest layer (A10's pipeline), never by the ledger or by A08's `llm` module, as the spine's layer table says. PRs: A06, A08, A10.
+- **V56. Ledger apply.** PR: A06.
+  - The value ID is `derive("v_", proposal_id)`, with the new prefix `v_`.
+  - `stage_not_later` (AD-5) is a recorded outcome, never an exception.
+  - A baseline value held for review, when its single-value field is already filled, never overwrites the stored value.
+- **V57. Rejecting a report's proposals.** The ledger is the only writer of `proposals`. A rejected report's proposals are rejected by `ledger.reject_report_proposals(report_id, decision_id, note, session)`, which A24 calls inside the decision transaction. Corrects spine AD-29 (the reject step and its sequence diagram). PRs: A06, A24.
+- **V58. The report behind a value.** It is found through the value's `proposal_id`; the proposal carries `report_id`. PRs: A14, B04.
+- **V59. Value review.** `ledger.review_value()` is the only writer of values (AD-1). Value review edits the value inside the ledger. PRs: A06, A14.
+
+### Reports, memory and approval
+
+- **V60. Memory claim kinds.** Memory `tags.claim_kind` uses the gate's claim-check vocabulary (`claim_performed_or_results`, `claim_planned`, `claim_preclinical`); no new strings. A10 retrieves with `claim_performed_or_results` when the record has no posted results, so M1 must carry that tag. V60 supersedes every earlier use of `outcome_claim_without_results` as a claim_kind, where it still appears: this file's V22-era text ("Statuses and capacity", line 238), `development-plan.md` (A21+A22 card, line 521), `epics.md` (Story 10.5, lines 1749 and 1756; Story 10.10, line 1869), `prd.md` (line 471), the PRD's `addendum.md` (V22, line 300) and `EXPERIENCE.md` (the decisions bar, line 162; Flow 0, lines 362 to 363, M1's tag). Those documents are not edited; M1's tag is `claim_performed_or_results`. PRs: A10, A24.
+- **V61. Claim kind on a correction.** PRs: A01, A24, B04.
+  - `ReportDecisionRequest` gains an optional `claim_kind`, one of the three claim-check kinds (V60). When it is absent, A24 tags the memory `reviewer_correction`. The server does not guess it.
+  - B04's correction form has a "What is this correction about?" select.
+  - Reason: M1 is created through the UI in I1 setup, and must be tagged `claim_performed_or_results` or the anchor run never retrieves it.
+- **V62. Approval reason.** `ReportApproval` gains `reason`, so `GET /reports` returns "Follow-up task not authorised: <reason>" (V45). PRs: A01, A24, B04.
+- **V63. Task grant kind.** The task grant kind is `agent` (AD-18; principal `dxp-curator`), not `task`. This overrides the A24 card's "kind `task`" (`development-plan.md` is not edited), and the grant validator may accept both kinds. PRs: A03, A24.
+- **V64. Pending reports.** Pending reports are a query on reports: B04 uses `GET /reports?status=pending`. There is no `Record.pending_reports` field. PRs: A01, B04.
+
+### Runs and governance writers
+
+- **V65. Owner-writes rule.** Only Governance (`runs`, `gate`, `actions`) writes `runs` and `actions`. PRs: A05, A07+A11, A09, A10, A24.
+  - Run progress goes through `runs.record_progress()` and `runs.fail()`.
+  - The scan goes through `runs.record_scan()` and `actions.record_source_result()`.
+  - A task run starts through `runs.start_if_absent()`, which returns the run and whether this caller inserted it.
+  - Who adds each function: A07+A11 adds `runs.record_progress()`, `runs.fail()`, `runs.record_scan()` and `runs.start_if_absent()`; A09 adds `actions.record_source_result()`.
+  - Who calls them: A10 calls `record_progress()` and `fail()`; A05 calls `record_scan()` and `record_source_result()`; A24 calls `start_if_absent()`.
+- **V66. No task run while `task_run` is off.** A `task:` run is never started while `task_run` is off (AD-29, V38). If one is started anyway, it ends `failed` with "task_run is off", and the task stays `authorised`, never `done`. PRs: A07+A11, A24.
+- **V67. Read routes and the seed key.** Read routes require a known key and refuse the seed key. The seed key is for the command line only. PRs: A01, A07+A11, A14.
+- **V68. A Decision lists all five checks (clarifies D5 and "Blocked action").** A Decision always lists all five checks in order. A check not evaluated because an earlier one blocked is recorded `passed: "n/a"` with detail "not evaluated: check <n> (<name>) blocked". PR: A06.
+
+### Process
+
+- **V69. The tracker.** One person on desk L updates `sprint-status.yaml` in small batched PRs (for example after each merge wave). Agents never edit it. Affects every PR.
