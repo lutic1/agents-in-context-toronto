@@ -98,15 +98,10 @@ def as_doc(decision: Any) -> dict[str, Any] | None:
 
 
 def decision_model(decision: Any) -> Decision:
-    """The AD-14 `Decision`. A check the gate did not reach is shown as `n/a`; its detail
-    still says it was not run."""
+    """The AD-14 `Decision`, from A06's model or a stored document."""
     if isinstance(decision, Decision):
         return decision
-    data = as_doc(decision) or {}
-    data["checks"] = [
-        c if c.get("passed") in (True, False, "n/a") else {**c, "passed": "n/a"} for c in (data.get("checks") or [])
-    ]
-    return Decision.model_validate(data)
+    return Decision.model_validate(as_doc(decision) or {})
 
 
 def report_model(doc: dict[str, Any]) -> Report:

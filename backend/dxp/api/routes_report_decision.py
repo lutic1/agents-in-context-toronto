@@ -103,13 +103,14 @@ def decision_message(report: dict[str, Any], task: dict[str, Any] | None, accept
 
 def _memory_tags(report: dict[str, Any]) -> dict[str, Any]:
     """`tags.assay` from the report (its first name mention); `tags.claim_kind`: the request has
-    no claim kind field, so a report on a trial with no posted results is tagged
-    `outcome_claim_without_results` (M1, V22) and any other `reviewer_correction`."""
+    no claim kind field, so a report on a trial with no posted results is tagged with the gate's
+    claim-check name `claim_performed_or_results` (M1, V22; A10 retrieves on it) and any other
+    `reviewer_correction` (open question for Luis)."""
     mentions = (report.get("discovery") or {}).get("mentions") or []
     has_results = (report.get("discovery") or {}).get("has_results")
     return {
         "assay": mentions[0].get("name") if mentions else None,
-        "claim_kind": "outcome_claim_without_results" if has_results is False else "reviewer_correction",
+        "claim_kind": "claim_performed_or_results" if has_results is False else "reviewer_correction",
     }
 
 

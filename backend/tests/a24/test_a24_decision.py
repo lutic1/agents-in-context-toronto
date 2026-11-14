@@ -207,7 +207,7 @@ def test_reject_creates_the_memory_and_promotes_nothing(world, client) -> None:
     assert world.db.data["source_items"][SOURCE_REF]["collections"] == {}
     (mem,) = world.memories
     assert mem["text"] == note and mem["author"] == "sam"
-    assert mem["tags"]["claim_kind"] == "outcome_claim_without_results"
+    assert mem["tags"]["claim_kind"] == "claim_performed_or_results"
     assert report["memory_id"] == mem["memory_id"]
     assert body["memory"]["id"] == mem["memory_id"]
     assert body["message"] == "Rejected: no update accepted; no task authorised. Memory saved."
