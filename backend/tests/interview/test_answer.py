@@ -696,7 +696,7 @@ async def test_unlisted_performance_wording_is_never_used_without_results(quote,
 
 async def test_every_claim_kind_is_sent_to_the_gate_for_every_cited_quote(store, fake_llm, fake_gate, ctx) -> None:
     fake_llm.ids = [quote_id(Q_PURPOSE), quote_id(Q_NAMES)]
-    await service.answer_question(REPORT_ID, "Which other names and what molecular profiling does the record list?", ctx)
+    await service.answer_question(REPORT_ID, "Does molecular profiling or FoundationOne appear in the record?", ctx)
     claims = fake_gate.calls[0][1].claims
     assert len(claims) == 6
     assert [c.claim_kind for c in claims] == list(CLAIM_KINDS) * 2
