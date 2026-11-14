@@ -3,8 +3,8 @@
 Paths, methods, parameters and response models are frozen (AD-14): only the bodies change.
 
 `GET /diagnostics/<dx_id>` returns the Record built by `search.readmodel`: accepted knowledge
-only (passed or manual entries, with history), never a pending value. A Diagnostic's pending
-proposals, each with its `report_id`, are read from `GET /proposals?diagnostic_id=<dx_id>&status=pending`.
+only (passed or manual entries, with history), never a pending value. Pending reports are a
+query on `reports` (`GET /reports?status=pending`), never mixed into the Record.
 `GET /diagnostics` (the list) is deferred and stays 501 in app.py (D40).
 """
 

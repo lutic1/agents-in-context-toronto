@@ -8,8 +8,8 @@ Accepted knowledge (AD-27, V5, V10):
   `supported`) or is manually sourced. A failed entry is never returned.
 - Only applied entries are accepted knowledge: an entry whose state is not `current`,
   `superseded` or `rejected`, or whose `proposal_id` the Diagnostic has not applied, is never
-  returned. Pending proposals live in `proposals` and are never mixed in; they are listed by
-  `GET /proposals?diagnostic_id=<dx_id>&status=pending`, each with its `report_id`.
+  returned. Pending proposals live in `proposals` and are never mixed in. Pending reports are
+  a query on `reports` (`GET /reports?status=pending`, A19+A20), not a field of the Record.
 - Superseded and rejected entries stay, labelled by `state`, with their reason and decider:
   history is never deleted (Story 2.3).
 - Version pinning (V40): Evidence is read from the entry as it was reviewed or accepted. When a
