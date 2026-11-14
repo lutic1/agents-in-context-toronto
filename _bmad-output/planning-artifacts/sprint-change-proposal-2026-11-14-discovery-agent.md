@@ -501,3 +501,16 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
     1. **Against the version used.** Read the report and its script side by side with the exact source version it used (its stored `version_id`), and confirm that every claim is supported by that version.
     2. **Against the live record.** Separately, compare that version with the live ClinicalTrials.gov record for the anchor. The registry may have changed since the run; a difference is reported as "changed since the run", not as an error in the report.
   - This is a rehearsal step, and part of the done rule for the demo and video stories.
+
+- **V45. Crash between acceptance and authorisation (review of d38e5e2).**
+  - **Gap.** Approval applied the evidence and marked the report `accepted`, then authorised the task in a separate transaction. A crash between the two left an accepted report with no task, and only a retried approval repaired it.
+  - **Fix.** The conditional write that claims the report (`pending` → `accepting`) also stores an `approval` record: the original decision ID, request ID, Reviewer, note, correction, the intended `task_id` and `task_step: "pending"`. The unfinished work is therefore saved before the report can become `accepted`.
+  - **Recovery.** `tasks.recover_authorisations()` (A24) finds accepted reports with `task_step: "pending"` and completes them without a Reviewer click:
+    - it keeps the original approval's identity and the intended task;
+    - it rechecks authority through the gate as it stands now, under `sam@v1`;
+    - allowed: one transaction saves the Decision, task, grant and `task_step: "done"`;
+    - blocked: a blocked Decision is recorded with `task_step: "blocked"`, and the report says "Follow-up task not authorised: <reason>".
+  - **No duplicates.** The derived Decision and task IDs make recovery safe to repeat.
+  - **Callers.** The decision route, the API start hook, the background sweep and the end of every run.
+  - **Test.** A24 crashes after acceptance and before authorisation, restarts, and checks a truthful final state with no second click and no duplicate task. A second variant revokes `sam@v1` first and expects the blocked outcome.
+  - **Abandoned task execution.** A run that is abandoned ends visibly as `failed`, and its partial results stay pending. This is a hackathon limitation; DxP does not resume task execution.

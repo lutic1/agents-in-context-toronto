@@ -219,6 +219,7 @@ Do not build on Saturday: Learned-rule draft panel, Rule switch, impact graph an
 |---|---|
 | Recommended (before decision) | "Recommended. Runs only if approved." Faded |
 | Authorised (not run) | Task execution off (V38, V39): "Authorised by Sam at {time}" with the task grant and expiry, and "Follow-up task authorised; not run". No button |
+| Not authorised | The task authorisation was blocked, at approval or when an interrupted approval was completed at restart (V45): the evidence stays accepted, and the report reads "Approved: 1 update accepted. Follow-up task not authorised: {reason}." with the blocked Decision linked. No task and no button |
 | Queued | Task execution on: "Authorised by Sam at {time}. Queued: starts by itself when the current run ends." with the task grant and expiry, and "Its findings will be pending review." (V27, V38). No button |
 | Running | "Running" with the count so far ("2 of max 5 filed") and a link to the task run. No spinner beyond what the API reports |
 | Blocked | "Blocked before it ran: {check} failed" (for example limit reached, or out of scope), with a link to the blocked Decision |
