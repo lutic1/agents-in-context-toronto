@@ -214,7 +214,12 @@ class MongoAvatarStore:
         )
         if not res.modified_count:
             return False
-        await self._emit(action_id, "dispatching")
+        # The claim is made; an event failure must not strand the action in `dispatching`
+        # (the caller would treat an exception as "not claimed" and never settle it).
+        try:
+            await self._emit(action_id, "dispatching")
+        except Exception:  # noqa: BLE001 - the action document is the record; the event is a notice
+            log.warning("Could not emit dispatching for avatar action %s", action_id)
         return True
 
     async def settle_action(self, action_id: str, status: str, result: dict[str, Any] | None = None) -> bool:
@@ -227,7 +232,10 @@ class MongoAvatarStore:
         )
         if not res.modified_count:
             return False
-        await self._emit(action_id, status)
+        try:
+            await self._emit(action_id, status)
+        except Exception:  # noqa: BLE001 - the settled action document is the record
+            log.warning("Could not emit %s for avatar action %s", status, action_id)
         return True
 
     async def _emit(self, action_id: str, status: str) -> None:
@@ -371,15 +379,19 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
 
     # 2. Allowed: claim the action (AD-20), then mint the token and settle what was observed.
     action_id = decision.action_id
-    if action_id:
-        try:
-            claimed = await store.claim_action(action_id)
-        except Exception:  # noqa: BLE001 - not claimed means nothing is sent
-            log.warning("Could not claim the avatar action for %s", report_id)
-            claimed = False
-        if not claimed:
-            # Another worker holds it or it is already settled: never sent twice.
-            return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="not_claimed")
+    if not action_id:
+        # An allowed Decision always comes with its action (AD-20). Without one there is nothing to
+        # claim or settle, so refuse rather than call LiveAvatar unrecorded (Luis, review of #43).
+        log.warning("Allowed avatar Decision for %s has no action; not sending", report_id)
+        return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="not_claimed")
+    try:
+        claimed = await store.claim_action(action_id)
+    except Exception:  # noqa: BLE001 - not claimed means nothing is sent
+        log.warning("Could not claim the avatar action for %s", report_id)
+        claimed = False
+    if not claimed:
+        # Another worker holds it or it is already settled: never sent twice.
+        return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="not_claimed")
 
     token: SessionToken | None = None
     expires_at: datetime | None = None
