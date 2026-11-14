@@ -16,46 +16,28 @@ URL = f"/api/v1/diagnostics/{DX_ID}/values/{{value_id}}/review"
 
 @pytest.fixture
 def gate(fake_gate, fake_db, monkeypatch):
-    """The conftest fake gate, plus what A06's gate stores: the Decision and, when allowed, a
-    queued action pointing back to it."""
+    """The conftest fake gate in place of A06's checks, storing what A06's gate stores: the Decision
+    and, when allowed, a queued action. A06's real `gate.evaluate_in` (which calls `evaluate`) and
+    `gate.mark_action` run unpatched."""
+    from types import SimpleNamespace
+
     import dxp.gate
+    from dxp.api import models as m
 
     async def evaluate(ctx, action):
-        decision = await fake_gate.evaluate(ctx, action)
+        # evaluate_in hands over A06's GateCtx (stamp as a dict); the conftest fake reads a Stamp.
+        fake_ctx = SimpleNamespace(**{**vars(ctx), "stamp": m.Stamp.model_validate(ctx.stamp)})
+        decision = await fake_gate.evaluate(fake_ctx, action)
+        fake_gate.calls[-1] = (ctx, action)
         if decision.outcome == "allowed":
             decision = decision.model_copy(update={"action_id": f"act_{decision.id}"})
-            await fake_db["actions"].insert_one({"_id": decision.action_id, "decision_id": decision.id, "status": "queued"})
+            await fake_db["actions"].insert_one(
+                {"_id": decision.action_id, "decision_id": decision.id, "status": "queued", "stamp": decision.stamp.model_dump()}
+            )
         await fake_db["decisions"].insert_one({**decision.model_dump(), "_id": decision.id})
         return decision
 
-    async def evaluate_in(ctx, action, session):
-        return await evaluate(ctx, action)
-
-    calls = fake_gate.mark_action_calls = []
-
-    async def mark_action(action_id, status, result=None, *, session=None):
-        """A06's gate.mark_action: queued -> done or failed, with the deduplicated event."""
-        calls.append((action_id, status))
-        res = await fake_db["actions"].update_one(
-            {"_id": action_id, "status": "queued"}, {"$set": {"status": status, "result": result}}
-        )
-        if res.modified_count:
-            decision = fake_db["decisions"].docs[fake_db["actions"].docs[action_id]["decision_id"]]
-            await dxp.store.emit_event(
-                "action_status_changed",
-                dedupe_key=f"action_status_changed|{action_id}|{status}",
-                stamp=decision["stamp"],
-                action_id=action_id,
-                status=status,
-            )
-        return bool(res.modified_count)
-
-    import dxp.store
-
     monkeypatch.setattr(dxp.gate, "evaluate", evaluate)
-    # A06's transaction and action functions; on main once PR #15 merges.
-    monkeypatch.setattr(dxp.gate, "evaluate_in", evaluate_in, raising=False)
-    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
     return fake_gate
 
 
@@ -82,7 +64,6 @@ def test_accept(api_client, seeded, gate, recoveries):
     assert value["review"] == "accepted" and value["decided_by"] == "sam" and value["decided_at"]
     assert seeded["diagnostics"].docs[DX_ID]["rev"] == 6
     assert recoveries == ["recover_applying"]  # apply recovery ran on the decision call (D26)
-    assert gate.mark_action_calls == [(body["decision"]["action_id"], "done")]  # through the gate (V65)
     action = seeded["actions"].docs[body["decision"]["action_id"]]
     assert action["status"] == "done" and action["result"]["value_ids"] == ["v_modality"]
     event = next(e for e in seeded["events"].docs.values() if e["type"] == "action_status_changed")
@@ -91,13 +72,13 @@ def test_accept(api_client, seeded, gate, recoveries):
 
 def test_gate_sees_a_reviewer_decision(api_client, seeded, gate):
     _post(api_client, "v_modality", action="accept")
-    ((ctx, action),) = gate.calls
+    ((ctx, action),) = gate.calls  # ctx is A06's GateCtx, built by gate.evaluate_in
     assert action.kind == "review_value" and action.destination == "ledger"
     assert action.target.diagnostic_id == DX_ID and action.target.value_id == "v_modality"
     assert ctx.run_id is None and ctx.request_id.startswith("req_")
-    assert ctx.stamp.kind == "reviewer" and ctx.stamp.agent is None and ctx.stamp.initiated_by == "sam"
+    assert ctx.stamp["kind"] == "reviewer" and ctx.stamp["agent"] is None and ctx.stamp["initiated_by"] == "sam"
     assert ctx.grant_id == "sam"
-    assert ctx.cause.proposal_id == "p_modality" and ctx.cause.origin_run_id is None  # a seed value
+    assert ctx.cause["proposal_id"] == "p_modality" and ctx.cause["origin_run_id"] is None  # a seed value
 
 
 def test_edit_keeps_history(api_client, seeded, gate):

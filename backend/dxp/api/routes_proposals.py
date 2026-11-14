@@ -33,8 +33,11 @@ async def list_proposals(
         items = await readmodel.list_proposals(
             status=status, field=field, diagnostic_id=diagnostic_id, run_id=run_id, report_id=report_id
         )
+    except readmodel.TooManyProposals as exc:
+        raise ApiError(400, "too_many_results", str(exc)) from exc
     except ValueError as exc:
         raise ApiError(400, "bad_request", str(exc)) from exc
+    # Every matching proposal is in `items` (at most PROPOSAL_LIMIT), so there is no next page.
     return m.ProposalList(items=items, next=None)
 
 

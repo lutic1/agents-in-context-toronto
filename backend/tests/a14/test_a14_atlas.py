@@ -48,10 +48,7 @@ async def test_accepted_knowledge_and_pending_proposals(db):
     assert await readmodel.get_diagnostic(f"{dx_id}_missing") is None
 
 
-async def test_value_review_in_a_transaction(db, fake_gate, monkeypatch):
-    import dxp.gate
-
-    monkeypatch.setattr(dxp.gate, "evaluate_in", lambda ctx, action, session: fake_gate.evaluate(ctx, action), raising=False)
+async def test_value_review_in_a_transaction(db, fake_gate):
     dx_id, _ = _ids()
     doc = diagnostic_doc()
     doc["_id"] = dx_id

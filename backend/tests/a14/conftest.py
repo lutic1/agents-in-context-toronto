@@ -160,6 +160,7 @@ def fake_db(monkeypatch: pytest.MonkeyPatch) -> FakeDB:
 
     database = FakeDB()
     monkeypatch.setattr(dxp.store, "get_db", lambda: database)
+    monkeypatch.setattr(dxp.store, "db", lambda: database)  # A06's gate reads dxp.store.db
     monkeypatch.setattr(dxp.store.events, "get_db", lambda: database)
 
     import dxp.ledger.review

@@ -39,7 +39,13 @@ log = logging.getLogger("dxp.search.readmodel")
 
 ACCEPTED_STATES = frozenset({"current", "superseded", "rejected"})
 PROPOSAL_STATUSES = frozenset({"pending", "applying", "applied", "rejected"})
+# The most proposals one GET /proposals returns. The frozen route has no paging parameter, so a
+# query matching more is refused with 400 (narrow it with a filter) rather than cut silently.
 PROPOSAL_LIMIT = 500
+
+
+class TooManyProposals(ValueError):
+    """More proposals match than one response returns (PROPOSAL_LIMIT)."""
 
 # Display names of the AD-3 `source` strings, used when an entry does not carry one.
 SOURCE_NAMES = {
@@ -315,7 +321,8 @@ async def list_proposals(
     run_id: str | None = None,
     report_id: str | None = None,
 ) -> list[Proposal]:
-    """Proposals matching every filter given. Raises ValueError for an unknown status."""
+    """Proposals matching every filter given, low confidence first, then newest first.
+    Raises ValueError for an unknown status, TooManyProposals past PROPOSAL_LIMIT."""
     if status and status not in PROPOSAL_STATUSES:
         raise ValueError(f"status must be one of: {', '.join(sorted(PROPOSAL_STATUSES))}.")
     filters = {
@@ -326,7 +333,14 @@ async def list_proposals(
         "report_id": report_id,
     }
     query = {key: value for key, value in filters.items() if value}
-    docs = await store.get_db()["proposals"].find(query).to_list(length=PROPOSAL_LIMIT)
+    # Newest first in Mongo, one past the limit, so a larger match is detected, never truncated.
+    cursor = store.get_db()["proposals"].find(query).sort([("created_at", -1), ("_id", -1)])
+    docs = await cursor.to_list(length=PROPOSAL_LIMIT + 1)
+    if len(docs) > PROPOSAL_LIMIT:
+        raise TooManyProposals(
+            f"More than {PROPOSAL_LIMIT} proposals match; narrow the query with status, report_id, "
+            "run_id, diagnostic_id or field."
+        )
     return await build_proposals(docs)
 
 
