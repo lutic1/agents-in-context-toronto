@@ -32,10 +32,13 @@ const nextConfig: NextConfig = {
       },
     ];
     if (voiceInput) {
-      rules.push({
-        source: "/reports/:report_id/interview",
-        headers: [{ key: "Permissions-Policy", value: "microphone=(self), camera=()" }],
-      });
+      // The report page embeds the same interview workspace with its recorder (V74), so it gets the same rule.
+      for (const source of ["/reports/:report_id", "/reports/:report_id/interview"]) {
+        rules.push({
+          source,
+          headers: [{ key: "Permissions-Policy", value: "microphone=(self), camera=()" }],
+        });
+      }
     }
     return rules;
   },
