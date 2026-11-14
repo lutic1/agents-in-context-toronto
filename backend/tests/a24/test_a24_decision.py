@@ -149,7 +149,7 @@ async def test_concurrent_double_approval_applies_once(world) -> None:
 
 
 def test_blocked_decide_report_changes_nothing(world, client) -> None:
-    world.gate_fail_kinds["decide_report"] = "team_scope"
+    world.add_report(scope_id="scope_other")  # the real check 2: outside sam@v1's scope
     body = decide(client).json()
     assert world.report()["status"] == "pending" and world.applied == [] and world.db.all("tasks") == []
     (dec,) = body["decisions"]
@@ -162,11 +162,12 @@ def test_the_agent_key_cannot_decide(world, client) -> None:
 
 
 def test_blocked_authorisation_keeps_the_evidence_accepted(world, client) -> None:
-    world.gate_fail_kinds["authorise_task"] = "destination_action"
+    world.drop_from_sam("authorise_task")  # the real check 3: the action is not on the grant
     body = decide(client).json()
     report = world.report()
     assert report["status"] == "accepted" and report["approval"]["task_step"] == "blocked"
-    assert world.db.all("tasks") == [] and len(world.db.all("grants")) == 2
+    assert world.db.all("tasks") == []
+    assert not [g for g in world.db.all("grants") if g["grant_id"].startswith("task-")]
     assert body["message"].startswith("Approved: 1 update accepted. Follow-up task not authorised: destination_action")
     assert report["approval"]["reason"].startswith("Follow-up task not authorised")
     # terminal: a retry never reopens it
@@ -270,7 +271,7 @@ def test_claim_kind_in_the_request_tags_the_memory(world, client) -> None:
 
 
 def test_blocked_reason_is_returned_with_the_report(world, client) -> None:
-    world.gate_fail_kinds["authorise_task"] = "destination_action"
+    world.drop_from_sam("authorise_task")  # the real check 3: the action is not on the grant
     body = decide(client).json()
     stored = world.report()["approval"]["reason"]
     assert stored.startswith("Follow-up task not authorised: destination_action")

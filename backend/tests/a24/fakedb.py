@@ -178,15 +178,27 @@ class Collection:
         return Result(1, 1)
 
     async def update_one(self, flt: dict[str, Any], update: dict[str, Any], *, upsert: bool = False,
-                         session: Any = None) -> Result:
+                         session: Any = None, **_: Any) -> Result:
         found = self._find(flt)
+        inserted = False
         if not found:
-            return Result(0, 0)
+            if not upsert:
+                return Result(0, 0)
+            doc = {k: copy.deepcopy(v) for k, v in flt.items() if not k.startswith("$") and not isinstance(v, dict)}
+            self.docs[doc["_id"]] = doc
+            found, inserted = [doc], True
         doc = found[0]
         before = copy.deepcopy(doc)
         for op, fields in update.items():
             for path, value in fields.items():
-                if op == "$set":
+                if op == "$setOnInsert":
+                    if inserted:
+                        _set(doc, path, copy.deepcopy(value))
+                elif op == "$max":
+                    current = _get(doc, path)
+                    if current is _MISSING or current is None or value > current:
+                        _set(doc, path, value)
+                elif op == "$set":
                     _set(doc, path, copy.deepcopy(value))
                 elif op == "$inc":
                     current = _get(doc, path)
@@ -198,10 +210,24 @@ class Collection:
                     _set(doc, path, ([] if current is _MISSING else current) + [value])
                 else:
                     raise NotImplementedError(op)
-        modified = int(doc != before)
+        modified = int(doc != before) and not inserted
         if modified:
             self.db.writes.append((self.name, "update", doc["_id"]))
-        return Result(1, modified)
+        return Result(0 if inserted else 1, modified, doc["_id"] if inserted else None)
+
+    async def find_one_and_update(self, flt: dict[str, Any], update: dict[str, Any], *, upsert: bool = False,
+                                  return_document: Any = False, projection: Any = None, sort: Any = None,
+                                  session: Any = None) -> dict[str, Any] | None:
+        candidates = self._find(flt)
+        if sort and candidates:
+            candidates = Cursor(candidates).sort(sort)._docs
+        before = copy.deepcopy(candidates[0]) if candidates else None
+        if before is None and not upsert:
+            return None
+        target = {"_id": before["_id"]} if before is not None else flt
+        await self.update_one(target, update, upsert=upsert, session=session)
+        after = self.docs.get(before["_id"] if before is not None else flt.get("_id"))
+        return copy.deepcopy(after if return_document else before)
 
 
 class FakeDB:

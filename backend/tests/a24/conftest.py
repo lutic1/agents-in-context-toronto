@@ -5,7 +5,6 @@ memory.create and the caller's key. No file from data/ is read."""
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -94,18 +93,24 @@ def proposal_doc() -> dict[str, Any]:
 @dataclass
 class World:
     db: FakeDB
-    gate_calls: list[tuple[dict[str, Any], dict[str, Any]]] = field(default_factory=list)
-    applied: list[str] = field(default_factory=list)
+    gate_calls: list[tuple[Any, Any]] = field(default_factory=list)
     run_starts: list[dict[str, Any]] = field(default_factory=list)
     spawned: list[str] = field(default_factory=list)
     memories: list[dict[str, Any]] = field(default_factory=list)
     memory_fails: int = 0
-    rejected_by_ledger: list[str] = field(default_factory=list)
     refused_task_starts: int = 0
-    gate_fail_kinds: dict[str, str] = field(default_factory=dict)
 
-    def one(self, collection: str, **flt: Any) -> list[dict[str, Any]]:
-        return [d for d in self.db.all(collection) if all(d.get(k) == v for k, v in flt.items())]
+    def events(self, kind: str) -> list[dict[str, Any]]:
+        return sorted((e for e in self.db.all("events") if e["type"] == kind), key=lambda e: e["_id"])
+
+    @property
+    def applied(self) -> list[str]:
+        """Proposals the real ledger applied, from its deduplicated `value_applied` events."""
+        return [e["proposal_id"] for e in self.events("value_applied")]
+
+    @property
+    def rejected_by_ledger(self) -> list[str]:
+        return [e["proposal_id"] for e in self.events("proposal_rejected")]
 
     def report(self) -> dict[str, Any]:
         return self.db.data["reports"][REPORT_ID]
@@ -115,174 +120,97 @@ class World:
                                                      ["ledger", "tts:elevenlabs", "video:heygen"],
                                                      status="revoked", name="Sam")
 
+    def drop_from_sam(self, kind: str) -> None:
+        """A new active version of sam's grant without `kind`: the real check 3 then blocks it."""
+        latest = max(g["version"] for g in self.db.all("grants") if g["grant_id"] == "sam")
+        actions = [a for a in SAM_ACTIONS if a != kind]
+        doc = grant_doc("sam", latest + 1, "sam", "person", actions, ["ledger", "tts:elevenlabs", "video:heygen"],
+                        name="Sam")
+        doc["key_hash"] = hash_key(SAM_KEY)
+        self.db.data["grants"][doc["_id"]] = doc
+
     def add_report(self, **overrides: Any) -> None:
         doc = report_doc(**overrides)
         self.db.data["reports"][doc["_id"]] = doc
 
 
-class PersistingGate:
-    """Records one Decision per evaluation, insert-if-absent on the AD-3 ID, like A06's gate.
-    Check 1: the latest version of the context's grant is active, unexpired and the caller's.
-    Check 3: the kind and destination are on that grant."""
+def hash_key(key: str) -> str:
+    import hashlib
 
-    def __init__(self, world: World) -> None:
-        self.world = world
-
-    async def evaluate(self, ctx: Any, action: Any, session: Any = None) -> m.Decision:
-        from dxp.store import emit_event
-
-        ctx = dict(ctx)
-        action = dict(action)
-        self.world.gate_calls.append((ctx, action))
-        db = self.world.db
-        target = action.get("target") or {}
-        decision_id = action.get("decision_id") or (action.get("inputs") or {}).get("decision_id") or derive(
-            "dec_", "-", action["kind"], "-", target.get("report_id") or target.get("memory_id"), ctx["request_id"])
-        stored = await db["decisions"].find_one({"_id": decision_id})
-        if stored is not None:
-            return m.Decision.model_validate({**stored, "id": stored["_id"]})
-        grant = await db["grants"].find_one({"grant_id": ctx["grant_id"]}, sort=[("version", -1)])
-        failed, detail = None, "ok"
-        if grant is None or grant["status"] != "active" or grant["expires_at"] <= now():
-            failed, detail = "grant_active", f"latest version {ctx['grant_id']}@v{(grant or {}).get('version')} is {(grant or {}).get('status')}"
-        elif grant["principal"] != ctx["principal"]:
-            failed, detail = "grant_active", "not the caller's grant"
-        elif action["kind"] not in grant["actions"]:
-            failed, detail = "destination_action", f"action {action['kind']!r} is not on the grant"
-        elif action["kind"] in self.world.gate_fail_kinds:
-            failed = self.world.gate_fail_kinds[action["kind"]]
-            detail = "forced by the test"
-        doc = {
-            "_id": decision_id, "run_id": None, "agent": None, "initiated_by": ctx["initiated_by"],
-            "stamp": ctx["stamp"], "cause": ctx.get("cause"), "request_id": ctx["request_id"], "kind": action["kind"],
-            "inputs": action.get("inputs") or {}, "evidence_ref": action.get("evidence_ref"),
-            "destination": action["destination"], "target": target,
-            "checks": [{"check": failed or "grant_active", "passed": failed is None, "detail": detail}],
-            "failed_check": failed, "grant_id": ctx["grant_id"], "grant_version": (grant or {}).get("version") or 0,
-            "outcome": "blocked" if failed else "allowed", "action_id": None, "decided_at": now(),
-        }
-        if ctx.get("origin"):
-            doc["origin"] = ctx["origin"]
-        if not failed:
-            doc["action_id"] = derive("act_", decision_id)
-            await db["actions"].insert_one({"_id": doc["action_id"], "decision_id": decision_id,
-                                            "kind": action["kind"], "status": "queued"})
-        await db["decisions"].insert_one(doc)
-        seq = await emit_event({"type": "action_blocked" if failed else "action_allowed",
-                                "dedupe_key": f"decision|{decision_id}", "decision_id": decision_id,
-                                "stamp": ctx["stamp"]})
-        await db["decisions"].update_one({"_id": decision_id}, {"$set": {"seq": seq}})
-        doc["seq"] = seq
-        return m.Decision.model_validate({**doc, "id": decision_id})
-
-    async def evaluate_in(self, ctx: Any, action: Any, session: Any) -> m.Decision:
-        return await self.evaluate(ctx, action, session)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
 @pytest.fixture
 def world(monkeypatch: pytest.MonkeyPatch) -> World:
+    """The real merged gate (A06), ledger (A06), runs (A07+A11) and actor resolution (A03), over
+    the in-memory store. Only memory.create is a double here (it needs embeddings)."""
     import dxp.gate
-    import dxp.ledger
     import dxp.memory
     import dxp.runs
     import dxp.store
+    import dxp.store.client
     import dxp.store.events
-    from dxp.api import auth
+    from dxp.api.errors import ApiError
 
     db = FakeDB()
     w = World(db=db)
-    for name in ("grants", "reports", "proposals", "decisions", "tasks", "runs", "events", "source_items",
-                 "research_scopes", "memories", "actions", "diagnostics"):
+    for name in ("grants", "policies", "policy_sets", "reports", "proposals", "decisions", "tasks", "runs",
+                 "run_locks", "events", "source_items", "research_scopes", "memories", "actions", "diagnostics",
+                 "edges", "admissions"):
         db.data.setdefault(name, {})
-    db.data["grants"]["lbdx@v1"] = grant_doc("lbdx", 1, "dxp-curator", "agent",
-                                             ["search_source", "file_proposal", "notify_slack"],
-                                             ["source:clinicaltrials.gov", "ledger", "slack:#all-mango-db-hackathon"])
-    db.data["grants"]["sam@v1"] = grant_doc("sam", 1, "sam", "person", SAM_ACTIONS,
-                                            ["ledger", "tts:elevenlabs", "video:heygen"], name="Sam")
+    lbdx = grant_doc("lbdx", 1, "dxp-curator", "agent", ["search_source", "file_proposal", "notify_slack"],
+                     ["source:clinicaltrials.gov", "ledger", "slack:#all-mango-db-hackathon"])
+    lbdx["key_hash"] = hash_key(AGENT_KEY)
+    sam = grant_doc("sam", 1, "sam", "person", SAM_ACTIONS, ["ledger", "tts:elevenlabs", "video:heygen"], name="Sam")
+    sam["key_hash"] = hash_key(SAM_KEY)
+    db.data["grants"]["lbdx@v1"] = lbdx
+    db.data["grants"]["sam@v1"] = sam
+    # One hand-written evidence policy, so the current policy set has a member (A03 derives its ID).
+    db.data["policies"]["evidence_quote_supported@v1"] = {
+        "_id": "evidence_quote_supported@v1", "policy_id": "evidence_quote_supported", "version": 1,
+        "status": "active", "applies_to": ["file_proposal", "file_related_evidence"],
+        "requires": {"quote_found": True, "supported": True}, "text": "A24 test policy.", "created_at": now(),
+    }
     db.data["research_scopes"][SCOPE_ID] = {"_id": SCOPE_ID, "condition": "non-small cell lung cancer"}
     db.data["source_items"][SOURCE_REF] = {"_id": SOURCE_REF, "collections": {}}
     db.data["proposals"][PROPOSAL_ID] = proposal_doc()
     w.add_report()
 
-    monkeypatch.setattr(dxp.store, "get_db", lambda: db)
-    monkeypatch.setattr(dxp.store, "get_client", lambda: FakeClient(db))
+    client = FakeClient(db)
+    for module in (dxp.store, dxp.store.client):
+        monkeypatch.setattr(module, "get_db", lambda: db)
+        monkeypatch.setattr(module, "get_client", lambda: client)
     monkeypatch.setattr(dxp.store.events, "get_db", lambda: db)
 
-    gate = PersistingGate(w)
-    monkeypatch.setattr(dxp.gate, "evaluate", gate.evaluate)
-    monkeypatch.setattr(dxp.gate, "evaluate_in", gate.evaluate_in, raising=False)
+    # Spies around the real functions: they record calls and delegate unchanged.
+    real_evaluate, real_evaluate_in = dxp.gate.evaluate, dxp.gate.evaluate_in
 
-    async def mark_action(action_id: str, status: str, result: Any = None, *, session: Any = None) -> bool:
-        res = await db["actions"].update_one({"_id": action_id, "status": "queued"}, {"$set": {"status": status}})
-        return bool(res.modified_count)
+    async def evaluate(ctx: Any, action: Any) -> m.Decision:
+        w.gate_calls.append((ctx, action))
+        return await real_evaluate(ctx, action)
 
-    monkeypatch.setattr(dxp.gate, "mark_action", mark_action, raising=False)
+    async def evaluate_in(ctx: Any, action: Any, session: Any) -> m.Decision:
+        w.gate_calls.append((ctx, action))
+        return await real_evaluate_in(ctx, action, session)
 
-    async def apply_with(proposal_id: str, *, review: str | None = None, decided_by: str | None = None,
-                         session: Any = None) -> m.Proposal:
-        from dxp.store import emit_event
+    monkeypatch.setattr(dxp.gate, "evaluate", evaluate)
+    monkeypatch.setattr(dxp.gate, "evaluate_in", evaluate_in)
 
-        res = await db["proposals"].update_one({"_id": proposal_id, "status": "pending"},
-                                               {"$set": {"status": "applying", "decided_by": decided_by}})
-        p = await db["proposals"].find_one({"_id": proposal_id})
-        if res.modified_count:
-            await asyncio.sleep(0)  # let a concurrent caller interleave
-            w.applied.append(proposal_id)
-            scope = p["target"]["scope_id"]
-            await db["source_items"].update_one(
-                {"_id": p["evidence"]["source_ref"]},
-                {"$set": {f"collections.{scope}": {"status": "accepted", "proposal_id": proposal_id,
-                                                   "version_id": p["evidence"]["version_id"]}}})
-            await emit_event({"type": "value_applied", "dedupe_key": f"value_applied|{proposal_id}"})
-            await db["proposals"].update_one({"_id": proposal_id, "status": "applying"}, {"$set": {"status": "applied"}})
-            p = await db["proposals"].find_one({"_id": proposal_id})
-        return m.Proposal.model_validate({**p, "id": p["_id"]})
-
-    async def recover_applying() -> None:
-        return None
-
-    async def reject_report_proposals(report_id: str, decision_id: str, note: str, session: Any) -> int:
-        """A06's signature (head 42b68d0): pending -> rejected only; a retry returns 0."""
-        from dxp.store import emit_event
-
-        rejected = []
-        for p in await db["proposals"].find({"report_id": report_id, "status": "pending"}).to_list():
-            await db["proposals"].update_one({"_id": p["_id"], "status": "pending"},
-                                             {"$set": {"status": "rejected", "reason": note,
-                                                       "rejected_by_decision_id": decision_id}})
-            await emit_event({"type": "proposal_rejected", "dedupe_key": f"proposal_rejected|{p['_id']}"})
-            rejected.append(p["_id"])
-        w.rejected_by_ledger.extend(rejected)
-        return len(rejected)
-
-    monkeypatch.setattr(dxp.ledger, "reject_report_proposals", reject_report_proposals, raising=False)
-    monkeypatch.setattr(dxp.ledger, "apply_with", apply_with, raising=False)
-    monkeypatch.setattr(dxp.ledger, "recover_applying", recover_applying)
+    real_start_if_absent = dxp.runs.start_if_absent
 
     async def start_if_absent(caller: m.Principal, grant_id: str, set: str,
                               run_id: str | None = None) -> tuple[m.Run, bool]:
-        from dxp import feature_enabled
-        from dxp.api.errors import ApiError
-
-        if set.startswith("task:") and not feature_enabled("task_run"):
-            # A07+A11 (head 8894382): refused before any read or write while the flag is off.
-            w.refused_task_starts += 1
-            raise ApiError(403, "task_run_off", "task_run is off")
-        w.run_starts.append({"caller": caller.id, "grant_id": grant_id, "set": set, "run_id": run_id})
-        doc = {"_id": run_id, "agent": "dxp-curator", "initiated_by": caller.id, "grant_id": grant_id,
-               "grant_version": 1, "set": set, "kind": "task", "status": "running", "task_id": set[5:]}
-        created = True
         try:
-            await db["runs"].insert_one(doc)
-        except Exception:
-            doc, created = await db["runs"].find_one({"_id": run_id}), False
-        return m.Run.model_validate({**doc, "id": doc["_id"]}), created
+            run, created = await real_start_if_absent(caller, grant_id, set, run_id)
+        except ApiError as exc:
+            if exc.code == "task_run_off":
+                w.refused_task_starts += 1
+            raise
+        w.run_starts.append({"caller": caller.id, "grant_id": grant_id, "set": set, "run_id": run_id,
+                             "created": created})
+        return run, created
 
-    async def runs_start(caller: m.Principal, grant_id: str, set: str, run_id: str | None = None) -> m.Run:
-        return (await start_if_absent(caller, grant_id, set, run_id))[0]
-
-    monkeypatch.setattr(dxp.runs, "start_if_absent", start_if_absent, raising=False)
-    monkeypatch.setattr(dxp.runs, "start", runs_start)
+    monkeypatch.setattr(dxp.runs, "start_if_absent", start_if_absent)
 
     async def memory_create(team_id, text, tags, source, reviewer, ctx):
         if w.memory_fails:
@@ -301,16 +229,6 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
 
     monkeypatch.setattr(dxp.memory, "create", memory_create)
 
-    async def resolve_actor(api_key: str) -> m.Principal:
-        if api_key == SAM_KEY:
-            return m.Principal(id="sam", name="Sam", kind="person", actions=SAM_ACTIONS)
-        if api_key == AGENT_KEY:
-            return m.Principal(id="dxp-curator", name="dxp-curator", kind="agent", actions=[])
-        from dxp.api.errors import ApiError
-
-        raise ApiError(401, "unknown_key", "Unknown API key.")
-
-    monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
     return w
 
 

@@ -56,7 +56,7 @@ def test_flag_on_queues_the_task_and_starts_its_run_once(world, client, features
     (task,) = world.db.all("tasks")
     assert task["status"] == "queued" and task["queued_at"] is not None and task["run_id"] == RUN_ID
     assert world.run_starts == [{"caller": "sam", "grant_id": "task-" + TASK_ID[5:], "set": f"task:{TASK_ID}",
-                                 "run_id": RUN_ID}]
+                                 "run_id": RUN_ID, "created": True}]
     assert client.spawner.spawned == [RUN_ID]
     # a retried approval returns the same decision, task and run and starts nothing
     again = decide(client).json()

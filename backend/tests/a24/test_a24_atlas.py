@@ -5,7 +5,7 @@ grant selection (A03).
 
 Skipped without MONGODB_URI (conftest), and skipped with a stated reason while the gate,
 ledger or grant selection on this branch is still A01's stub (A06 and A03 not merged).
-Only `runs.start` and `memory.create` are doubles here (A07+A11 and A21+A22 are not merged).
+Only `memory.create` is a double here.
 """
 
 from __future__ import annotations
@@ -55,7 +55,6 @@ def _require_real_modules() -> None:
 async def atlas_world(db, monkeypatch: pytest.MonkeyPatch) -> Any:
     _require_real_modules()
     import dxp.memory
-    import dxp.runs
 
     suffix = derive("t", str(id(monkeypatch)))[1:9]
     report = report_doc()
@@ -82,21 +81,11 @@ async def atlas_world(db, monkeypatch: pytest.MonkeyPatch) -> Any:
     await db["proposals"].insert_one(proposal)
     await db["reports"].insert_one(report)
 
-    starts: list[str] = []
-
-    async def runs_start(caller, grant_id, set, run_id=None):
-        starts.append(run_id)
-        return m.Run(id=run_id, agent="dxp-curator", initiated_by=caller.id, grant_id=grant_id, grant_version=1,
-                     set=set, kind="task", status="running")
+    starts: list[str] = []  # nothing here starts a run: task_run stays off in these tests
 
     async def memory_create(*args, **kwargs):
-        raise NotImplementedError("memory.create (A21+A22)")
+        raise NotImplementedError("memory.create is not exercised here")
 
-    async def start_if_absent(caller, grant_id, set, run_id=None):
-        return await runs_start(caller, grant_id, set, run_id), True
-
-    monkeypatch.setattr(dxp.runs, "start", runs_start)
-    monkeypatch.setattr(dxp.runs, "start_if_absent", start_if_absent, raising=False)
     monkeypatch.setattr(dxp.memory, "create", memory_create)
     return {"db": db, "report_id": report_id, "proposal_id": proposal["_id"], "source_ref": source_ref,
             "starts": starts}
