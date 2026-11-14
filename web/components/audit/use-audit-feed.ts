@@ -73,5 +73,5 @@ export function useAuditFeed(runId: string) {
   const polling = !halted && (!data || isActiveRun(data.run.status));
   const source: FeedSource = "polling";
 
-  return { audit: data, error, isLoading, isValidating, refresh, polling, source, updatedAt };
+  return { audit: data, error, isLoading, isValidating, refresh, polling, halted, source, updatedAt };
 }

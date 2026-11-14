@@ -17,6 +17,7 @@ import type { FeedSource } from "@/components/audit/use-audit-feed";
 export function FeedSourceLabel({
   source,
   polling,
+  halted = false,
   updatedAt,
   refreshing,
   onRefresh,
@@ -24,6 +25,8 @@ export function FeedSourceLabel({
   source: FeedSource;
   /** True while the screen is asking for new data by itself. */
   polling: boolean;
+  /** True when polling stopped because a refresh failed for good (a 4xx or 501), not because the run ended. */
+  halted?: boolean;
   updatedAt: number | null;
   refreshing: boolean;
   onRefresh: () => void;
@@ -42,7 +45,13 @@ export function FeedSourceLabel({
           )
         ) : null}
         <span className={live ? "font-semibold text-foreground" : undefined}>
-          {live ? "Live (change stream)" : polling ? "Refreshing every 2 s" : "Run ended. Not refreshing."}
+          {live
+            ? "Live (change stream)"
+            : polling
+              ? "Refreshing every 2 s"
+              : halted
+                ? "Not refreshing: the last refresh failed."
+                : "Run ended. Not refreshing."}
         </span>
       </p>
       {active ? (
