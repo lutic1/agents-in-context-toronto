@@ -12,7 +12,14 @@ from typing import Any
 import httpx
 import pytest
 
-from dxp.api.models import Admission, CheckResult, Decision, Principal, RunContext, Stamp
+from dxp.api.models import (
+    Admission,
+    CheckResult,
+    Decision,
+    Principal,
+    RunContext,
+    Stamp,
+)
 
 from .fakedb import FakeDB
 
