@@ -32,3 +32,31 @@ def test_kinds_include_revert_report_and_statuses_include_v48() -> None:
     assert "revert_report" in m.ActionKind.__args__
     assert "cancelled" in m.TaskStatus.__args__
     assert {"reverting", "reverted"} <= set(m.ReportStatus.__args__)
+
+
+def test_report_decision_request_tags_the_memory_with_a_claim_kind() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    body = m.ReportDecisionRequest(action="reject", note="Terminated trial with no posted results", claim_kind="claim_performed_or_results")
+    assert body.claim_kind == "claim_performed_or_results"
+    assert m.ReportDecisionRequest(action="approve").claim_kind is None
+    with pytest.raises(ValidationError):
+        m.ReportDecisionRequest(action="reject", note="n", claim_kind="claim_of_anything")
+
+
+def test_report_approval_keeps_the_not_authorised_reason() -> None:
+    approval = m.ReportApproval(decision_id="dec_1", reviewer="sam", task_step="blocked", reason="grant sam@v2 is revoked")
+    assert approval.reason == "grant sam@v2 is revoked"
+    assert m.ReportApproval(decision_id="dec_1", reviewer="sam", task_step="done").reason is None
+
+
+def test_scope_keeps_condition_aliases_and_priority_refs() -> None:
+    scope = m.Scope.model_validate({
+        "id": "scope_plasma_ctdna_nsclc", "name": "Plasma ctDNA genotyping assays in NSCLC", "team_id": "team_lbdx",
+        "assays": ["FoundationOne Liquid CDx"], "condition": "non-small cell lung cancer",
+        "condition_aliases": ["NSCLC"], "priority_refs": ["clinicaltrials.gov:NCT04712877"], "cursor": {},
+    })
+    dumped = scope.model_dump()
+    assert dumped["condition_aliases"] == ["NSCLC"] and dumped["priority_refs"] == ["clinicaltrials.gov:NCT04712877"]
+    assert m.Scope(id="s", name="n", team_id="t", assays=[], condition="c", cursor={}).priority_refs == []

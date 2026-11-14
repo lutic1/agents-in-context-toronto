@@ -63,6 +63,7 @@ Destination = Literal[
 ]
 
 PrincipalKind = Literal["agent", "person", "seed"]
+ClaimKind = Literal["claim_performed_or_results", "claim_planned", "claim_preclinical"]
 # AD-14 lists agent | person | seed; the plan (A03, A24) also names a task
 # grant kind, so `task` is accepted here until the contract keeper settles it.
 GrantKind = Literal["agent", "person", "seed", "task"]
@@ -258,6 +259,8 @@ class Scope(Shape):
     assays: list[str] = Field(description="the four exact D45 trade-name strings")
     aliases: list[str] = Field(default_factory=list, description="search terms only; never resolve a name (V34)")
     condition: str
+    condition_aliases: list[str] = Field(default_factory=list, description="search terms for the condition only (A03 seeds them)")
+    priority_refs: list[str] = Field(default_factory=list, description="source_refs the scan takes first (A03 seeds them)")
     source: Literal["clinicaltrials.gov"] = "clinicaltrials.gov"
     cursor: ScopeCursor
 
@@ -820,6 +823,7 @@ class ReportApproval(Shape):
     correction: str | None = None
     task_id: str | None = None
     task_step: Literal["pending", "done", "blocked"]
+    reason: str | None = Field(default=None, description='why the task was not authorised: "Follow-up task not authorised: <reason>" (V45)')
 
 
 class ReportRevert(Shape):
@@ -1120,6 +1124,9 @@ class ReportDecisionRequest(Shape):
     action: Literal["approve", "reject"]
     note: str | None = Field(default=None, description="required for reject and for a correction")
     correction: str | None = None
+    claim_kind: ClaimKind | None = Field(
+        default=None, description="tags the memory a reject or correction creates (M1: claim_performed_or_results)"
+    )
 
 
 class MemoryCorrectRequest(Shape):
