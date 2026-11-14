@@ -1,6 +1,8 @@
 ---
 title: Readiness fixes after the pivot audit
-status: draft (follows two audits; for Luis to confirm before 10:45)
+status: approved
+approved_by: Luis
+approved: 2026-11-14
 created: 2026-11-14
 supplements: sprint-change-proposal-2026-11-13.md
 ---

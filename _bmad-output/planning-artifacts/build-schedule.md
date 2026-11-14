@@ -1,6 +1,6 @@
 ---
 title: DxP build schedule for Saturday 14 November 2026
-status: draft (forecast, not validated; follows the discovery-agent proposal, which is draft until Luis confirms it)
+status: draft (forecast, not validated; follows the discovery-agent proposal, approved by Luis on 14 Nov)
 created: 2026-11-13
 updated: 2026-11-14
 sources:
@@ -15,7 +15,7 @@ sources:
 
 # DxP build schedule for Saturday
 
-This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md`, which wins over every earlier planning document. Within it, decisions V25 to V32 (section 10, the review of PR #8) win over V1 to V24, and V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V44 (section 12, the review of the branch; draft, pending Luis's sign-off) win over V1 to V37. The schedule adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 cut line, the V29 media rule, the V30 float and the V31 levers. The readiness fixes D1 to D57 and the Slack decisions S1 to S13 still apply wherever that proposal does not replace them. The PR cards, with start and merge requirements and owned files, are in `development-plan.md`.
+This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md`, which wins over every earlier planning document. Within it, decisions V25 to V32 (section 10, the review of PR #8) win over V1 to V24, and V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V44 (section 12, the review of the branch; approved by Luis (14 Nov)) win over V1 to V37. The schedule adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 cut line, the V29 media rule, the V30 float and the V31 levers. The readiness fixes D1 to D57 and the Slack decisions S1 to S13 still apply wherever that proposal does not replace them. The PR cards, with start and merge requirements and owned files, are in `development-plan.md`.
 
 **Every time below is a forecast, not a validated run.** Cycle times come from `epics.md`; merge times are an assumption (about 10 minutes each). The milestones are where the day checks the forecast, and each has a fallback.
 

@@ -1,6 +1,8 @@
 ---
 title: Sprint Change Proposal, restore the discovery-agent vision
-status: draft (V38 to V44 added after a review of the branch; pending Luis's sign-off)
+status: approved
+approved_by: Luis
+approved: 2026-11-14 (V1 to V45, including the V45 memory-creation recovery limitation)
 created: 2026-11-14
 scope: major
 supplements: sprint-change-proposal-2026-11-13.md, readiness-fixes-2026-11-14.md, sprint-change-proposal-2026-11-14-slack.md
@@ -433,7 +435,7 @@ The reviewer saw a latest posted update of 17 July 2024 on the record-history pa
 
 ## 12. Review of the branch: decisions V38 to V44
 
-A review of the V25 to V37 branch produced these decisions. They win over V1 to V37 where they differ, and like the rest of this file they are draft, pending Luis's sign-off. The review also recommended keeping three earlier choices as they are (recommended in review; pending Luis's sign-off):
+A review of the V25 to V37 branch produced these decisions. They win over V1 to V37 where they differ, and like the rest of this file they are approved by Luis (14 Nov). The review also recommended keeping three earlier choices as they are (recommended in review; approved by Luis (14 Nov)):
 - the media kinds stay under `sam@v1`, and the backend checks Sam's grant before calling either provider;
 - approval adds scope-level evidence (the scope's evidence collection, V35);
 - "FoundationOne Liquid" is kept verbatim and unresolved (V34).
@@ -486,7 +488,7 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
   - `Task.result` is `{ answer, with_posted_results[], query, searched_count, limit, source_refs, related_ids }`.
   - V26 and V33 keep their original wording, with a note pointing here.
 - **V43. Reports without a resolved Diagnostic.**
-  - The review recommended keeping AD-27 (`diagnostic_id: null`; approval adds evidence to the scope collection) and AD-20 (Slack omits the "Open diagnostic" link) as they are (recommended in review; pending Luis's sign-off).
+  - The review recommended keeping AD-27 (`diagnostic_id: null`; approval adds evidence to the scope collection) and AD-20 (Slack omits the "Open diagnostic" link) as they are (recommended in review; approved by Luis (14 Nov)).
   - Every step handles `diagnostic_id: null` without assuming a `dx_id`:
     - the report (empty `diagnostic_ids`) and the proposal (`target: { scope_id }`);
     - the five gate checks, especially check 2, which judges the `scope_id` and looks up no Diagnostic;
@@ -514,3 +516,9 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
   - **Callers.** The decision route, the API start hook, the background sweep and the end of every run.
   - **Test.** A24 crashes after acceptance and before authorisation, restarts, and checks a truthful final state with no second click and no duplicate task. A second variant revokes `sam@v1` first and expects the blocked outcome.
   - **Abandoned task execution.** A run that is abandoned ends visibly as `failed`, and its partial results stay pending. This is a hackathon limitation; DxP does not resume task execution.
+
+- **V46. Memory-creation recovery limitation, and the build rules (approved by Luis with V25 to V45).**
+  - On a reject, or an approval with a correction, the `create_memory` step is not covered by V45's recovery. A crash right before it is repaired only when the Reviewer retries the decision. It promotes nothing and starts no task. This is a known hackathon limitation.
+  - "Memory saved" is shown only after `memory.create()` succeeds. Until then the report shows the decision without that confirmation.
+  - Build the core discovery-to-review loop first. `task_run` stays off until I3b passes.
+  - The crash, retry and revocation checks (A24, I3, I3b) are implementation acceptance requirements. They are planned tests, not evidence that anything has passed.

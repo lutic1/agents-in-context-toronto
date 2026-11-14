@@ -1,6 +1,6 @@
 ---
 title: DxP development plan, Saturday 14 November 2026
-status: draft (follows the discovery-agent proposal, which is draft until Luis confirms it)
+status: approved by Luis, 14 Nov (follows the approved discovery-agent proposal)
 created: 2026-11-13
 updated: 2026-11-14
 sources:
@@ -21,7 +21,7 @@ DxP is a **proactive diagnostic-evidence research agent**, entered under Stateme
 
 Which document wins:
 
-1. `sprint-change-proposal-2026-11-14-discovery-agent.md`. Within it, V25 to V32 (section 10) win over V1 to V24, V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V44 (section 12, the review of the branch; draft, pending Luis's sign-off) win over V1 to V37. This plan adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 core cut line and supporting cut order.
+1. `sprint-change-proposal-2026-11-14-discovery-agent.md`. Within it, V25 to V32 (section 10) win over V1 to V24, V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V44 (section 12, the review of the branch; approved by Luis (14 Nov)) win over V1 to V37. This plan adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 core cut line and supporting cut order.
 2. The readiness fixes D1 to D57 (`readiness-fixes-2026-11-14.md`) and the Slack decisions S1 to S13 (`sprint-change-proposal-2026-11-14-slack.md`), wherever the discovery-agent proposal does not replace them.
 3. The architecture spine's AD-14 table is the single reference for routes and shapes (D40). Where `epics.md` and AD-14 name a route body differently (for example `POST /runs { grant_id, set }`), AD-14 wins and the contract keeper settles it in A01.
 
