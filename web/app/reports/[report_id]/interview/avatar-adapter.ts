@@ -10,14 +10,18 @@
  *   session is stopped at once. Each `repeat` first interrupts whatever is still being spoken.
  * - SDK 0.0.20 ALWAYS asks the browser for the microphone when a session starts, even muted. So the claim is
  *   "the microphone is never granted", not "never requested". Three layers: (1) the server sends
- *   `Permissions-Policy: microphone=()` for this page (next.config.ts, owned by B01; see the report), (2) this
+ *   `Permissions-Policy: microphone=()` for this page (next.config.ts, owned by B01; see the report; with voice_input
+ *   built in it is `microphone=(self)` here, for the page's own recorder only), (2) this
  *   file makes any audio `getUserMedia` call fail with NotAllowedError while the session lives, which the SDK
- *   swallows (the sandbox "denied" run: session starts, `repeat` speaks, mic never captured), and (3) the
+ *   swallows (the sandbox "denied" run: session starts, `repeat` speaks, mic never captured; V73: the page's own
+ *   recorder alone gets through, by a one-call lease in mic-lease.ts), and (3) the
  *   session config is `voiceChat: { defaultMuted: true }`. The voice-chat default would open the mic unmuted.
  * - The session is stopped on `pagehide`, on unmount and when it ends by itself (a token's duration cap).
  */
 
 import type { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
+
+import { takeRecorderLease } from "./mic-lease";
 
 export type CloseReason = "stopped" | "ended" | "mic_activity" | "unsolicited_speech";
 
@@ -59,7 +63,11 @@ export function policyBlocksMicrophone(doc: Document = document): boolean {
 
 type MicGuard = { confirmed: boolean; restore: () => void };
 
-/** Layer 2: refuse every audio capture request until `restore()`. Video-only requests pass through. */
+/**
+ * Layer 2: refuse every audio capture request until `restore()`. Video-only requests pass through. The one
+ * exception is the page's own "Record question" recorder (V73), which holds a one-call lease (mic-lease.ts);
+ * the avatar SDK never does, so its request is still refused.
+ */
 export function blockMicrophone(): MicGuard {
   const policy = policyBlocksMicrophone();
   const devices = typeof navigator === "undefined" ? undefined : navigator.mediaDevices;
@@ -71,7 +79,7 @@ export function blockMicrophone(): MicGuard {
   const hadOwn = Object.prototype.hasOwnProperty.call(devices, "getUserMedia");
   try {
     devices.getUserMedia = function guarded(this: MediaDevices, constraints?: MediaStreamConstraints) {
-      if (constraints && constraints.audio) {
+      if (constraints && constraints.audio && !takeRecorderLease()) {
         return Promise.reject(new DOMException("The microphone is blocked on this page.", "NotAllowedError"));
       }
       return original.call(devices, constraints);

@@ -7,7 +7,7 @@ import { UpstreamConfigError, upstreamFetch } from "@/lib/server/upstream";
  *
  * `/api/dxp/<path>?<query>` is forwarded to `<DXP_API_URL>/api/v1/<path>?<query>`
  * with the reviewer key from the server-only DXP_API_KEY. Only GET and POST are
- * forwarded. A POST must be same-origin JSON: a cross-site POST is refused with 403,
+ * forwarded. A POST must be same-origin JSON (the one exception is the V73 audio path below): a cross-site POST is refused with 403,
  * so another site cannot make a visitor's browser act with the reviewer key. Nothing from the browser decides who the caller is: the browser's own
  * X-DxP-Key, cookies and authorisation headers are never passed on.
  */
@@ -49,21 +49,51 @@ function isCrossSite(request: NextRequest): boolean {
   }
 }
 
+function mediaType(request: NextRequest): string | undefined {
+  return request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+}
+
 function isJson(request: NextRequest): boolean {
-  const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-  return type === "application/json";
+  return mediaType(request) === "application/json";
+}
+
+/**
+ * V73: the one path that takes a raw audio body instead of JSON. It is matched exactly
+ * (`reports/<id>/interview/transcribe`), never by prefix, so every other POST stays JSON-only.
+ */
+const AUDIO_TYPES = new Set(["audio/webm", "audio/wav"]);
+/** About 2 MB: 30 seconds of webm/opus is far smaller, and 16 kHz mono 16-bit wav is under 1 MB. */
+const AUDIO_MAX_BYTES = 2 * 1024 * 1024;
+
+function isTranscribePath(path: string[]): boolean {
+  return (
+    path.length === 4 &&
+    path[0] === "reports" &&
+    path[1] !== "" &&
+    path[2] === "interview" &&
+    path[3] === "transcribe"
+  );
 }
 
 async function forward(request: NextRequest, ctx: Ctx): Promise<Response> {
+  const { path } = await ctx.params;
+  const audio = request.method === "POST" && isTranscribePath(path);
   if (request.method === "POST") {
     if (isCrossSite(request)) {
       return json(403, "cross_site_blocked", "Cross-site requests are not allowed.");
     }
-    if (!isJson(request)) {
+    if (audio) {
+      if (!AUDIO_TYPES.has(mediaType(request) ?? "")) {
+        return json(415, "unsupported_media_type", "Recordings must be audio/webm or audio/wav.");
+      }
+      const declared = Number(request.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > AUDIO_MAX_BYTES) {
+        return json(413, "payload_too_large", "That recording is too large.");
+      }
+    } else if (!isJson(request)) {
       return json(415, "unsupported_media_type", "POST requests must be application/json.");
     }
   }
-  const { path } = await ctx.params;
   if (path.some((s) => s === "" || s === "." || s === ".." || /[\\/]/.test(s))) {
     return json(400, "bad_path", "That API path is not allowed.");
   }
@@ -76,12 +106,23 @@ async function forward(request: NextRequest, ctx: Ctx): Promise<Response> {
   }
 
   const hasBody = request.method === "POST";
+  let body: BodyInit | undefined;
+  if (audio) {
+    // The audio is forwarded byte for byte and never logged or kept.
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > AUDIO_MAX_BYTES) {
+      return json(413, "payload_too_large", "That recording is too large.");
+    }
+    body = bytes;
+  } else if (hasBody) {
+    body = await request.text();
+  }
   let res: Response;
   try {
     res = await upstreamFetch(upstreamPath, {
       method: request.method,
       headers,
-      body: hasBody ? await request.text() : undefined,
+      body,
     });
   } catch (cause) {
     if (cause instanceof UpstreamConfigError) {
