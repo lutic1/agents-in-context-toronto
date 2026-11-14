@@ -11,6 +11,10 @@ inserted if absent the first time the set is used, so any decision's set can be
 rebuilt later. A run pins the set at start; a Reviewer decision uses the
 current set.
 
+Frozen signatures (A01): `current_grant(grant_id) -> Grant` and
+`current_set() -> PolicySet`. The document-level helpers below take an
+optional `db` so tests and the seed can pass their own database.
+
 Nothing here reads `memories`: a memory never changes authority (V6, AD-28).
 """
 
@@ -21,7 +25,7 @@ from typing import Any
 
 from pymongo.errors import DuplicateKeyError
 
-from dxp import identity
+from dxp.api.models import Grant, PolicySet
 
 GRANTS = "grants"
 POLICIES = "policies"
@@ -29,20 +33,16 @@ POLICY_SETS = "policy_sets"
 
 
 def database(db: Any = None) -> Any:
-    """The database to use: the one given, else the store's.
-
-    Rebase point (A01): `store` is the only client maker; this is the one
-    place A03 reaches for it.
-    """
+    """The database to use: the one given, else the store's (`DXP_DB`)."""
     if db is not None:
         return db
-    from dxp import store  # A01
+    from dxp import store
 
-    return store.db()
+    return store.get_db()
 
 
 def utc(value: datetime | None) -> datetime | None:
-    """PyMongo returns naive UTC datetimes unless the client is tz-aware."""
+    """Datetimes as aware UTC (the store's client is tz-aware; plain clients are not)."""
     if value is None:
         return None
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
@@ -65,23 +65,38 @@ def latest_by(docs: list[dict[str, Any]], id_field: str) -> dict[str, dict[str, 
 # --- Grants -----------------------------------------------------------------
 
 
-def grant_is_active(grant: dict[str, Any] | None, at: datetime | None = None) -> bool:
-    """`active` and `expires_at` in the future (check 1's test, AD-19)."""
-    if not grant or grant.get("status") != "active":
+def _field(grant: Any, name: str) -> Any:
+    return grant.get(name) if isinstance(grant, dict) else getattr(grant, name, None)
+
+
+def grant_is_active(grant: Grant | dict[str, Any] | None, at: datetime | None = None) -> bool:
+    """`active` and `expires_at` in the future (check 1's test, AD-19). Takes a `Grant` or a document."""
+    if not grant or _field(grant, "status") != "active":
         return False
-    expires_at = utc(grant.get("expires_at"))
+    expires_at = utc(_field(grant, "expires_at"))
     return expires_at is not None and expires_at > (at or now())
 
 
-async def current_grant(grant_id: str, db: Any = None) -> dict[str, Any] | None:
-    """The latest version of `grant_id`, whatever its status, or `None`.
+def grant_model(doc: dict[str, Any]) -> Grant:
+    """The AD-14 `Grant` from a stored version (the key hash is not part of it)."""
+    return Grant.model_validate({**doc, "id": doc["_id"]})
 
-    Callers judge it with `grant_is_active()`; the gate records the version it
-    evaluated beside the run's pinned version.
-    """
+
+async def latest_grant(grant_id: str, db: Any = None) -> dict[str, Any] | None:
+    """The latest stored version of `grant_id`, whatever its status, or `None`."""
     cursor = database(db)[GRANTS].find({"grant_id": grant_id}).sort("version", -1).limit(1)
     found = await cursor.to_list(length=1)
     return found[0] if found else None
+
+
+async def current_grant(grant_id: str) -> Grant | None:
+    """Frozen (A01): the latest version of the grant, whatever its status, or `None` if unknown.
+
+    Check 1 judges the status with `grant_is_active()` and records the version
+    it evaluated beside the run's pinned version.
+    """
+    doc = await latest_grant(grant_id)
+    return grant_model(doc) if doc else None
 
 
 async def grant_version(grant_id: str, version: int, db: Any = None) -> dict[str, Any] | None:
@@ -115,11 +130,13 @@ def members_of(policies: list[dict[str, Any]]) -> list[str]:
 
 def policy_set_version(members: list[str]) -> str:
     """`derive("ps_", *sorted members)` (AD-18)."""
+    from dxp import identity  # A02; imported here so the API starts even before A02 merges
+
     return identity.derive("ps_", *sorted(members))
 
 
-async def current_set(db: Any = None) -> dict[str, Any]:
-    """The current policy set, inserted into `policy_sets` if absent.
+async def record_current_set(db: Any = None) -> dict[str, Any]:
+    """The current policy set as its `policy_sets` document, inserted if absent.
 
     Returns `{ _id: policy_set_version, members, created_at }`.
     """
@@ -135,6 +152,15 @@ async def current_set(db: Any = None) -> dict[str, Any]:
     except DuplicateKeyError:  # another caller used the same set first
         return await database_[POLICY_SETS].find_one({"_id": version})
     return doc
+
+
+async def current_set() -> PolicySet:
+    """Frozen (A01): the current policy set; inserts its `policy_sets` document on first use.
+
+    The member documents are `policies_in_set(policy_set.id)`.
+    """
+    doc = await record_current_set()
+    return PolicySet(id=doc["_id"], members=list(doc["members"]), created_at=doc.get("created_at"))
 
 
 async def policy_set(version: str, db: Any = None) -> dict[str, Any] | None:

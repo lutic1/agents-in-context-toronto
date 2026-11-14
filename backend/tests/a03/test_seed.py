@@ -160,11 +160,11 @@ def test_atlas_seed_is_idempotent_and_revocation_blocks(atlas, tmp_path, keys):
             assert first["policy_set_version"] == second["policy_set_version"]
             assert await db["grants"].count_documents({}) == 3
             await seed.new_grant_version(db, "lbdx", "revoked", keys)
-            latest = await policy_sets.current_grant("lbdx", db)
+            latest = await policy_sets.latest_grant("lbdx", db)
             assert latest["_id"] == "lbdx@v2" and not policy_sets.grant_is_active(latest)
             from dxp.api import auth
 
-            agent = await auth.resolve_actor(keys["DXP_AGENT_KEY"], db)
+            agent = await auth.resolve(keys["DXP_AGENT_KEY"], db)
             assert agent.id == "dxp-curator" and agent.actions == []
 
     asyncio.run(body())

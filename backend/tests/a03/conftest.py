@@ -2,9 +2,9 @@
 
 * Puts `backend/` on `sys.path` (A01's `conftest.py` and `pyproject.toml` do this
   once A01 is merged).
-* Until A01 and A02 are on `main`, installs stand-ins for the frozen
-  `dxp.identity` (A02) and `dxp.api.models.Principal` (A01) signatures, built to
-  their written contracts (AD-3, AD-14). When the real modules exist they are used.
+* Until A01 and A02 are on `main`, installs stand-ins for `dxp.identity` (A02,
+  AD-3) and for A01's `dxp.api.models` shapes and `dxp.api.errors.ApiError`, built
+  to their written contracts. When the real modules exist they are used.
 * `FakeDB`: a tiny in-memory async database that enforces each collection's
   `$jsonSchema` on insert (not `$expr`), for tests that need no Atlas.
 * `atlas`: an Atlas-backed test database, used only when `MONGODB_URI` is set
@@ -55,18 +55,103 @@ if not _has("dxp.identity"):  # A02 not merged yet: its frozen signatures (AD-3)
     identity.normalise_name = normalise_name
     sys.modules["dxp.identity"] = identity
 
-if not _has("dxp.api.models"):  # A01 not merged yet: the AD-14 Principal shape
+if not _has("dxp.api.models"):  # A01 not merged yet: the AD-14 shapes A03 returns (A01 PR #16)
+    from datetime import datetime
+    from typing import Literal
+
     from pydantic import BaseModel
 
     class Principal(BaseModel):
         id: str
         name: str
-        kind: str
-        actions: list[str]
+        kind: Literal["agent", "person", "seed"]
+        actions: list[str] = []
+
+    class GrantScope(BaseModel):
+        diagnostic_ids: list[str] = []
+        scope_id: str | None = None
+
+    class GrantScopeAll(BaseModel):
+        all: Literal[True]
+
+    class GrantLimits(BaseModel):
+        max_results: int
+
+    class Grant(BaseModel):
+        id: str
+        grant_id: str
+        version: int
+        principal: str
+        kind: Literal["agent", "person", "seed", "task"]
+        acting_for: str | None = None
+        granted_by: str | None = None
+        startable_by: list[str] = []
+        team_id: str | None = None
+        team_name: str | None = None
+        scope: GrantScope | GrantScopeAll
+        destinations: list[str] = []
+        actions: list[str] = []
+        limits: GrantLimits | None = None
+        task_id: str | None = None
+        expires_at: datetime | None = None
+        status: Literal["active", "revoked", "expired"]
+        created_at: datetime | None = None
+
+    class PolicyRequires(BaseModel):
+        quote_found: bool | None = None
+        supported: bool | None = None
+        min_confidence: float | None = None
+        claim_checks: list[str] = []
+
+    class Policy(BaseModel):
+        id: str
+        policy_id: str
+        version: int
+        status: Literal["draft", "active", "retired"]
+        applies_to: list[str] = []
+        requires: PolicyRequires
+        text: str
+        author: str | None = None
+        approved_by: str | None = None
+        created_at: datetime | None = None
+
+    class PolicySet(BaseModel):
+        id: str
+        members: list[str]
+        created_at: datetime | None = None
+
+    class GrantList(BaseModel):
+        items: list[Grant]
+        next: str | None = None
+
+    class PolicyList(BaseModel):
+        items: list[Policy]
+        policy_set_version: str | None = None
 
     models = types.ModuleType("dxp.api.models")
-    models.Principal = Principal
+    for shape in (Principal, Grant, Policy, PolicySet, GrantList, PolicyList):
+        setattr(models, shape.__name__, shape)
     sys.modules["dxp.api.models"] = models
+
+if not _has("dxp.api.errors"):  # A01 not merged yet: ApiError and the one error shape
+    from fastapi.responses import JSONResponse
+
+    errors = types.ModuleType("dxp.api.errors")
+
+    class ApiError(Exception):
+        def __init__(self, status_code: int, code: str, message: str) -> None:
+            super().__init__(message)
+            self.status_code, self.code, self.message = status_code, code, message
+
+    async def _api_error(_request: Any, exc: ApiError) -> JSONResponse:
+        return JSONResponse({"error": {"code": exc.code, "message": exc.message}}, status_code=exc.status_code)
+
+    def install_error_handlers(app: Any) -> None:
+        app.add_exception_handler(ApiError, _api_error)
+
+    errors.ApiError = ApiError
+    errors.install_error_handlers = install_error_handlers
+    sys.modules["dxp.api.errors"] = errors
 
 
 # --- In-memory database ---------------------------------------------------------

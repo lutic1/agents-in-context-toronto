@@ -32,21 +32,32 @@ from . import (
     tasks,
 )
 
-VALIDATORS: dict[str, dict[str, Any]] = {
-    "grants": grants.VALIDATOR,
-    "policies": policies.VALIDATOR,
-    "policy_sets": policy_sets.VALIDATOR,
-    "research_scopes": research_scopes.VALIDATOR,
-    "runs": runs.VALIDATOR,
-    "admissions": admissions.VALIDATOR,
-    "decisions": decisions.VALIDATOR,
-    "actions": actions.VALIDATOR,
-    "proposals": proposals.VALIDATOR,
-    "reports": reports.VALIDATOR,
-    "memories": memories.VALIDATOR,
-    "tasks": tasks.VALIDATOR,
-    "media": media.VALIDATOR,
-    "source_versions": source_versions.VALIDATOR,
+_MODULES = {
+    "grants": grants,
+    "policies": policies,
+    "policy_sets": policy_sets,
+    "research_scopes": research_scopes,
+    "runs": runs,
+    "admissions": admissions,
+    "decisions": decisions,
+    "actions": actions,
+    "proposals": proposals,
+    "reports": reports,
+    "memories": memories,
+    "tasks": tasks,
+    "media": media,
+    "source_versions": source_versions,
+}
+
+# The bare `$jsonSchema` documents, by collection: what A01's `store.ensure_indexes()`
+# wraps as `{"$jsonSchema": ...}`.
+VALIDATORS: dict[str, dict[str, Any]] = {name: module.JSON_SCHEMA for name, module in _MODULES.items()}
+
+# Cross-field rules `$jsonSchema` cannot say (`_id` == `<id>@v<version>`, a task
+# grant's one-hour expiry and its ID tied to its task). They apply only where the
+# full `validator(name)` is used (`apply()`, and `ensure_indexes()` once it does).
+EXPRESSIONS: dict[str, dict[str, Any]] = {
+    name: module.VALIDATOR["$expr"] for name, module in _MODULES.items() if "$expr" in module.VALIDATOR
 }
 
 COLLECTIONS: tuple[str, ...] = tuple(VALIDATORS)
@@ -57,13 +68,13 @@ VALIDATION_ACTION = "error"
 
 def validator(name: str) -> dict[str, Any]:
     """The full validator document (`$jsonSchema`, and `$expr` where one applies)."""
-    return VALIDATORS[name]
+    return _MODULES[name].VALIDATOR
 
 
 def collection_options(name: str) -> dict[str, Any]:
     """Keyword arguments for `db.create_collection(name, **options)`."""
     return {
-        "validator": VALIDATORS[name],
+        "validator": validator(name),
         "validationLevel": VALIDATION_LEVEL,
         "validationAction": VALIDATION_ACTION,
     }

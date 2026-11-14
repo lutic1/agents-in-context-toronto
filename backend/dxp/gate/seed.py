@@ -192,7 +192,7 @@ async def _insert_if_absent(collection: Any, doc: dict[str, Any], ignore: tuple[
 
 async def check_seed_authority(db: Any, env: Mapping[str, str]) -> None:
     """Once `seed@v1` exists, only its own key may run the seed, and only while it is active."""
-    seed_grant = await policy_sets.current_grant("seed", db)
+    seed_grant = await policy_sets.latest_grant("seed", db)
     if seed_grant is None:
         return  # first run: this run creates the seed grant
     key_hash = hash_key(env.get(SEED_KEY_VAR, ""))
@@ -221,7 +221,7 @@ async def seed(db: Any, env: Mapping[str, str] | None = None, data_dir: Path = S
         summary["research_scopes"][scope["_id"]] = await _insert_if_absent(
             db["research_scopes"], scope, ("created_at", "cursor")
         )
-    current = await policy_sets.current_set(db)
+    current = await policy_sets.record_current_set(db)
     summary["policy_set"] = policy_sets.display_policy_set(current["_id"], len(current["members"]))
     summary["policy_set_version"] = current["_id"]
     summary["members"] = list(current["members"])
@@ -240,7 +240,7 @@ async def new_grant_version(
         raise SeedError("status must be revoked or expired.")
     env = os.environ if env is None else env
     await check_seed_authority(db, env)
-    latest = await policy_sets.current_grant(grant_id, db)
+    latest = await policy_sets.latest_grant(grant_id, db)
     if latest is None:
         raise SeedError(f"No grant {grant_id}.")
     at = policy_sets.now()
