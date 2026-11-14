@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Hosted memory-only project: one-time setup
 
 Source: https://www.mongodb.com/docs/agentengine/add-features/memory-only/ (checked 12 November 2026). Do this before the hackathon day. It needs a browser sign-in and interactive secret prompts, so a human runs it, not an unattended agent.

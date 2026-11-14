@@ -5,7 +5,9 @@ description: Claude API from Python for DxP - model IDs and prices, the fast tri
 
 # Claude API for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 ## Verified
 
@@ -25,8 +27,8 @@ Yes, with a concurrency cap, if the organisation is on the Start tier or above. 
 - Start tier gives Haiku 5.5 and Sonnet 5.5 each 4,000 requests, 2,000,000 uncached input tokens and 400,000 output tokens per minute. Each model has its own limits.
 - The binding limit is output tokens. Extraction of 500 items is about 1M output tokens (estimate, thinking included), so it cannot finish in under about three minutes at Start tier.
 - Use `asyncio.Semaphore(16)` and `max_retries=5`. Go to 32 only after 50 items run with no 429. Never send 500 requests at once: a ramp limit returns 429 for a sharp increase in usage even under the per-minute limits.
-- Expected time at 16 (estimate, measure on 20 items first): triage about 2 minutes, extraction 5 to 10 minutes. Run the Baseline load before recording and only the small Held-back set inside the three-minute video.
-- New organisations can start in an Evaluation tier with lower limits that are not published. On Friday open `https://platform.claude.com/usage/limits`, read the tier, and run `preflight()` from `references/runner.md` (PRD section 8, Model limits). If the limits are too low, use "Request tier increase" on that page, or run the Baseline load through the Message Batches API.
+- Expected time at 16 (estimate, measure on 20 items first): triage about 2 minutes, extraction 5 to 10 minutes. On Saturday only the selected set of 20 trials runs (see `development-plan.md`); the Baseline load and the old three-minute recorded video are deferred (the 3-minute live demo is in scope).
+- New organisations can start in an Evaluation tier with lower limits that are not published. On Friday open `https://platform.claude.com/usage/limits`, read the tier, and run `preflight()` from `references/runner.md` (PRD section 8, Model limits). If the limits are too low, use "Request tier increase" on that page.
 - Message Batches API: half price and separate limits, but asynchronous. Most batches finish within 1 hour and a batch can take 24 hours. No per-item live progress. Do not use it for the live demo. See `references/batches.md`.
 
 Tier tables, response headers and 429 variants: `references/rate-limits.md`.
@@ -177,7 +179,7 @@ Effort: `low` on Haiku 5.5 is the documented level for simple high-volume reques
 
 A value with `quote_check == "fail"` is stored but never displayed (FR-18, FR-7). For quotes that are word for word by construction, and for the "quote supports the value" check, see `references/citations.md`.
 
-Parallel runner (`run_batch`, `process`), `preflight()` and `count_tokens()`: copy them from `references/runner.md`. The runner caps concurrency with a semaphore, sends the first call alone so the prompt cache exists for the rest, reports live counts for FR-4, and gives 429, 5xx and network failures one slower second sweep.
+Parallel runner (`run_batch`, `process`), `preflight()` and `count_tokens()`: the reference implementation in `references/runner.md` shows the approach; write your own during the event. The reference runner caps concurrency with a semaphore, sends the first call alone so the prompt cache exists for the rest, reports live counts for FR-4, and gives 429, 5xx and network failures one slower second sweep.
 
 Confirm caching works: from the second call of a pass, `resp.usage.cache_read_input_tokens` is above zero.
 
@@ -216,9 +218,9 @@ Prices per million tokens, standard API:
 
 ## Fallback
 
-- Limits too low or persistent 429: set concurrency to 4 and process the Held-back set and the gold set only. Show the Baseline load from results stored earlier in the day, and say so.
+- Limits too low or persistent 429: set concurrency to 4 and process the selected set one item at a time. (The Baseline load is deferred on Saturday.)
 - One model overloaded: change the model constant. Sonnet 5.5, Opus 5.5 and Haiku 5.5 have separate limits. Haiku 5.5 at `effort="high"` can stand in for extraction.
-- API unreachable during recording: replay stored extraction results from MongoDB and disclose it. The live memory write and Learned rule (PRD section 8) need only one or two calls, so record those when the API answers.
+- API unreachable during recording: replay stored extraction results from MongoDB and disclose it. (The memory write and Learned rule are deferred on Saturday.)
 
 ## Links
 

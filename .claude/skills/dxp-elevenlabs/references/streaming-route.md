@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Live streaming from a Next.js route (TypeScript)
 
 Checked 12 November 2026 with `@elevenlabs/elevenlabs-js` 2.78.0. Use this only if audio must be generated on request. The cached Python path in SKILL.md is the default for DxP.

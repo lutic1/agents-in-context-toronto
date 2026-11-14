@@ -1,8 +1,10 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Two-pass item graph and batch fan-out (FR-4, FR-5, FR-18)
 
 Verified 2026-11-12 against langgraph 1.2.21, langchain 1.5.0, langchain-anthropic 1.7.10. Every LangGraph and LangChain call below appears on an official page listed in SKILL.md. Nodes are sync so the same code runs under LangGraph's own fan-out and under Modal's thread-based `.map` (see `dxp-modal`).
 
-Five files. Copy them as they are, then replace the bodies in `store.py` with MongoDB calls.
+The reference implementation below, in five files, shows the approach; write your own during the event. In it, `store.py` is a stand-in whose bodies would be MongoDB calls.
 
 ## dxp/models.py
 

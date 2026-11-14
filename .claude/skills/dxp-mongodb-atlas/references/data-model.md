@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # DxP data model and write patterns (FR-3, FR-4, FR-11, FR-15, FR-16, FR-17)
 
 Operators and methods used here were checked on 12 November 2026 against the MongoDB manual and the PyMongo 4.19 API reference. The shape itself is a proposal for architecture to confirm.

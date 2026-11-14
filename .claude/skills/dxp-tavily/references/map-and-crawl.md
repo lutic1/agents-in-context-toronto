@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Tavily Map and Crawl
 
 Checked 12 November 2026 against the Crawl and Map API references and the `tavily-python` 0.8.5 source. DxP's default is one search per provider (pattern 2 in SKILL.md), which costs far less. Use map or crawl only when a provider's site has to be walked page by page.

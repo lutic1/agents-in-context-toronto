@@ -5,7 +5,9 @@ description: LangGraph 1.x (Python) orchestration and LangSmith tracing for DxP 
 
 # LangGraph and LangSmith for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 ## Verified
 
@@ -41,7 +43,7 @@ Pages used: docs.langchain.com `oss/python/langgraph/` {`graph-api`, `graph-api-
 - **FR-4** batch of 300 to 500 Source items: `Send` fan-out, `max_concurrency`, per-item error capture.
 - **FR-5, FR-18** fixed-format extraction with a quote per field, then a word-for-word quote check: two-pass item graph.
 - **FR-15, FR-16, FR-17** Proposed change held for a Reviewer: `interrupt()` in a checkpointed graph, resumed with accept, edit or reject.
-- **FR-19** Learned rule: second pause in the same thread, where the Reviewer confirms the drafted rule.
+- **FR-19** Learned rule: deferred on Saturday; do not build it.
 - **FR-1** unattended scan: the same graphs called from a Modal function or cron.
 - **SM-2** the trace shown on camera: LangSmith run names, tags and a public share link.
 

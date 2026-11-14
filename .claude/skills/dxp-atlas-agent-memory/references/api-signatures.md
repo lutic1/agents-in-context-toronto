@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # `agent-engine-sdk-memory` API: signatures used by DxP
 
 Source: the `agent_engine_sdk_memory.memory` API reference and the 0.11.14 wheel (checked 12 November 2026). All methods are synchronous. Import everything from the package root:

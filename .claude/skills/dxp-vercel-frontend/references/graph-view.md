@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Graph view (FR-26, FR-27)
 
 Checked 12 November 2026. The TypeScript below type-checks (tsc 5.9, strict) against `react-force-graph-2d` 1.29.2, `@types/react` 19.3.0 and the `next/dynamic` types of Next.js 16.4.6. It was not run in a browser.

@@ -1,11 +1,15 @@
 ---
 name: dxp-heygen
-description: Produce the two short HeyGen presenter clips (intro and close) for the DxP three-minute demo video, through the HeyGen web app or the HeyGen API v3. Load when a task mentions HeyGen, avatar video, talking presenter, HEYGEN_API_KEY, api.heygen.com, /v3/videos, or the demo video intro and close.
+description: DEFERRED (not in the Saturday plan; no clips are made). Reference for producing the two short HeyGen presenter clips (intro and close) for the old DxP three-minute recorded video, through the HeyGen web app or the HeyGen API v3. Load when a task mentions HeyGen, avatar video, talking presenter, HEYGEN_API_KEY, api.heygen.com, /v3/videos, or the demo video intro and close.
 ---
 
 # HeyGen for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Deferred (readiness fix D55). Not in the plan: no HeyGen clips are made.** The submission is a 60-second video and a 3-minute live demo, and neither uses a HeyGen presenter. Do not create a HeyGen account, buy credits or render anything on Saturday. Everything below is kept as reference for later only.
+
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 ## Verified
 Checked 12 November 2026 against official pages only. API **v3**, base URL `https://api.heygen.com`, auth header `X-Api-Key`. No SDK: the docs use plain HTTP. Pages: developers.heygen.com (`docs/quick-start`, `docs/api-key`, `endpoint-version-comparison`, `generate-avatar-video`, `models`, `docs/usage-limits`, `docs/error-codes`, `docs/for-ai-agents`, `reference/create-video`, `reference/get-video`, `reference/list-avatar-looks`, `reference/list-audio-voices`); heygen.com (`pricing`, `faq`, `moderation-policy`, `terms` last updated 16 Oct 2026); help.heygen.com articles 10060327 (API pricing), 15126059 (credits), 15125761 (plans), 9655503 (processing times), 12903996 (Quick Avatar Video), 11381771 (scripts), 11395771 (EU AI Act).
@@ -14,15 +18,15 @@ Checked 12 November 2026 against official pages only. API **v3**, base URL `http
 - **API v1 and v2 are gone.** They passed their sunset on 31 October 2026 and are being removed. Code from memory (`POST /v2/video/generate`, `GET /v1/video_status.get`, `GET /v2/avatars`, `GET /v2/voices`) fails or fails intermittently. Use only the v3 calls below.
 - **The Free plan cannot be used for this video.** Free output is watermarked, limited to 3 videos a month (1 to 3 by region), 1 minute each, 720p, 1 render at a time at "Standard" speed, and the terms license it only for "personal, non-commercial, and internal evaluation purposes" and forbid redistribution. A public submission needs Creator (US$29 a month; paid plans own their output and may use it commercially) or a funded API wallet (from US$5).
 - **There are no free API credits** (ended February 2026). API credits are a separate pay-as-you-go wallet; web plan credits do not pay for API-key calls.
-- **Do not plan to render in the final hour.** The API docs say most videos finish in 1 to 5 minutes and the help centre says about 10 minutes per minute of video, "often much faster". The same help page says the regular queue averages "just under 24h" on weekdays (faster at weekends) and that higher tiers get priority. Both scripts are known in advance, so render both clips on Saturday morning and keep the MP4s. Use the last hour only for a re-render, with the fallback ready.
+- **Do not plan to render in the final hour.** The API docs say most videos finish in 1 to 5 minutes and the help centre says about 10 minutes per minute of video, "often much faster". The same help page says the regular queue averages "just under 24h" on weekdays (faster at weekends) and that higher tiers get priority. If this skill is ever revived after the hackathon, render clips well ahead of any deadline and keep the MP4s; use the last hour only for a re-render, with the fallback ready. On Saturday 14 November nothing is rendered: the skill is deferred.
 - HeyGen is outside the product. Nothing in the app, the agents or the data path may call it.
 
 ## What DxP uses it for
-- No FR. It serves the submission: SM-1 (three-minute video) and SM-7 (the video opens with the one-line novelty claim from PRD §1).
+- Nothing on Saturday: deferred (readiness fix D55). It was written for the old three-minute recorded video, which is also deferred; the submission now has a 60-second video (SM-1, SM-2) and a 3-minute live demo, with no presenter clips.
 - PRD §8 still applies: the avatar only opens and closes. It never stands in for the live memory write and read or the live Learned rule.
 
 ## Setup
-Pick one route before Saturday and test it once end to end.
+Deferred: no route is set up for Saturday. If revived later, pick one route and test it once end to end.
 - **Web app, Quick Avatar Video** (default): needs a Creator plan and a browser. No code; avatar and voice are chosen by eye and ear.
 - **API v3 script**: needs an API wallet of at least US$5 and `HEYGEN_API_KEY`. Use it only if the script has already produced one clip.
 - API key: create at `https://platform.heygen.com/api-keys`, then `export HEYGEN_API_KEY=...` in the shell. Never paste it into chat or commit it.

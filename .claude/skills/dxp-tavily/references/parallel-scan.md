@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Scanning many providers in parallel (FR-4)
 
 Checked 12 November 2026 against the Search best-practices page and the `tavily-python` 0.8.5 source. `AsyncTavilyClient` has the same methods and arguments as `TavilyClient`, uses `httpx`, and has an async `close()`.

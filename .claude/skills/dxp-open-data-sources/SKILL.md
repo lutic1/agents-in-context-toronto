@@ -5,7 +5,9 @@ description: The open public sources DxP ingests for lung cancer diagnostics (Cl
 
 # Open data sources for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 | Source | What DxP takes | Access | Key | Rate limit | Licence or terms | Open data only |
 |---|---|---|---|---|---|---|
@@ -66,7 +68,7 @@ Environment variable names (the code's own names; the services take them as URL 
 
 ## Core patterns
 
-Complete tested code: `references/fetchers.md` (`dxp_sources.py`: `fetch_ctgov`, `fetch_pubmed`, `fetch_fda_cdx`, `fetch_openfda_pma`, `quote_in_source`) and `references/vocabularies.md` (`dxp_vocab.py`). Each fetcher pages through the source and returns plain dictionaries:
+Reference only, written before the event: `references/fetchers.md` and `references/vocabularies.md` show how the source APIs page and what they return. Do not copy their code into the project; write the fetchers during the event (PubMed and openFDA are deferred on Saturday). Each fetcher pages through the source and returns plain dictionaries:
 
 ```python
 {"source": "clinicaltrials.gov", "source_item_id": "NCT05925530",
@@ -193,9 +195,9 @@ So the match key cannot be an external ID. Workable inputs for architecture: nor
 
 ## Fallback
 
-- Before the event, run the fetchers once and save each list as JSON Lines. Event rules require data prepared beforehand to be disclosed: say so in the demo.
-- ClinicalTrials.gov, FDA and openFDA snapshots may be committed, with the source and fetch date. Keep the PubMed snapshot out of the public repository (commit the PMID list and re-fetch).
-- If a source is down on the day, load its snapshot and filter on `dates.split_date` in Python: at or before `2026-10-16` for the Baseline load, after it for the Held-back set.
+- Snapshots downloaded before the event are in `data/`, with the scripts in `scripts/data/`. They are disclosed in the README and are not loaded, run or copied on Saturday 14 November unless an organiser clears them in writing. The build fetches the selected trials and the FDA list during the event.
+- Keep any PubMed text out of the public repository (commit the PMID list and re-fetch).
+- If a source is down on the day and an organiser has cleared the snapshots in writing, filter a snapshot on `dates.split_date`: at or before `2026-10-16` for the Baseline load, after it for the Held-back set. Without that clearance, retry the live source.
 - If ClinicalTrials.gov paging fails, one call with `pageSize=1000` returns the whole default set.
 - If the FDA page layout changes, `fetch_fda_cdx` raises on the header check; fall back to openFDA `device/pma` for the 22 lung PMA numbers.
 

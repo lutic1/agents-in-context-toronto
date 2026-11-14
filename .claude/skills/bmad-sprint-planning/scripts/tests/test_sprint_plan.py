@@ -402,6 +402,55 @@ def test_status_malformed_action_items_are_flagged_not_dropped(tmp_path, capsys)
     assert len(result["open_action_items"]) == 1
 
 
+OWNERS_BLOCK = """
+owners:
+  1-2-account-management:
+    owner: "A"
+    scope: deferred
+  2-1-personality-system:
+    owner: "B"
+    scope: core
+"""
+
+
+def test_status_never_recommends_deferred_stories(tmp_path, capsys):
+    result = run_status(tmp_path, capsys, fixture=STATUS_FIXTURE + OWNERS_BLOCK)
+    assert result["recommendation"]["story_key"] == "2-1-personality-system"
+    assert result["deferred_stories"] == ["1-2-account-management"]
+
+
+def test_status_only_deferred_left_is_not_a_build_recommendation(tmp_path, capsys):
+    fixture = STATUS_FIXTURE.replace("2-1-personality-system: backlog", "2-1-personality-system: done")
+    result = run_status(tmp_path, capsys, fixture=fixture + OWNERS_BLOCK)
+    assert result["recommendation"]["skill"] is None
+    assert "deferred" in result["recommendation"]["reason"]
+
+
+def test_status_core_before_supporting_and_stretch(tmp_path, capsys):
+    fixture = STATUS_FIXTURE.replace("1-2-account-management: drafted", "1-2-account-management: backlog")
+    owners = OWNERS_BLOCK.replace("scope: deferred", "scope: stretch")
+    result = run_status(tmp_path, capsys, fixture=fixture + owners)
+    assert result["recommendation"]["story_key"] == "2-1-personality-system"
+
+
+def test_status_rejects_unknown_scope(tmp_path, capsys):
+    status_file = tmp_path / "sprint-status.yaml"
+    status_file.write_text(STATUS_FIXTURE + OWNERS_BLOCK.replace("scope: core", "scope: cor"), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        mod.main(["status", "--status-file", str(status_file), "--date", DATE])
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is False and out["keys"][0]["scope"] == "cor"
+
+
+def test_validate_flags_unknown_scope(tmp_path, capsys):
+    status_file = tmp_path / "sprint-status.yaml"
+    status_file.write_text(STATUS_FIXTURE + OWNERS_BLOCK.replace("scope: core", "scope: cor"), encoding="utf-8")
+    mod.main(["validate", "--status-file", str(status_file)])
+    out = json.loads(capsys.readouterr().out)
+    assert out["valid"] is False
+    assert any("unknown scope" in p for p in out["problems"])
+
+
 def test_status_review_beats_ready(tmp_path, capsys):
     fixture = STATUS_FIXTURE.replace("2-1-personality-system: backlog", "2-1-personality-system: review")
     result = run_status(tmp_path, capsys, fixture=fixture)

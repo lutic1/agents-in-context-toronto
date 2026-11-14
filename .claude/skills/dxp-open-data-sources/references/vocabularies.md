@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Reference vocabularies for FR-9
 
 Checked on 12 November 2026. All four pass the "open data only" rule. Load each once at start-up and keep it in MongoDB; do not call these services per Source item.

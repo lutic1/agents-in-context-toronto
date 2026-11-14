@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Live updates in the browser (FR-27, FR-13, FR-4)
 
 Checked 12 November 2026. TypeScript type-checked against `@types/react` 19.3.0; not run in a browser. The Python is a sketch of the contract; the working Modal code is in the `dxp-modal` skill.

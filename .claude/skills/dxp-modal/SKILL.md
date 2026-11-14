@@ -5,7 +5,9 @@ description: Modal for DxP - hosting the Python agents, the parallel batch over 
 
 # Modal for DxP
 
-> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Read its Precedence paragraph before copying an example from here.
+> **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
+>
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
 
 ## Verified
 
@@ -31,7 +33,7 @@ Checked 12 November 2026 against the official docs and PyPI.
 
 - **FR-1** Unattended scan: a `modal.Cron` function in the deployed App, plus a manual trigger route.
 - **FR-4** Batch of 300 to 500 Source items in parallel with a live count of processed, failed and Early research.
-- **FR-30** Baseline load and Held-back set: two calls of the same batch function with different item lists.
+- **FR-30** Baseline load and Held-back set: deferred on Saturday. Only the selected set of 20 trials runs (see `development-plan.md`).
 - **FR-3, FR-5, FR-15, FR-18** run inside `process_item` (the LangGraph graph); Modal only supplies the containers, secrets and retries.
 - **PRD section 8, Unattended operation:** nothing here depends on a laptop staying open once deployed.
 
@@ -297,7 +299,7 @@ Full table and the arithmetic: [references/reference.md](references/reference.md
 2. Stream trouble: switch the front end to polling `GET /batches/{id}`. Same data, no long request.
 3. Modal batch misbehaves: run the same code on a laptop. `process_item.local(batch_id, item_id)` calls the plain function with no Modal configuration applied; wrap it in a `concurrent.futures.ThreadPoolExecutor`, install the image's packages locally and export the secrets as environment variables. The progress document and the UI are unchanged because progress lives in MongoDB.
 4. Modal web endpoint down: keep the FastAPI construction in a plain function so that a local ASGI server can serve the same app (the exact local command is UNVERIFIED here), and point the front end's API URL at it.
-5. Cron does not fire on camera: press "run now" in the dashboard or `POST /scans`, and say so. Run the Baseline load before the demo regardless; only the Held-back set needs to run live.
+5. Cron does not fire on camera: start the run by hand and say so. (The Baseline load is deferred on Saturday; only the selected set runs live.)
 
 ## Links
 

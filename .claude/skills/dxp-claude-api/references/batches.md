@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Message Batches API
 
 Source: https://platform.claude.com/docs/en/build-with-claude/batch-processing, checked 2026-11-12. The code reuses `EXTRACT_MODEL`, `EXTRACT_PROMPT`, `Extraction`, `item_message` and `quote_in_source` from SKILL.md.

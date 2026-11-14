@@ -1,6 +1,8 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Parallel runner, preflight and token counting
 
-Add these to the module in SKILL.md. They reuse `client`, `TRIAGE_MODEL`, `EXTRACT_MODEL`, `ItemFailed`, `system_blocks`, `item_message`, `triage` and `extract`. SDK behaviour checked against `anthropic` 2.8.0 on 2026-11-12.
+These extend the reference module in SKILL.md and show the approach; write your own during the event. They use `client`, `TRIAGE_MODEL`, `EXTRACT_MODEL`, `ItemFailed`, `system_blocks`, `item_message`, `triage` and `extract`. SDK behaviour checked against `anthropic` 2.8.0 on 2026-11-12.
 
 ## Runner (FR-4)
 

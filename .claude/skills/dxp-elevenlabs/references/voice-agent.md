@@ -1,3 +1,5 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # ElevenLabs prize options and the voice agent
 
 Checked 12 November 2026. The event page states no criteria for "Best Project Built with ElevenLabs", so the aim is visible, meaningful use of ElevenLabs in the product, not only in the video.

@@ -29,17 +29,17 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-13-2026 23:40
-last_updated: 11-14-2026 00:30
+last_updated: 11-14-2026 05:30
 project: DxProvida (DxP)
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: backlog
-  1-1-api-contract-stub-read-model-and-change-feed: backlog
+  1-1-api-contract-stub-schema-route-and-record-read-model: backlog
   1-2-fda-authorised-lung-diagnostics-and-synthetic-teams-seeded-t: backlog
   1-3-browse-diagnostics-and-open-a-record-with-its-evidence: backlog
-  1-4-load-the-downloaded-source-items-into-mongodb: backlog
+  1-4-fetch-the-selected-trials-into-mongodb: backlog
   1-5-extract-a-finding-from-one-source-item-with-a-quote-for-ever: backlog
   1-6-the-ledger-files-findings-without-duplicates-and-keeps-the-s: backlog
   1-7-run-a-batch-of-source-items-in-parallel-as-one-job: backlog
@@ -100,14 +100,14 @@ development_status:
   8-1-deploy-a-walking-skeleton-to-production: backlog
   8-2-rehearse-the-live-run: backlog
   8-3-submission-package: backlog
-  8-4-three-minute-demo-video: backlog
+  8-4-60-second-video-submission-and-live-demo: backlog
   epic-8-retrospective: optional
 
   epic-9: backlog
   9-1-runs-and-identity: backlog
   9-2-grants-and-versioned-policies-in-atlas: backlog
   9-3-policy-gate-before-every-action: backlog
-  9-4-external-action-an-evidence-review-issue-in-github: backlog
+  9-4-external-action-a-slack-alert-for-diagnostic-evidence: backlog
   9-5-stop-control: backlog
   9-6-audit-reconstruction: backlog
   9-7-run-console: backlog
@@ -116,13 +116,10 @@ development_status:
   9-10-spoken-audit-briefing: backlog
   9-11-rejection-drafts-a-policy-for-explicit-approval: backlog
   epic-9-retrospective: optional
-
-# Who builds each story, its PR IDs and its scope after the 13 Nov pivot
-# (cards in _bmad-output/planning-artifacts/development-plan.md; deferred stories are not built on Saturday)
 owners:
-  1-1-api-contract-stub-read-model-and-change-feed:
+  1-1-api-contract-stub-schema-route-and-record-read-model:
     owner: "Luis"
-    prs: "A01"
+    prs: "A01, A18"
     scope: core
   1-2-fda-authorised-lung-diagnostics-and-synthetic-teams-seeded-t:
     owner: "Luis"
@@ -131,8 +128,8 @@ owners:
   1-3-browse-diagnostics-and-open-a-record-with-its-evidence:
     owner: "Vlad"
     prs: "B01, B04"
-    scope: supporting
-  1-4-load-the-downloaded-source-items-into-mongodb:
+    scope: core
+  1-4-fetch-the-selected-trials-into-mongodb:
     owner: "Luis"
     prs: "A05"
     scope: core
@@ -175,15 +172,15 @@ owners:
   2-2-reviewer-queue-of-proposed-changes:
     owner: "Luis"
     prs: "A14"
-    scope: supporting
+    scope: core
   2-3-accept-edit-or-reject-a-proposed-change-keeping-the-history:
     owner: "Luis"
-    prs: "A14"
-    scope: supporting
+    prs: "A14, A06"
+    scope: core
   2-4-review-screen:
     owner: "Vlad"
     prs: "B04"
-    scope: supporting
+    scope: core
   2-5-value-history-on-the-record-page:
     owner: "Vlad"
     prs: ""
@@ -292,9 +289,9 @@ owners:
     owner: "Vlad"
     prs: "B07"
     scope: core
-  8-4-three-minute-demo-video:
+  8-4-60-second-video-submission-and-live-demo:
     owner: "Luis and Vlad"
-    prs: "B07"
+    prs: "B07, R1"
     scope: core
   9-1-runs-and-identity:
     owner: "Luis"
@@ -308,7 +305,7 @@ owners:
     owner: "Luis"
     prs: "A06, I1"
     scope: core
-  9-4-external-action-an-evidence-review-issue-in-github:
+  9-4-external-action-a-slack-alert-for-diagnostic-evidence:
     owner: "Luis"
     prs: "A09, I1"
     scope: core
@@ -343,19 +340,25 @@ owners:
 
 # Open items
 action_items:
-  - epic: 9
-    action: "Confirm the Atlas Sandbox features as soon as access arrives: change streams, Vector Search, Agent Memory preview, Automated Embedding"
-    owner: "Luis"
-    status: open
   - epic: 8
-    action: "Confirm with organisers 9:00 to 10:45: the 17:00 deadline, whether any coding may start before 10:45, how to present prepared material"
+    action: "Confirm with organisers 9:00 to 10:45: the 17:00 deadline, no coding
+      before 10:45, how to present prepared material, and whether the prepared data/
+      files and logo are cleared (record in docs/clearance.md)"
     owner: "Luis"
     status: open
   - epic: 9
-    action: "Create repo dxp-review-sandbox and a fine-grained token restricted to it (issues only), stored in .env, before 10:45"
+    action: "When Atlas Sandbox access arrives: confirm change streams, and that mongodump/mongorestore
+      work against it for the demo reset"
+    owner: "Luis"
+    status: open
+  - epic: 9
+    action: "Keep SLACK_WEBHOOK_URL only in .env and the Modal secret; set DXP_BASE_URL
+      to the production URL during A04 and confirm both Slack alert links resolve"
     owner: "Luis"
     status: open
   - epic: 8
-    action: "A story is done only when all its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox (I1, then I2); until then it stays review"
+    action: "A story is done only when all its PRs have merged and its acceptance
+      criteria pass on the integrated build on the Atlas Sandbox (I1, then I2); until
+      then it stays review"
     owner: "Luis and Vlad"
     status: open

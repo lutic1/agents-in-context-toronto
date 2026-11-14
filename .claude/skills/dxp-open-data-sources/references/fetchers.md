@@ -1,6 +1,8 @@
+> Reference only. Do not copy this code into the project; it was written before the event.
+
 # Fetchers: `dxp_sources.py`
 
-Tested on 12 November 2026 against the live public endpoints (Python 3.9, standard library only, no install step). Copy the block below into the backend as `dxp_sources.py`. It needs `NCBI_EMAIL` in the environment; `NCBI_TOOL`, `NCBI_API_KEY` and `OPENFDA_API_KEY` are optional.
+Tested on 12 November 2026 against the live public endpoints (Python 3.9, standard library only, no install step). The reference implementation below (`dxp_sources.py`) shows the approach; write your own fetchers during the event. It needs `NCBI_EMAIL` in the environment; `NCBI_TOOL`, `NCBI_API_KEY` and `OPENFDA_API_KEY` are optional.
 
 Every fetcher returns a list of plain dictionaries with the same shape:
 

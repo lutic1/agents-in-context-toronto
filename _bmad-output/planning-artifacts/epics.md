@@ -1,6 +1,6 @@
 ---
 status: final
-updated: 2026-11-13
+updated: 2026-11-14
 stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
@@ -11,6 +11,8 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-designs/ux-agents-in-context-toronto-2026-11-13/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-agents-in-context-toronto-2026-11-13/EXPERIENCE.md
   - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
+  - _bmad-output/planning-artifacts/readiness-fixes-2026-11-14.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-14-slack.md
 ---
 
 # DxProvida (DxP) - Epic Breakdown
@@ -19,13 +21,19 @@ inputDocuments:
 
 This document provides the complete epic and story breakdown for DxProvida (DxP), decomposing the requirements from the PRD and the architecture spine into implementable stories. The UX is in `ux-designs/ux-agents-in-context-toronto-2026-11-13/` (`DESIGN.md` for the look, `EXPERIENCE.md` for behaviour); WEB stories build to it. Every story carries story points so the team can set the cut line afterwards.
 
-**Pivot, 13 November 2026 (approved course correction, `sprint-change-proposal-2026-11-13.md`).** DxP is now a governed agent built for Problem Statement 1, "Agents You Can Audit". The governed agent is the product: it keeps a pharma team's diagnostic evidence current, and it cannot change a record or act in another system without a named identity, a scoped grant, a policy check before the action, and an audit trail a reviewer can replay. The screens only inspect it. Build day is Saturday 14 November 2026: hacking runs 10:45 to 17:00 on the provided Atlas Sandbox, with no coding before 10:45. Contracts freeze at 11:45, the first allowed-and-blocked loop is green by 14:30, code freezes at 16:30, the 60-second video is recorded 16:30 to 16:50 and submitted by 16:55, and the 3-minute live demo for judging is at 17:15. Epic 9 holds the new core work. Stories the pivot defers keep their text and carry **Deferred (pivot, 13 Nov)** so no agent builds them on Saturday; kept stories carry a **Pivot change** line, which wins over their acceptance criteria wherever the two disagree.
+**Pivot, 13 November 2026 (approved course correction, `sprint-change-proposal-2026-11-13.md`).** DxP is now a governed agent built for Problem Statement 1, "Agents You Can Audit". The governed agent is the product: it keeps a pharma team's diagnostic evidence current, and it cannot change a record or act in another system without a named identity, a scoped grant, a policy check before the action, and an audit trail a reviewer can replay. The screens only inspect it. Build day is Saturday 14 November 2026: hacking runs 10:45 to 17:00 on the provided Atlas Sandbox, with no coding before 10:45. Contracts freeze at 11:45, the first allowed-and-blocked loop is green by 14:30, code freezes at 16:30, the 60-second video is recorded 16:30 to 16:50 and submitted by 16:55, and the 3-minute live demo for judging is at 17:15. Epic 9 holds the new core work. Stories the pivot defers keep their old text and carry **Deferred (pivot, 13 Nov)** so no agent builds them on Saturday.
+
+**Readiness fixes, 14 November 2026 (`readiness-fixes-2026-11-14.md`, decisions D1 to D40; that file wins over any earlier text, and D16 to D40 win over D1 to D15 where they differ).** Every kept story's acceptance criteria are rewritten in full as the single specification for Saturday, and the old "Pivot change" overrides are gone from kept stories. Nothing prepared before the event is reused: no code from `scripts/data/` or any `dxp-*` skill, no file from `data/` and no prepared logo, unless an organiser clears it in writing (D1). The demo scenario is trial NCT04712877, the first of the twenty selected trials (D30): the proposal for FoundationOne Liquid CDx is allowed, the one for FoundationOne CDx is blocked by team scope, and the question is "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?" (D9). The second audit added the seed and Reviewer grants (D16), one admission per action (D22), apply owned by the ledger in A06 (D26), the named selected set and hand-written aliases (D30, D31), the demo order and pacing (D33) and the rule that core never depends on supporting work (D37).
+
+**Slack replaces GitHub, 14 November 2026 (approved, `sprint-change-proposal-2026-11-14-slack.md`, decisions S1 to S13; that file wins over any earlier text that mentions GitHub, a review issue, `dxp-review-sandbox` or reconciling against GitHub).** The external system is Slack: an allowed proposal sends one notify-only Block Kit alert (`notify_slack`) to `#all-mango-db-hackathon` through an incoming webhook, with links back to DxP. Approval and rejection happen in DxP, never in Slack. An uncertain send is marked `unknown`, never retried, and a Reviewer resolves it in DxP.
+
+**Final audit, 14 November 2026 (`readiness-fixes-2026-11-14.md`, decisions D41 to D57; they win in the same way).** The demo database is reset from the post-seed snapshot before every take (D41); one proposal loads through `GET /proposals/<p_id>` (D42); the sweep's layering and names are fixed (D43); the Action shape follows AD-14 exactly (D44); FDA row IDs and the grant's trade names are exact (D45); the gate runs once per change, with one Slack alert per filed proposal (D46); a proposal's `notification` is built at read time (D47); keys are generated at 10:45 and never committed (D48); and the principals and grants are named `dxp-curator`, `lbdx@v1`, `sam@v1` and `seed@v1` (D56).
 
 ## Requirements Inventory
 
 ### Functional Requirements
 
-In scope for Saturday:
+From the PRD. Several of these are deferred by the pivot and are not built on Saturday; the FR Coverage Map below lists them under "Deferred (pivot, 13 Nov)":
 
 - FR1: The system scans every approved Source type on a schedule and on demand, with nobody logged in.
 - FR2: The system accepts Findings only from approved Source types, and labels a Diagnostic at discovery or assay development as Early research wherever it appears; a Diagnostic with no stage evidence shows "stage not determined".
@@ -57,15 +65,15 @@ In scope for Saturday:
 
 Governed agent actions, added by the pivot on 13 November (PRD §4.10):
 
-- FR31: Every run has a `run_id`, agent name, model, prompt version, policy-set version and the person it acts for, resolved server-side and stamped on every write, event and external action.
-- FR32: Grants (agent, team, destination, allowed actions, expiry) are stored in Atlas with a version; the actor and grant are resolved server-side from the API key, and a client-supplied name never confers permission.
-- FR33: Hand-written, versioned policies with schema validation; before every action the gate runs five checks (active unexpired grant; Diagnostic in the authorised team scope; destination and action match the grant; required evidence checks passed; run still authorised).
-- FR34: A blocked action changes no business record, makes no external call and writes exactly one audit event with the policy and grant versions and the failed check.
-- FR35: An allowed action opens an evidence-review issue in GitHub `dxp-review-sandbox`, read back and stored on the action.
-- FR36: An action ID is saved before sending and put in the issue; an uncertain result is reconciled by searching for it, never by retrying creation blindly, and otherwise marked `unknown`.
-- FR37: An action is claimed atomically (`queued` to `dispatching`) so two workers never both dispatch it.
-- FR38: Stop: admission is an atomic, conditional update while the run is `running`; after stop nothing new is admitted; the run shows `stopping` until in-flight reaches zero, then `stopped`.
-- FR39: Audit reconstruction of every action in order, answering "who authorised this action, and under what authority?"
+- FR31: Every run has a `run_id`, the executing `agent` (named by the grant), `initiated_by` (the principal who started it, resolved from the caller's key), model, prompt version, the grant version pinned at start and the policy-set version, all set server-side and stamped on every write, event, decision and external action.
+- FR32: Grants (agent principal, `startable_by`, Team scope, destinations, allowed actions, expiry) are stored in Atlas with a version; a key resolves to its principal whatever the grant's status (401 only for an unknown key), and a client-supplied name never confers permission.
+- FR33: Hand-written, versioned policies with schema validation; before every action the gate runs five checks (latest grant version active and unexpired; Diagnostic in the grant's Team scope; destination and action in the grant; required evidence checks passed, applying only to `file_proposal` and `notify_slack` and `n/a` for the seed's `apply_value` and the Reviewer kinds (D50); run still authorised, meaning the action holds an admission for this run and the run is not `stopped`), and every evaluation, allowed or blocked, is recorded as a Decision.
+- FR34: A blocked action creates no action, changes no business record and makes no external call; its only writes are one blocked Decision (with the grant evaluated, the policy-set version and the failed check) and one `action_blocked` event carrying the `decision_id`.
+- FR35: An allowed action sends one notify-only Slack alert for the diagnostic evidence to `slack:#all-mango-db-hackathon`, with links back to DxP; what DxP observed (HTTP status, Slack's response body, the time posted) is stored on the action. Approval and rejection happen in DxP, never in Slack.
+- FR36: Ambiguous external result: the action ID is saved first and carried in the alert; if the outcome is uncertain (timeout, connection error or HTTP 5xx), the action is marked `unknown` and never retried; a Reviewer resolves it in DxP after checking the channel for the action ID.
+- FR37: An action is claimed atomically (`queued` to `dispatching`) so two workers never both send it.
+- FR38: Stop: each action takes one admission (`runs.admit`), granted only while the run is `running`; after a stop nothing new is admitted, an admitted action may finish while the run is `stopping`, and the run moves to `stopped` when no `admitted` admission remains.
+- FR39: Audit reconstruction of every Decision and action in order, plus the Reviewer decisions "After the run", answering "who authorised this action, and under what authority?"
 - FR40: Run console. FR41: Audit view. FR42 (supporting): live action feed through change streams, `/changes` polling as fallback. FR43 (supporting): run-scoped impact view.
 - FR44 (stretch): spoken audit briefing. FR45 (stretch): rejection drafts a policy for explicit approval. FR46 (stretch): scoped reversal of a run.
 
@@ -76,8 +84,8 @@ Later development, not built on Saturday: FR6 (performance by tumour type and st
 - NFR1: Provenance. No value is shown without Evidence; a quote must appear word for word in its Source item.
 - NFR2: Human decision. Every agent change to an existing Record is a logged Reviewer decision.
 - NFR3: Unattended operation. Scans, the Maturity gate and Proposed changes run with nobody logged in. Trimmed (pivot, 13 Nov): on Saturday a person starts each run; once started, it runs without a person in the loop until a Reviewer decision or a stop.
-- NFR4: Open data only. Every Source item is openly available; provider websites only from an allow-list; PubMed abstract text is never returned by the API, committed to the repository, shown in a shared trace or written into a review issue.
-- NFR5: Real behaviour on camera. Updated 13 Nov: the video and the live demo show a real review issue created in GitHub, a real blocked action and a real stop, each made live. Synthetic history may set the scene; it does not stand in for these.
+- NFR4: Open data only. Every Source item is openly available; provider websites only from an allow-list; PubMed abstract text is never returned by the API, committed to the repository, shown in a shared trace or written into a Slack alert.
+- NFR5: Real behaviour on camera. Updated 14 Nov: the video and the live demo show a real Slack alert arriving in `#all-mango-db-hackathon`, a real blocked action and a real stop, each made live. Synthetic history may set the scene; it does not stand in for these.
 - NFR6: Synthetic data. Synthetic Teams, grants, profiles, history, corrections and rules are labelled synthetic wherever they appear.
 - NFR7: Event rules. Updated 13 Nov: only work built during the event may be highlighted. The README separates prepared material from what was built on 14 November, in a table; the demo shows only what was built that day. No coding before 10:45 unless an organiser permits it in writing.
 - NFR8: Time. Updated 13 Nov: hacking runs 10:45 to 17:00 on the Atlas Sandbox, two people, including recording and submitting; code freeze 16:30; the 60-second video is recorded 16:30 to 16:50; submission (description, public repository, video, team members) by 16:55, due at 17:00; the 3-minute live demo for judging at 17:15.
@@ -86,7 +94,7 @@ Later development, not built on Saturday: FR6 (performance by tumour type and st
 - NFR11: Attribution. Every Evidence shows its source and that source's data date; the app footer carries the credits line.
 - NFR12: Atlas Sandbox. New 13 Nov: DxP is built and validated on the organisers' Atlas Sandbox from the start; change streams are confirmed on the sandbox tier before the live feed depends on them.
 - NFR13: Problem statement fit. New 13 Nov: built for Problem Statement 1, "Agents You Can Audit"; no dashboard as the main feature and no medical advice.
-- NFR14: Least privilege for external actions. New 13 Nov: the GitHub token is fine-grained, restricted to `dxp-review-sandbox` and to issues only, kept in `.env` and never committed, logged or shown on screen.
+- NFR14: Least privilege for external actions. Updated 14 Nov: the only external credential is `SLACK_WEBHOOK_URL`, an incoming webhook that can only post to `#all-mango-db-hackathon`; it lives only in `.env` and in the Modal secret and is never committed, logged or shown on screen. The alert is notify-only: no buttons, no Slack actions, and no Slack callback route in DxP.
 - NFR15: Policies are written by people. New 13 Nov: grants and policies are hand-written and versioned; a model may draft a policy (FR45, stretch) but it takes effect only after a person approves it.
 
 ### Additional Requirements
@@ -94,25 +102,24 @@ Later development, not built on Saturday: FR6 (performance by tumour type and st
 From the architecture spine (AD-1 to AD-16). No starter template is mandated; the spine fixes a two-folder repository, `backend/` (Python 3.13, FastAPI on Modal) and `web/` (Next.js 16, App Router).
 
 - Foundation: one MongoDB client in `store`, database named by `DXP_DB`, `store.ensure_indexes()`; the field registry in `schema/registry.py` with `registry.canonical()`; `identity.derive()` and `identity.normalise_name()`; `evidence.quote_in_source()`; all Claude calls through `llm` with `langchain-anthropic`, JSON-schema structured output, no sampling parameters.
-- Ledger as the single writer of Records (AD-1): `ensure_diagnostic`, `file`, `apply` (claim, then one update writing the value entry, `rev`, `search_text`, `facets`, edges), `review_value`, `seed`.
-- Value-entry shape and canonical forms per field (AD-2); derived IDs and insert-if-absent writes (AD-3); stage order enforced at apply (AD-5).
-- Ingest modes `baseline` and `live` on every job, Proposed change and event (AD-4).
+- Ledger as the single writer of Records (AD-1): `ensure_diagnostic`, `file`, `review_value`, `seed`, and `ledger/apply.py` (D26, owned by A06): claim the proposal, one guarded update on the Diagnostic (value entry, `rev`, `facets`, `applied_proposal_ids`), then upsert the derived edges (an edge's `run_id` set with `$setOnInsert`) and emit `value_applied` with a `dedupe_key` (D27). Recovery runs at API start, at the start of every run and on every decision call, and always re-upserts the edges and re-emits the event.
+- Value-entry shape and canonical forms per field (AD-2); derived IDs and insert-if-absent writes (AD-3); stage order enforced at apply (AD-5). Decision and action IDs derive from `(run_id or "-", kind, diagnostic_id, proposal_id or value_id or "<field>|<value>")`, and for `resolve_notification` the target is the `action_id` (D49); seed changes carry their own derived `p_` IDs; Reviewer decisions add a server-generated `request_id` (D20).
+- Ingest modes on every Proposed change and event (AD-4): `baseline` for the seed only, `live` for runs. In live mode an agent never applies; it only files pending proposals (D28).
 - Evidence check before filing and one read model for every endpoint (AD-6).
-- Learned rules in a `rules` collection, evaluated in one place, flag only, switchable off (AD-7).
-- Memory adapter with `agent_engine` and `collections` backends chosen by `DXP_MEMORY_BACKEND`; memory user ID `<DXP_DB>:<team_id>` (AD-8).
-- The web app calls only the API; long work is a job (AD-9, AD-16).
-- Events outbox with integer `seq`, `GET /changes` feed, alerts reacting once per ledger call (AD-10).
-- One LangGraph run per job, `Send` fan-out, `max_concurrency` 16, per-item error capture (AD-12).
+- The web app calls only the API; long work is a run (AD-9).
+- Events outbox with integer `seq` and the `GET /changes` feed (AD-10); a Decision's `seq` is the `seq` of its `action_allowed` or `action_blocked` event (D21).
+- One LangGraph run per run, `Send` fan-out, `max_concurrency` at most 16, per-item error capture (AD-12); `DXP_DEMO_PACE` processes one item at a time, a few seconds per item, for the live demo (D33).
 - Graph node IDs `<type>:<value>` and an `edges` collection maintained by the ledger (AD-13).
-- API contract: the route table and wire shapes in AD-14; web types generated with `openapi-typescript`.
-- `search_text` and `facets` written by the ledger; Vector Search with Automated Embedding on `search_text`; synonym documents in `terms` (AD-15, AD-8).
-- Source items loaded from a laptop with `window` and `sets`; one job at a time; resumable through `processed_at`; Modal timeout 3600 s; PubMed jobs untraced (AD-16).
-- Seed Diagnostics from `data/fda/assays.json` via `normalise_name`; seed a curated liquid biopsy to ctDNA synonym, since public vocabularies do not link them.
-- Environments: per-developer `DXP_DB`, production `dxp`; Vercel production URL for judges.
-- Friday setup (before the build, not story work): M10 cluster with storage auto-scaling, temporary open network entry, Agent Memory `apply --wait` test, Claude tier check, LangSmith workspace variables, paid HeyGen and ElevenLabs plans.
-- Demo retake: `mongodump` after the Baseline jobs and restore by `delete_many` plus `mongorestore`.
-- Saturday data: seed 76 FDA lung rows; Baseline jobs over 293 trials and 150 abstracts; live jobs over 40 trials (traced) and 24 abstracts (untraced).
-- Pivot, 13 Nov: the environment is the provided Atlas Sandbox. New collections `runs`, `grants`, `policies` and `actions`; `events` gains run and action stamps. One new external dependency: the GitHub REST API with a fine-grained token restricted to `dxp-review-sandbox` (issues only), kept in `.env`. Runs work over a selected set of 10 to 20 held-back trials at lower concurrency, not 443 items. Change streams are confirmed on the sandbox tier before the live feed depends on them.
+- API contract: the route table and wire shapes in AD-14, with the D29 fields (Proposal `decision_id` and `notification { action_id, status, posted_at }`, built at read time from the proposal's `notify_slack` action and never stored on the proposal, D47; Link `status` and `proposal_id`; Record `applied_proposal_ids`; Run `counts.early_research`); web types generated with `openapi-typescript`.
+- The ledger writes `facets` on every apply (AD-15).
+- The selected set (D30): twenty public ClinicalTrials.gov trials naming an FDA-listed lung assay, listed by NCT ID in Story 1.4 and fetched during the event, NCT04712877 first; one run at a time; Modal timeout 3600 s.
+- The seed (D31): the FDA list of companion diagnostics fetched during the event, lung rows only. A seeded Diagnostic's ID alias is `normalise_name()` of the list's trade-name column (which removes "®" and folds case); a row's ID is `<PMA or 510(k) number>:<first 8 hex characters of sha1 of the normalised row>`, because one number covers many drug rows (D45). Hand-written aliases, written by A02: "FoundationOne Liquid" maps to FoundationOne Liquid CDx, "Guardant360" to Guardant360 CDx, and "FoundationOne" (not followed by "Liquid") to FoundationOne CDx.
+- Environments: the provided Atlas Sandbox, production database `dxp`; Vercel production URL for judges.
+- Before 10:45 (not story work, prepared material listed in the README): the Slack incoming webhook for `#all-mango-db-hackathon`, created and tested before the event (any script used for that test is not reused; the notifier is written during the event), the Claude key and rate-limit check.
+- Reset (D34, D41): A13 owns the reset script `scripts/reset_demo.py` and the post-seed snapshot (taken with `mongodump` in I1's first step, after seeding and before any run). The reset restores it with `mongorestore` before I2, before each rehearsal (A16, which uses the script and does not create it), before the video (16:30) and between submission and the live demo (16:55 to 17:10). The integrators' smoke tests run in their own database, `DXP_DB=dxp_smoke`, never in `dxp`.
+- Pivot, 13 Nov: new collections `runs`, `grants`, `policies` and `actions`; `events` gains run and action stamps. One new external dependency (updated 14 Nov): a Slack incoming webhook posting to `#all-mango-db-hackathon`, its URL in `SLACK_WEBHOOK_URL`, kept only in `.env` and the Modal secret; `DXP_BASE_URL` (the production web address) builds the links back to DxP. `DXP_GITHUB_TOKEN` and `DXP_GITHUB_REPO` are removed. Change streams are confirmed on the sandbox tier before the live feed depends on them.
+- Readiness fixes, 14 Nov: `data/` is not loaded unless an organiser clears it (D1). New collections `decisions` (every gate evaluation), `policy_sets` and `admissions`; a run records `initiated_by` and `agent`, and a grant names `startable_by` (D4 to D7). The agent principal is `dxp-curator` with grant `lbdx@v1` for Team "Team Liquid Biopsy Dx"; the Reviewer principal `sam` has grant `sam@v1`, and the seed principal `seed` has grant `seed@v1`, all defined in Story 9.2 (D16, D56).
+- Deferred since the pivot, not built on Saturday: Learned rules (AD-7), the memory adapter (AD-8), Vector Search and synonym expansion (AD-15), the Baseline load and abstract sources (AD-16), Alerts and Tavily provider scans.
 
 ### UX Design Requirements
 
@@ -152,8 +159,8 @@ FR31: Epic 9 - Run identity stamped on every write, event and external action
 FR32: Epic 9 - Grants in Atlas; actor and grant resolved server-side from the API key
 FR33: Epic 9 - Versioned, hand-written policies; five checks before every action
 FR34: Epic 9 - A blocked action changes nothing and writes one audit event
-FR35: Epic 9 - Evidence-review issue in GitHub `dxp-review-sandbox`, read back
-FR36: Epic 9 - Ambiguous external result reconciled by action ID, never retried blindly; otherwise `unknown`
+FR35: Epic 9 - Notify-only Slack alert for diagnostic evidence to `#all-mango-db-hackathon`, with links back to DxP; observed result stored
+FR36: Epic 9 - Ambiguous external result: save the action ID first; if the outcome is uncertain, mark it `unknown` and never retry; a Reviewer resolves it in DxP
 FR37: Epic 9 - Atomic claim, `queued` to `dispatching`
 FR38: Epic 9 - Stop control: atomic admission; stopping, then stopped
 FR39: Epic 9 - Audit reconstruction; "who authorised this action"
@@ -163,7 +170,7 @@ FR42: Epic 9 - Live action feed through change streams, polling fallback (suppor
 FR43: Epic 5 - Run-scoped impact view (supporting; Stories 5.1 and 5.2 trimmed)
 FR44: Epic 9 - Spoken audit briefing (stretch)
 FR45: Epic 9 - Rejection drafts a policy for explicit approval (stretch)
-FR46: Epic 9 - Scoped reversal of a run (stretch, a follow-up inside Story 9.5)
+FR46: Epic 9 - Scoped reversal of a run (stretch, a separate item outside Story 9.5, built only if the loop is green by 14:30)
 
 Later development, not mapped: FR6, FR10, FR23. Capture on the go (PRD section 4.9) maps to Epic 7.
 
@@ -171,9 +178,9 @@ Deferred (pivot, 13 Nov): FR1's schedule (on-demand runs stay), FR9, FR12, FR13,
 
 ## Epic List
 
-Nine epics. Since the pivot on 13 November, Epic 9 (governed agent actions) is the core, built on a trimmed Epic 1 and with Epics 2, 5 and 8 kept in part; Epics 3, 4, 6 and 7 are deferred. The original dependency notes follow for history. Epic 1 is the foundation; Epics 2, 3, 4 and 5 depend only on Epic 1 and can run in parallel; Epic 6 also needs Epics 3 (team profiles in use) and 4 (Shortlist); Epic 7 needs Epic 1; Epic 8's deploy skeleton starts in hour one and is redeployed throughout. Every story is tagged **[API]** (backend and pipeline developer) or **[WEB]** (web developer). Ledger changes are confined to named [API] stories so two agents never edit `ledger.py` at once.
+Nine epics. Since the pivot on 13 November, Epic 9 (governed agent actions) is the core, built on a trimmed Epic 1 and with Epics 2, 5 and 8 kept in part; Epics 3, 4, 6 and 7 are deferred. The original dependency notes follow for history. Epic 1 is the foundation; Epics 2, 3, 4 and 5 depend only on Epic 1 and can run in parallel; Epic 6 also needs Epics 3 (team profiles in use) and 4 (Shortlist); Epic 7 needs Epic 1; Epic 8's deploy skeleton starts in hour one and is redeployed throughout. Every story is tagged **[API]** (backend and pipeline developer) or **[WEB]** (web developer). Each file in the `backend/dxp/ledger/` package has one owning PR (A06 owns `ledger/apply.py`; A14 owns `ledger/decide.py` and `ledger/review.py`; A13 owns `ledger/seed.py`), so two agents never edit the same ledger file.
 
-Changes applied from Advanced Elicitation (pre-mortem, cascading failure, war room, persona focus group, assumption audit):
+Changes applied from Advanced Elicitation before the pivot (pre-mortem, cascading failure, war room, persona focus group, assumption audit), kept for history:
 
 - C1: live ingest mode moved into Epic 1, so Epics 2 and 3 do not depend on each other.
 - C2: Epic 1 opens with seeding the 76 FDA rows and the synthetic Team profiles, and an API stub with generated types, so both developers have real data and a contract in hour one.
@@ -184,11 +191,11 @@ Changes applied from Advanced Elicitation (pre-mortem, cascading failure, war ro
 - C8: build risks recorded below.
 
 ### Epic 1: Evidence-backed records from real data
-The team loads real trials, abstracts and FDA rows into Diagnostic Records where every value carries a word-for-word quote, a Lifecycle stage and an Early research label where it applies; anyone can watch the agents work through a batch with a live count and open a Record to see each value with its Evidence. The same job runs in Baseline mode (no Alerts) and live mode (Held-back set).
+The team fetches the FDA list of lung companion diagnostics and the twenty selected trials during the event, and turns them into Diagnostic Records where every value carries a word-for-word quote, a Lifecycle stage and an Early research label where it applies; the seed applies the FDA rows as unreviewed values, and a run over the selected trials only files pending proposals. Anyone can open a Record from a Review, Audit or Impact link and see each value with its Evidence. (Since the pivot, abstracts, the Baseline load and the batch page are deferred.)
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR7, FR8, FR11, FR18, FR30
 
 ### Epic 2: Agents propose, the Reviewer decides, guardrails learn
-When new evidence arrives about a tracked Diagnostic, the agents draft field-level Proposed changes; a Reviewer accepts, edits or rejects each with a reason, the system drafts a Learned rule from the rejection, applies it once confirmed to flag other proposals, and lets the Reviewer switch it off. Every earlier value stays in the history.
+When new evidence arrives about a tracked Diagnostic, the agents draft field-level Proposed changes; a Reviewer accepts, edits or rejects each with a reason, the system drafts a Learned rule from the rejection, applies it once confirmed to flag other proposals, and lets the Reviewer switch it off. Every earlier value stays in the history. (Since the pivot, Saturday builds only the queue, the decision with its history and the Review screen, Stories 2.2 to 2.4; Learned rules are deferred, and Story 9.11 is the stretch replacement.)
 **FRs covered:** FR15, FR16, FR17, FR19
 
 ### Epic 3: Teams get told what matters
@@ -212,30 +219,28 @@ A user types a Diagnostic name or a note and DxP turns it into a partial Record 
 **FRs covered:** none numbered (PRD section 4.9, UJ-4)
 
 ### Epic 8: Ship it to the judges
-A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
+A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a 60-second video that names which MongoDB capability powers which behaviour, with disclosure and credits; the 3-minute live demo for judging follows at 17:15.
 **FRs covered:** none; NFR5, NFR7, NFR8, NFR10, NFR11
 
 ### Epic 9: Governed agent actions
-The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one audit event, one allowed action opens a real evidence-review issue in GitHub, a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". Core for Problem Statement 1, "Agents You Can Audit". Stories 9.1 to 9.8 are core, 9.9 is supporting, 9.10 and 9.11 are stretch.
+The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one blocked Decision and one `action_blocked` event, one allowed action sends a real Slack alert for the diagnostic evidence, a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". Core for Problem Statement 1, "Agents You Can Audit". Stories 9.1 to 9.8 are core, 9.9 is supporting, 9.10 and 9.11 are stretch.
 **FRs covered:** FR31 to FR42, FR44, FR45, FR46
 
 ### Build risks
 
 | Assumption | Confidence | Impact | Settled by |
 |---|---|---|---|
-| Baseline of 443 items finishes in under an hour at 16 concurrent calls | Medium | High | Friday check 2 (50 items); otherwise run 100 first |
-| Held-back items hit tracked Diagnostics, so Proposed changes appear | Medium | High | Story 2.1 dry run |
-| Agent Memory works on the day | Medium | Medium | Friday test; fallback `DXP_MEMORY_BACKEND=collections` |
-| Vector index READY | High after Friday | Medium | Friday check 4; fallback text search |
-| Graph has cross-Category links | High | High | FDA rows share biomarkers across tissue and plasma tests |
-| Both developers productive from hour one | Medium | High | Story 1.1 contract stub and seed data |
-| Pivot: change streams work on the Atlas Sandbox tier | Medium | Medium | Checked in A04 by 12:00; otherwise the feed uses `/changes` polling (Story 9.9) |
-| Pivot: the GitHub token and `dxp-review-sandbox` are ready at 10:45 | Medium | High | Luis creates them before 10:45; Story 9.4 is stubbed for I1 and named in the demo if not |
-| Pivot: the allowed-and-blocked loop is green by 14:30 | Medium | High | If not, supporting and stretch work stops and everyone fixes the loop |
+| Both NCT04712877 Findings resolve to the seeded FoundationOne Liquid CDx and FoundationOne CDx | Medium | High | Hand-written aliases (Story 1.2, A02), alias-constrained extraction (Story 1.5, A08); asserted at I1 (D31) |
+| The FDA list can be fetched and parsed during the event | Medium | High | A13 by 13:15; otherwise seed only the Diagnostics the selected set names, typed from the FDA page during the event |
+| Both developers productive from hour one | Medium | High | Story 1.1 contract stub, frozen by 11:45 |
+| Change streams work on the Atlas Sandbox tier | Medium | Medium | Checked in A04 by 12:00; otherwise the feed uses `/changes` polling (Story 9.9) |
+| The Slack webhook posts to `#all-mango-db-hackathon` at 10:45 | High | High | Created and tested before the event; `SLACK_WEBHOOK_URL` kept only in `.env` and the Modal secret; A09 is never stubbed, so a missing or broken webhook is fixed before anything else |
+| The alert's links resolve on the deployed web app | Medium | High | Luis sets `DXP_BASE_URL` to the production URL during A04; the sender refuses to start without it; Story 9.4 tests that "Review in DxP" and "Open diagnostic" resolve |
+| The allowed-and-blocked loop is green by 14:30 | Medium | High | If not, supporting and stretch work pauses and everyone fixes the loop; A06, A07 and A09 are never stubbed, and only A12, A15, B05, B06 and A17 may be cut (D37) |
 
 ## Story points
 
-Points are relative size (1, 2, 3, 5) and stay as the tool for comparing stories. Planning time no longer uses "1 point is 30 minutes"; it uses the agent-time estimate below. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document. Since the pivot, Epic 9 stories are tagged **Core** (the allowed-and-blocked loop and its inspection), **Supporting** (built after the loop is green) or **Stretch** (built only if the loop is green by 14:30). **Deferred (pivot, 13 Nov)** marks a story that is not built on Saturday.
+Points are relative size (1, 2, 3, 5) and stay as the tool for comparing stories. Planning time no longer uses "1 point is 30 minutes"; it uses the agent-time estimate below. **Cut candidate** marks a story the team can drop without breaking the stories after it; nothing is cut in this document. Since the pivot, Epic 9 stories are tagged **Core** (the allowed-and-blocked loop and its inspection), **Supporting** or **Stretch**. Agents not needed on the core may build supporting and stretch items before 14:30; they never block a core PR, and if the loop is not green at 14:30 they pause (D10). Stretch items merge only once the loop is green at 14:30. Core never depends on supporting work: A06, A07 and A09 are never stubbed, and only A12, A15, B05, B06 and A17 may be cut (D37). **Deferred (pivot, 13 Nov)** marks a story that is not built on Saturday.
 
 ## Estimating with AI agents
 
@@ -249,192 +254,210 @@ The **Time** on each story follows the rules measured on the CVH pilot build (1�
 | Back end and rules (API routes, ledger, seeds, jobs, CSV) | 0.3 | Sign-in, audit, texts and sign-up took 20–35% |
 | Single-language desktop screens | 0.5 | Staff Hub screens took 35–48% |
 | Calls to Claude that need prompt tuning (extraction, rule drafting, why lines, resume) | 0.4–0.5 | No direct CVH measure; set between back end and screens |
-| New infrastructure (Modal jobs, Agent Memory preview, CI and deploy) | 0.5 | App skeleton 41%, first production spike 67% |
+| New infrastructure (Modal runs, CI and deploy) | 0.5 | App skeleton 41%, first production spike 67% |
 | Search and the graph views | 0.8 | Search took 54–110%; resident home and graph-like screens went over |
-| Running the Baseline load and the rehearsal | 1.0 | Waiting for real runs is not shortened by agents |
+| Running the rehearsal | 1.0 | Waiting for real runs is not shortened by agents |
 
 3. These times are cycle times: elapsed time from start to merge for one story, including tests, review and waiting. They are not hours of effort, and adding them up does not give a schedule. The CVH build ran about three stories at once; that was how that build was run, not a limit. Saturday's schedule, with the team's real agent capacity and the dependency path, is in `build-schedule.md`.
 4. Not shortened by agents and not in these numbers: setting up accounts and keys, product decisions, waiting for review, and recording the video.
 
 ## How every story lands: PR and merge
 
-Each story names its **Owner** (Luis or Vlad) and its **PRs**. Since the pivot, a PR ID such as A06, B02 or I1 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first. Luis owns the A PRs and the integration PRs (the critical path: contract, ledger and gate, runs and stop, extraction, the GitHub action, integration); Vlad owns the B PRs (the screens, the web skeleton, the stretch audio and the submission package), with Luis's review agent on Vlad's lane. The earlier P and V IDs are retired. A deferred story has no PR.
+Each story names its **Owner** (Luis or Vlad) and its **PRs**. Since the pivot, a PR ID such as A06, B02 or I1 points to a card in `development-plan.md` with the branch, scope, the files it owns and the PRs that must merge first. Luis owns the A PRs and the integration PRs (the critical path: contract, ledger and gate, runs and stop, extraction, the Slack notifier, integration); Vlad owns the B PRs (the screens, the web skeleton, the stretch audio and the submission package), with Luis's review agent on Vlad's lane. A18 (Luis) builds Story 1.1's Record read model and `GET /diagnostics/<dx_id>`; A01 owns `GET /schema` (D36). A06 owns `ledger/apply.py`, so the seed and I1 do not depend on A14 (D26). R1 (Luis and Vlad, 16:30 to 16:55) records and submits the video; it is a task with no branch. The earlier P and V IDs are retired. A deferred story has no PR.
 
 A story is done only when it is merged into `main` and working on the Atlas Sandbox deploy. Every story with points follows these steps:
 
 1. Branch from the latest `main` as `story/<n.n>-<short-name>` (for example `story/9.3-policy-gate`); integration PRs use `integration/<name>`.
-2. Open a pull request into `main` titled `Story <n.n>: <story title>`, listing the acceptance criteria as a checklist.
+2. Open a pull request into `main` titled `Story <n.n>: <What> (<ID>)`, for example `Story 9.3: Ledger with the policy gate (A06)`, matching `development-plan.md`, and list the acceptance criteria as a checklist.
 3. The CI checks from Story 8.1 pass: the web app's type check and build, and the backend tests. Story 8.1 (A04) is built 11:00 to 12:00, right after the contract (A01); until it is merged, the reviewer runs the same checks locally.
-4. The other developer (or their agent) reads the diff. They check that no secret, `.env` value, GitHub token or PubMed abstract text is in it, and that each acceptance criterion is met.
+4. The other developer (or their agent) reads the diff. They check that no secret, `.env` value or Slack webhook URL is in it, and that each acceptance criterion is met. Fixes found during I1 and I2 go in small PRs reviewed by the owner of the file (D36).
 5. Squash-merge and delete the branch. If an API model changed, rebase first and regenerate `web/lib/types.ts`, so the two lanes never merge conflicting types.
-6. After the merge, check the deploy on the Atlas Sandbox. Vercel deploys `main` itself; the person named in the README runs `modal deploy` for API changes.
+6. After the merge, check the deploy on the Atlas Sandbox. Vercel deploys `main` itself; the person named in `docs/deploy.md` runs `modal deploy` for API changes.
 
 Each pull request costs about 10 minutes: opening it, waiting for checks, the review and the merge. This time is already inside each story's agent-time estimate, because the CVH actuals it comes from ran to the merge. Merge small and often; never hold a story back to merge at the end of the day.
 
-Saturday timing: hacking 10:45 to 17:00; contracts frozen by 11:45; deployed on the sandbox by 12:00; gate, runs, extraction and the GitHub action merged by 13:45; **the first allowed-and-blocked loop green on the sandbox by 14:30** (I1); final acceptance by 15:30 (I2); code freeze at 16:30. If the loop is not green by 14:30, supporting and stretch work stops and everyone fixes the loop.
+Saturday timing: hacking 10:45 to 17:00; contracts frozen by 11:45; deployed on the sandbox by 12:00; gate, runs, extraction and the Slack notifier merged by 13:45; **the first allowed-and-blocked loop green on the sandbox by 14:30** (I1); final acceptance by 15:30 (I2); code freeze at 16:30. If the loop is not green by 14:30, supporting and stretch work pauses and everyone fixes the loop; a missing core piece is fixed, never stubbed and named in the demo (D37, NFR5).
 
 A story is **done** only when all of its PRs have merged and its acceptance criteria pass on the integrated build: on the sandbox after the allowed-and-blocked loop (I1) for most stories, and at final acceptance on the sandbox (I2) for Core and Demo path stories. The last merge alone does not make a story done; until the criteria are checked it stays `review` in `sprint-status.yaml`.
 
 ## Epic 1: Evidence-backed records from real data
 
-The team loads real trials, abstracts and FDA rows into Diagnostic Records where every value carries a word-for-word quote, a Lifecycle stage and an Early research label where it applies; anyone can watch the agents work through a batch with a live count and open a Record to see each value with its Evidence. The same job runs in Baseline mode (no Alerts) and live mode (Held-back set).
+The team fetches the FDA list of lung companion diagnostics and the twenty selected trials during the event, and turns them into Diagnostic Records where every value carries a word-for-word quote, a Lifecycle stage and an Early research label where it applies; the seed applies the FDA rows as unreviewed values, and a run over the selected trials only files pending proposals. Anyone can open a Record from a Review, Audit or Impact link and see each value with its Evidence. (Since the pivot, abstracts, the Baseline load and the batch page are deferred.)
 
-### Story 1.1: API contract stub, read model and change feed
+### Story 1.1: API contract stub, schema route and Record read model
 
-**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-10, AD-14 · **Demo path** · **Owner:** Luis
-**PRs:** A01 `story/1.1-contract` (Contract: every route and shape, including runs, grants, policies, actions and audit, one error shape and the frozen module signatures, Luis). Cards in `development-plan.md`.
-**Pivot change:** The contract in A01 adds the run, grant, policy, action and audit shapes exactly as AD-14 (`Run` replaces `Job`) and freezes the signatures of `gate.evaluate`, `actions.dispatch`, `runs.admit`, `runs.release`, `runs.stop`, `ledger.file`, `llm.extract` and `llm.check` by 11:45, as AD-19 to AD-21. The read model and `GET /changes` stay; the live feed is Story 9.9.
+**Points:** 3 · **Time:** ~3.1 h (M, 10.5 h developer estimate × 0.3, back end; A18 adds about 1 h) · **Lane:** [API] · **Covers:** AD-6, AD-9, AD-14, AD-17 to AD-21 (shapes and signatures) · **Demo path** · **Owner:** Luis
+**PRs:** A01 `story/1.1-contract` (Contract: every route stubbed, every shape, one error shape, the frozen module signatures and `GET /schema`, Luis, 10:45 to 11:45); A18 `story/1.1b-readmodel` (Record read model, `GET /diagnostics/<dx_id>` and its tests, Luis, starts after A01, merges after A06, 11:45 to 12:45). Cards in `development-plan.md`.
 
 As the web developer,
-I want the API's routes and response shapes running and published as generated TypeScript types in the first hour,
+I want the API's routes and response shapes running and published as generated TypeScript types in the first hour, and the Record routes working soon after,
 So that I can build pages against the real contract while the pipeline is still being written.
 
 **Acceptance Criteria:**
 
-**Given** a `backend/` Python package managed with `uv`, with a Modal app that serves the FastAPI app, and `backend/dxp/api/models.py` holding Pydantic classes for Record, Value, Proposal, Rule, Alert, Event, Job, Node, Link and Team exactly as AD-14
+**Given** a `backend/` Python package managed with `uv`, and `backend/dxp/api/models.py` holding Pydantic classes for Principal, Stamp, Run, Grant, Policy, PolicySet, Decision, Admission, Action, AuditEntry, Audit, Record, Value, Proposal, Event, Node, Link and Team as AD-14, using the names the readiness fixes define (`initiated_by` and `agent` on Run, `counts` including `early_research`, `startable_by` on Grant, `decision_id` on Action, `agent`, `initiated_by`, `seq`, `request_id` and `cause { proposal_id, origin_run_id }` on Decision, `decision_id` and `notification { action_id, status, posted_at }` on Proposal, `status` (`pending` or `applied`) and `proposal_id` on Link, `applied_proposal_ids` on Record)
 **When** the API runs under `modal serve`
-**Then** `GET /api/v1/schema`, `GET /api/v1/diagnostics` and `GET /api/v1/diagnostics/<dx_id>` respond with those shapes (empty lists are fine)
-**And** `/openapi.json` lists every route in the AD-14 table, unimplemented ones returning `{ error: { code: "not_implemented", message } }` with 501
-**And** `web/lib/types.ts` is generated from it with `openapi-typescript` by one npm script and committed
-**And** `store` is the only module that creates a MongoDB client, reading `MONGODB_URI` and `DXP_DB`, and `store.ensure_indexes()` runs at startup
-**And** `GET /diagnostics` and `GET /diagnostics/<dx_id>` are built by `search.readmodel`, which returns only entries that passed the check or are `manual`, sets `no_data` on an empty field, attaches the source name and `data_as_of`, and passes `synthetic` through
-**And** `GET /changes?after=<seq>` returns events from `events` with a higher `seq` and the `last_seq`, by plain polling; the 25-second long-poll with a change-stream wake-up is optional
+**Then** (A01) `/openapi.json` lists every core, supporting and stretch route in the route table at the end of this document, including `POST /runs { grant_id, set }` and `GET /decisions/<decision_id>`; each route not yet built returns `{ error: { code: "not_implemented", message } }` with 501, and every error uses that one shape
+**And** (A01) `GET /schema` returns the registry's fields, enums and stage order; A01 owns it (D36)
+**And** (A01) `tools/gen_types.sh` generates `web/lib/types.ts` from `/openapi.json` with `openapi-typescript`; A01 owns both files and commits the generated types, and B01's `gen:types` npm script calls the tool
+**And** (A01) `backend/dxp/api/app.py` builds the FastAPI app and reads its allowed CORS origins from the environment; no other PR edits it for CORS
+**And** (A01) owns `backend/tests/conftest.py`, `backend/uv.lock`, the package `__init__.py` files (except `evidence/__init__.py`, owned by A08) and `.env.example`
+**And** (A01) `store` is the only module that creates a MongoDB client, reading `MONGODB_URI` and `DXP_DB`, and `store.ensure_indexes()` runs at startup
+**And** (A01) the signatures of `gate.evaluate(ctx, action)`, `actions.dispatch(action, ctx)`, `runs.admit(run_id, item_key)`, `runs.release(admission_id)`, `runs.sweep(run_id)`, `runs.settle(run_id)`, `runs.finish(run_id)`, `runs.stop(run_id)`, `runs.stamp(run_id)`, `ledger.file(finding_id, changes, mode, ctx)`, `ledger.apply(proposal_id)`, `ledger.recover_applying()`, `llm.extract(item, aliases)` and `llm.check()` are frozen by 11:45 as stubs with typed arguments and results; the admission functions live in `runs/admissions.py` and are exported under the public names `runs.admit`, `runs.release`, `runs.sweep`, `runs.settle` and `runs.finish` (D22)
+**And** (A18) `GET /diagnostics/<dx_id>` is built by `search.readmodel.get_diagnostic()`, which returns only entries that passed the check or are `manual`, sets `no_data` on an empty field, attaches the source name and `data_as_of`, passes `synthetic` through, and marks `unreviewed` values; `GET /diagnostics` (the list) is deferred and stays 501, because no Diagnostics list is built on Saturday (D40)
+**And** (A18) every value in the response keeps its `stamp`, `action_id` and `proposal_id`, and the Record carries `applied_proposal_ids`, so a Record links to the run and decision that wrote it
+**And** (A18) tests cover a passed value, a failed value that is never returned, an empty field with `no_data` and a missing Diagnostic returning 404
 **And** no secret is in the repository.
 
 ### Story 1.2: FDA-authorised lung diagnostics and synthetic Teams seeded through the ledger
 
-**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-15 · **Demo path** · **Owner:** Luis
-**PRs:** A02 `story/1.2a-registry-identity` (Registry and identity, Luis); A13 `story/1.2b-seed` (Seed FDA rows and synthetic Teams through the ledger, Luis). Cards in `development-plan.md`.
-**Pivot change:** Trimmed to a small FDA seed (the lung rows the selected trial set hits) and the synthetic Teams, which now define each grant's team scope. The seed runs after the gated ledger (A06), so it passes through the gate like every other write. The curated synonym goes with deferred Find.
+**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, NFR6, AD-1, AD-2, AD-3, AD-5, AD-13, AD-17 · **Demo path** · **Owner:** Luis
+**PRs:** A02 `story/1.2a-registry-identity` (Registry and identity, Luis); A13 `story/1.2b-seed` (Seed the FDA rows and synthetic Teams through the ledger, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
 I want the FDA-authorised lung companion diagnostics already in DxP, each at regulatory approval with the FDA list as Evidence,
-So that DxP starts from a trusted base and the other developer has real Records to show in hour one.
+So that DxP starts from a trusted base, the grant's team scope names real Records, and the other developer has real Records to show early.
 
 **Acceptance Criteria:**
 
-**Given** `schema/registry.py` defines the ten fields, their cardinality, enums, stage order and confidence threshold, `registry.canonical()` and `registry.is_early_research()`
-**And** `identity.derive()` and `identity.normalise_name()` behave as AD-3
-**When** `ledger.seed()` runs over `data/fda/assays.json` and the 76 lung rows
-**Then** each assay becomes one Diagnostic found through `aliases`, with every `name_strings_in_list` entry as an alias, values filed through `ledger.file()` in `baseline` mode and applied as `unreviewed`
-**And** `registry.canonical()` maps biomarkers to HGNC approved symbols from `data/vocab/hgnc_genes.jsonl`, tumour types to OncoTree codes from `data/vocab/oncotree_lung.json`, and every other field to the enum values taken from the PRD's field list
-**And** each has `lifecycle_stage: regulatory_approval` by rule, with no model call, and Evidence citing the FDA list and its data date
-**And** each apply writes the value entry, `rev`, `search_text`, `facets` and `edges` in one update
+**Given** (A02) `schema/registry.py` defines the ten fields, their cardinality, enums, stage order and confidence threshold, `registry.canonical()` and `registry.is_early_research()`, with a small hand-written map of the biomarker symbols and tumour-type codes the seeded rows and the selected trials use; no file under `data/` is read
+**And** (A02) `identity.derive()` and `identity.normalise_name()` behave as AD-3; `normalise_name()` removes "®" and folds case (D45)
+**And** (A02) a hand-written alias map, written during the event (D31): "FoundationOne Liquid" maps to FoundationOne Liquid CDx, "Guardant360" to Guardant360 CDx, and "FoundationOne" (when not followed by "Liquid") to FoundationOne CDx; tests cover all three, including that "FoundationOne Liquid" never resolves to FoundationOne CDx
+**When** (A13) `python -m dxp.sources.fda_cdx` runs, then `python -m dxp.ledger.seed` runs from the command line with the dedicated seed key
+**Then** the first fetches the FDA list of cleared or approved companion diagnostic devices during the event and keeps the lung rows; unless an organiser clears the prepared files in writing, nothing is loaded from `data/fda/`
+**And** each kept row is stored as a Source item `fda_cdx_list:<row id>`, where the row ID is `<PMA or 510(k) number>:<first 8 hex characters of sha1 of the normalised row>`, because one number covers many drug rows (D45), whose `raw_text` is the row and whose `source_date` is the fetch date
+**And** each assay becomes one Diagnostic found through `aliases`; its ID alias is `normalise_name()` of the list's trade-name column, and the hand-written aliases above are added to the matching Diagnostics; FoundationOne Liquid CDx and FoundationOne CDx are both seeded, as separate Diagnostics
+**And** every value is filed through `ledger.file()` in `baseline` mode, which calls `gate.evaluate()` under the seed grant `seed@v1` (Story 9.2), and is applied at once as `unreviewed` through `ledger.apply()` (Story 1.6, A06) with its own derived `p_` ID; every write carries the stamp `{ kind: "seed", principal: "seed" }` with `run_id: null`, and each gate evaluation is recorded in `decisions` with `agent: "seed"` and `initiated_by: "seed"`
+**And** each Diagnostic has `lifecycle_stage: regulatory_approval` by rule, with no model call, and Evidence quoting the FDA row with the list's data date
 **And** running the seed twice creates no new document and changes no existing one
-**And** three synthetic Teams with profiles on modality, biomarker and linked drug are inserted into `teams` with `synthetic: true`, and `GET /teams` returns them
-**And** the curated synonym "liquid biopsy" to ctDNA is inserted into `terms` with `curated: true` as a valid synonym document.
+**And** three synthetic Teams with profiles on modality, biomarker and linked drug are inserted into `teams` with `synthetic: true`, one of them "Team Liquid Biopsy Dx", whose scope the agent's grant `lbdx@v1` covers (D32, D56), and `GET /teams` returns them
+**And** if the FDA list cannot be fetched or parsed by 13:15, only the Diagnostics the selected set names are seeded, typed from the FDA page during the event, and A13 tells B07 so the README says so
+**And** (A13) merges on tests against a fake gate; the first step of I1 (15 minutes) runs the grant seed, the selected-set load and the FDA seed on the sandbox (D38), then takes the post-seed snapshot of `dxp` with `mongodump`
+**And** (A13) owns the reset script `scripts/reset_demo.py`, which restores the post-seed snapshot with `mongorestore`; it runs before I2, before each rehearsal (A16 uses it and does not create it), before the video and before the live demo (D41)
+**And** the integrators' smoke tests run in their own database, `DXP_DB=dxp_smoke`, never in the demo database `dxp` (D41)
+**And** no code is copied from `scripts/data/` or from any `dxp-*` skill.
 
 ### Story 1.3: Browse diagnostics and open a Record with its Evidence
 
 **Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR2, FR7, FR8, NFR1, NFR11, AD-6, AD-9 · **Demo path** · **Owner:** Vlad
 **PRs:** B01 `story/1.12-web-shell` (Web skeleton and minimal shell, Vlad); B04 `story/2.4-record-review` (Record and Review screen, minimal, Vlad). Cards in `development-plan.md`.
-**Pivot change:** Trimmed: the diagnostics list and the Record page become the Record half of the minimal Record and Review screen. The "your name" picker is dropped: the shell shows a read-only "Signed in as" chip from `GET /whoami`, and no request sends `actor`, because the actor is resolved server-side from the API key (Story 9.2). The server-side route adds `X-DxP-Key` to every request (AD-14).
 
 As a Director of Diagnostics,
-I want to list the diagnostics DxP tracks and open one to see every value with its quote, source and data date,
+I want to open a Diagnostic's Record from a review, audit or impact link and see every value with its quote, source and data date,
 So that I can trust each value without leaving the page.
 
 **Acceptance Criteria:**
 
-**Given** `web/` created with `create-next-app` (Next.js 16, TypeScript, App Router, Tailwind) and `shadcn init`, calling the API only through `web/lib/api.ts` using the generated types
-**When** I open the diagnostics page
-**Then** I see each Diagnostic's name, Lifecycle stage and an Early research label where `early_research` is true, or "stage not determined"
-**When** I open a Record
-**Then** each field shows its values with the quote, source name, link and data date, and unreviewed values are marked unreviewed
+**Given** (B01) `web/` created with `create-next-app` (Next.js 16, TypeScript, App Router, Tailwind) and `shadcn init`, owning `web/package.json` with a `gen:types` script that calls `tools/gen_types.sh`, and calling the API only through `web/lib/api.ts` with the generated types
+**And** no Diagnostics list is built on Saturday: the Record page is reached from links in the Review queue, the Audit view and, when the `impact` flag is on, the Run impact view (D40)
+**When** I open a Record (the Record half of the Record and Review screen, reading `GET /diagnostics/<dx_id>`)
+**Then** I see the Diagnostic's name, Lifecycle stage and an Early research label where `early_research` is true, or "stage not determined"
+**And** each field shows its values with the quote, source name, link and data date, and unreviewed values are marked unreviewed
+**And** (B04) each unreviewed value has Accept, Edit and Reject controls that call `POST /diagnostics/<dx_id>/values/<value_id>/review { action, value, reason }` (Story 2.3); Edit and Reject require a reason before they submit, and the page shows the returned Record
+**And** each value shows which run wrote it (`run_id`, or "seed"), and pending proposals for the Record are listed with a link to Review
 **And** an empty field shows "no data for this indication", visibly different from the loading state
-**And** the page renders only what the API's read model returns, applying no display rule of its own
-**And** the footer carries the credits line from `dxp-open-data-sources/references/terms.md`
-**And** the header shows the read-only "Signed in as" chip from `GET /whoami`; no request sends `actor`, because the actor is resolved server-side from the key
-**And** one server-side Next.js route forwards requests that need `X-DxP-Key` (jobs and every model-calling route), so the key never reaches the browser.
+**And** the page renders only what the API's read model returns (Story 1.1, A18), applying no display rule of its own
+**And** the footer carries the credits line for ClinicalTrials.gov and the FDA list
+**And** one server-side Next.js route adds `X-DxP-Key` to every API request, so the key never reaches the browser; no request sends a name or `actor`, because the principal is resolved server-side from the key.
 
-### Story 1.4: Load the downloaded Source items into MongoDB
+### Story 1.4: Fetch the selected trials into MongoDB
 
-**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR30, NFR4, AD-16 · **Demo path** · **Owner:** Luis
+**Points:** 1 · **Time:** ~0.6 h (S, 2 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** NFR4, AD-16 · **Demo path** · **Owner:** Luis
 **PRs:** A05 `story/1.4-selected-trials` (Load the selected trial set, Luis). Cards in `development-plan.md`.
-**Pivot change:** Loads only the selected trial set: 10 to 20 held-back trials that hit FDA-seeded Diagnostics, chosen by ID list. No PubMed items and no comprehensive Baseline.
 
 As the team,
-I want the files under `data/` loaded into `source_items` with their window and subset names,
-So that jobs on Modal can read them without the laptop.
+I want the selected trials fetched from ClinicalTrials.gov during the event and stored in `source_items`,
+So that runs on Modal read them without the laptop, and nothing prepared before the event is loaded.
 
 **Acceptance Criteria:**
 
-**Given** the files and manifests under `data/`, including the git-ignored PubMed `.jsonl` on the laptop
-**When** `python -m dxp.sources.load` runs
-**Then** every item is upserted with `_id` = `<source>:<source_item_id>`, `window` (`baseline` or `heldback`) and `sets` taken from the manifest ID lists, never from a date comparison
+**Given** a checked-in manifest `backend/dxp/sources/selected.json` listing, in this order, the twenty public ClinicalTrials.gov trials that name an FDA-listed lung assay (D30): NCT04712877, NCT06284317, NCT04591431, NCT05715229, NCT03248089, NCT03615443, NCT05361564, NCT04265534, NCT04698681, NCT03576937, NCT04624373, NCT04566614, NCT06918782, NCT05846594, NCT04223596, NCT04087473, NCT03199651, NCT03521154, NCT06146920, NCT05935384
+**When** `python -m dxp.sources.load --set selected` runs
+**Then** it fetches each trial by NCT ID from the ClinicalTrials.gov API v2 (`/api/v2/studies/<nct_id>`) during the event; unless an organiser clears the prepared files in writing, nothing is read from `data/`
+**And** each item keeps its position in the manifest, and a run processes the items in that order, so NCT04712877 is always first
+**And** each trial is upserted with `_id` = `clinicaltrials.gov:<NCT ID>`, `window: "selected"` (D54), `sets: ["selected"]`, `raw_text` built from the record's text fields, and `source_date` from its `last_update_posted`, which becomes `evidence.source_date` and the "data as of" date on screen
 **And** running it twice changes nothing, and never overwrites the `raw_text` of an item that Evidence points at
-**And** each item carries its `source_date`, which becomes `evidence.source_date` and the "data as of" date on screen: a trial's `last_update_posted`, a PubMed item's publication date, and the FDA list's download date
-**And** the counts it prints match the manifests
-**And** a missing PubMed `.jsonl` (a laptop without it) is skipped with a warning, not an error.
+**And** the count it prints matches the manifest; a trial that fails to fetch is reported by NCT ID and the rest still load
+**And** no code is copied from `scripts/data/` or from any `dxp-*` skill.
 
 ### Story 1.5: Extract a Finding from one Source item with a quote for every field
 
-**Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR4, NFR9, AD-6, AD-11 · **Demo path** · **Owner:** Luis
+**Points:** 5 · **Time:** ~4 h (M, 8 h developer estimate × 0.5, model work) · **Lane:** [API] · **Covers:** FR2, FR5, FR18, NFR9, AD-6, AD-11 · **Demo path** · **Owner:** Luis
 **PRs:** A08 `story/1.5-extraction` (Extraction with quote and support checks, tuned on the selected set, Luis). Cards in `development-plan.md`.
-**Pivot change:** Tuned on the selected trial set only. The quote and support checks stay, and their result is one of the gate's required evidence checks (Story 9.3).
 
 As a Director of Diagnostics,
-I want the agents to read a trial or abstract and pull out the ten fields, each with a word-for-word quote and a confidence,
-So that nothing reaches a Record without evidence I can check.
+I want the agent to read a trial and pull out the fields, each with a word-for-word quote and a confidence,
+So that nothing reaches a Record or a Slack alert without evidence I can check.
 
 **Acceptance Criteria:**
 
-**Given** `llm` is the only module calling Claude, through `langchain-anthropic` with JSON-schema structured output and no sampling parameters
-**When** an item is processed
+**Given** `llm` is the only module calling Claude, through `langchain-anthropic` with JSON-schema structured output and no sampling parameters, and it exposes `MODEL_IDS` and `PROMPT_VERSION` for the run's identity
+**When** a trial from the selected set is processed
 **Then** a triage call on `claude-haiku-5-5` decides whether it concerns a lung cancer diagnostic, and only relevant items go to extraction on `claude-sonnet-5-5`
 **And** an item rejected at triage counts as done, not failed, and yields no Finding
-**And** one item can name several diagnostics, so extraction returns one Finding per Diagnostic it names
-**And** extraction returns, per field, the raw value, a quote of at most 300 characters and a confidence, plus at most one `stage_evidence` and the update triggers `line_of_therapy`, `used_in_trial` and `standard_of_care` where the text supports them
-**And** `evidence.quote_in_source()` sets `quote_found`; a check call on `claude-sonnet-5-5` sets `supported` (the quote backs the value), which roughly doubles the model calls per relevant item; a value passes only when `quote_found` and `supported` are both true; a failing value is recorded on the Finding and goes no further
+**And** one item can name several Diagnostics, so extraction returns one Finding per Diagnostic it names; NCT04712877 yields one Finding for FoundationOne Liquid CDx and one for FoundationOne CDx, each proposing the trial for that Diagnostic's `trials` field
+**And** the extraction prompt is given the seeded alias list (Story 1.2), and the extracted assay name must be one of those aliases or `new`; any other answer is a failure record (D31)
+**And** extraction returns, per field, the raw value, a quote of at most 300 characters and a confidence, plus at most one `stage_evidence`
+**And** `evidence.quote_in_source()` sets `quote_found`; a check call on `claude-sonnet-5-5` sets `supported` (the quote backs the value); a value passes only when `quote_found` and `supported` are both true; a failing value is recorded on the Finding and goes no further, and this `check` is what the gate's evidence check reads (Story 9.3)
 **And** values are canonicalised with `registry.canonical()`
 **And** rate-limit and overload errors back off and retry inside `llm`
 **And** a model error or refusal returns a failure record and does not raise, and the failure line carries no source text
-**And** running it on five baseline trials from the command line prints the Findings, with no PubMed text written to any file.
+**And** (A08) owns `evidence/__init__.py` (D36)
+**And** running it from the command line on five trials of the selected set prints the Findings with their quotes and checks.
 
 ### Story 1.6: The ledger files Findings without duplicates and keeps the stage moving forward
 
-**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, FR30, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13 · **Demo path** · **Owner:** Luis
-**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, Luis). Cards in `development-plan.md`.
-**Pivot change:** Gains the gate: every `ledger.file` and apply calls `gate.evaluate` first (Story 9.3), and every write is stamped with the run identity (Story 9.1). A blocked write changes no business record and writes one audit event. Baseline mode is used only by the seed.
+**Points:** 3 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR3, FR11, AD-1, AD-3, AD-4, AD-5, AD-10, AD-13, AD-19 · **Demo path** · **Owner:** Luis
+**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, including `ledger/apply.py`, Luis). Cards in `development-plan.md`.
 
 As a Director of Diagnostics,
-I want each new piece of evidence attached to the right Diagnostic, a new Diagnostic created only when none matches, and the stage only ever advancing,
-So that parallel agents never produce duplicates or move a diagnostic backwards.
+I want each new piece of evidence attached to the right Diagnostic as a proposal a person reviews, and the stage only ever advancing,
+So that parallel agents never produce duplicates, never change a tracked Record on their own and never move a diagnostic backwards.
 
 **Acceptance Criteria:**
 
-**Given** a Finding from Story 1.5
-**When** `ledger.file(finding_id, changes, mode)` runs
-**Then** `ensure_diagnostic` matches on `aliases` (or the alias `approach:<modality>:<biomarker>` when no assay is named) and creates a Diagnostic only on a miss, treating a duplicate-key error as "exists"
-**And** Findings and Proposed changes are insert-if-absent with IDs from `identity.derive`
-**And** in `baseline` mode every change is applied as `unreviewed`; in `live` mode changes are applied only on a Diagnostic created by this run, and wait as `pending` otherwise
-**And** a change equal to a `current` value is not filed; a `single` field with a `current` value keeps the new value `pending`
-**And** a `lifecycle_stage` change that is not later than the stored stage is never filed; one that is later is applied only when the stored stage is still earlier, and sets the `stage_advance` trigger
-**And** `store.emit_event()` writes events with an integer `seq` and a unique `dedupe_key`
-**And** filing the same Finding twice, or two Findings for the same Diagnostic at once, leaves one Diagnostic and no duplicate value.
+**Given** a Finding from Story 1.5 and a run context holding the run's stamp and the item's admission
+**When** `ledger.file(finding_id, changes, mode, ctx)` runs
+**Then** it calls `gate.evaluate()` (Story 9.3) before any write, including `ensure_diagnostic`; a blocked decision means no business write at all (only the blocked Decision and its `action_blocked` event)
+**And** `ensure_diagnostic` matches on `aliases` (or the alias `approach:<modality>:<biomarker>` when no assay is named) and creates a Diagnostic only on a miss, treating a duplicate-key error as "exists"; creating a Diagnostic outside the grant's scope is blocked by check 2 (D28)
+**And** Findings and Proposed changes are insert-if-absent with IDs from `identity.derive`; decision and action IDs derive from `(run_id or "-", kind, diagnostic_id, proposal_id or value_id or "<field>|<value>")`, with the `action_id` as the target for `resolve_notification` (D20, D49)
+**And** in `live` mode an agent never applies: every allowed change, including one on a Diagnostic the run itself created, is filed as a `pending` proposal carrying the run's stamp, `action_id` and `decision_id`; the proposal document has no stored `notification`, which the read model builds at read time from the proposal's `notify_slack` action (D47); and the only way it reaches the Record is a Reviewer decision (Story 2.3) (D28)
+**And** the seed's values (Story 1.2) are the only values applied at once as `unreviewed`
+**And** a change equal to a `current` value is not filed
+**And** a `lifecycle_stage` change that is not later than the stored stage is never filed; one that is later is filed as pending like any other change
+**And** `ledger/apply.py` (A06, D26) provides `ledger.apply(proposal_id)`: it claims the proposal `pending` to `applying` with a conditional update, makes one guarded update on the Diagnostic that writes the value entry, increments `rev`, rewrites `facets` and adds the proposal ID to `applied_proposal_ids`, matching only if the ID is not already there; then it upserts the derived edges, each edge's `run_id` set with `$setOnInsert` so a later run never takes over an earlier run's edge, emits `value_applied` with a `dedupe_key`, and marks the proposal `applied` (D27)
+**And** recovery, `ledger.recover_applying()` over every proposal stuck in `applying`, runs at API start, at the start of every run and on every decision call; it reruns the guarded update (a no-op if it already happened), always re-upserts the derived edges and re-emits the event (deduplicated by `dedupe_key`), then marks the proposal `applied`
+**And** the seed (Story 1.2) and the Reviewer decision (Story 2.3) both apply only through `ledger.apply()`, so the seed and I1 do not depend on A14
+**And** the ledger action is set `done` with `result { proposal_ids, value_ids }`, or `failed`
+**And** `store.emit_event()` writes events with an integer `seq`, a unique `dedupe_key` and the stamp
+**And** filing the same Finding twice, or two Findings for the same Diagnostic at once, leaves one Diagnostic and no duplicate proposal; tests cover an apply interrupted after the guarded update and before the edges, completed by recovery.
 
 ### Story 1.7: Run a batch of Source items in parallel as one job
 
-**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR1, FR4, FR30, NFR3, NFR9, AD-12, AD-16 · **Demo path** · **Owner:** Luis
+**Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR4, NFR3, NFR9, AD-12, AD-16, AD-21 · **Demo path** · **Owner:** Luis
 **PRs:** A10 `story/1.7-run` (The run: LangGraph over the selected set, Luis). Cards in `development-plan.md`.
-**Pivot change:** A job becomes a run with a `run_id`. It works over the selected set at lower concurrency and, for each proposed action, calls `runs.admit`, then `gate.evaluate`, then `ledger.file` or `actions.dispatch`. The routes are `POST /runs { source, set, limit, team_id }` and `GET /runs/<run_id>` (AD-14), the `jobs` collection and routes are superseded by `runs`, and no `actor` is sent: the run's identity is resolved server-side (Story 9.1). The 50-item integration run is replaced by the allowed-and-blocked loop (I1).
 
 As the team,
-I want to start a job over a named set and have the agents process it in parallel, unattended, resuming where it stopped,
-So that 300 to 500 items are processed without anyone watching and without exceeding the rate limit.
+I want a run started over the selected set to process its trials in parallel, unattended, with every action admitted and gated,
+So that the agent works without anyone watching, within the rate limit, and stops cleanly when asked.
 
 **Acceptance Criteria:**
 
-**Given** `POST /api/v1/jobs { mode, source, set, limit?, actor }` with the `X-DxP-Key` header, where `limit` takes the most recent N items of the set
-**When** no job is running
-**Then** the API starts the job with `.spawn()` on the job function passed to `api.create_app()`, with a 3600-second Modal timeout, and returns the `Job`
-**And** while one is running it returns 409
-**And** the job is one LangGraph run fanning out with `Send` at `max_concurrency` 16; each item node catches its own error and returns a failure record
-**And** `jobs` holds `counts { total, done, failed, early_research, filed }` (`filed` = Proposed changes filed), `actor`, `started_at`, `finished_at`, one failure line per failed item, and `active`: the `source_ref` and step (triage, extract or check) of each item in progress, added when it starts and removed when it ends; all readable at `GET /jobs/<job_id>`
-**And** `processed_at` is set per filed item, so starting the same job again skips finished items
-**And** a `pubmed` job runs with tracing off; a `clinicaltrials.gov` job is traced in LangSmith
-**And** a job with no progress for 10 minutes counts as stalled: `POST /jobs` treats it as not running, so the same job can be started again and resumes
-**And** a 50-item run with one forced failure finishes with 49 done and 1 failed.
+**Given** a run created by `POST /runs { grant_id, set }` (Story 9.1)
+**When** the API starts it with `.spawn()` on the run function passed to `api.create_app()`, with a 3600-second Modal timeout
+**Then** the worker executes with the agent's key and the `run_id`; every write it makes carries the `run_id`, and the server refuses an agent write whose key does not resolve to the run's `agent`
+**And** at the start of the run, apply recovery runs (Story 1.6)
+**And** the run is one LangGraph run fanning out with `Send` over the Source items in the set, in manifest order (Story 1.4), at low concurrency (`max_concurrency` set in config, at most 16); each item node catches its own error and returns a failure record
+**And** with `DXP_DEMO_PACE` set, items are processed one at a time with a few seconds per item, so the first item is NCT04712877 and a stop lands mid-run (D33)
+**And** for each item the node calls `llm.extract()` and `llm.check()` first; then, after extraction and before the gate, it takes one admission per proposed action with `runs.admit(run_id, item_key)`, where `item_key = "<source_ref>|<kind>|<diagnostic_id>|<proposal_id or '-'>"` (D22); if no admission is granted that action ends with nothing attempted and `counts.not_admitted` goes up
+**And** each admitted action passes through `gate.evaluate()` by way of `ledger.file()` or `actions.dispatch()`, carrying its `admission_id`
+**And** the gate is evaluated once per change: A10 calls `ledger.file` once for each admitted change, never once for a whole Finding (D46)
+**And** each filed proposal gets its own `notify_slack` action, with its own admission, so there is one Slack alert per filed proposal (D46)
+**And** `runs.release(admission_id)` runs in a `finally` once that action is blocked, `done`, `failed` or `unknown`
+**And** `runs` holds `counts { total, done, failed, filed, allowed, blocked, unknown, not_admitted, early_research }`, one failure line per failed item and `active` (the `source_ref` and step of each item in progress), all readable at `GET /runs/<run_id>`
+**And** a run over `clinicaltrials.gov` items is traced in LangSmith
+**And** after the last item the pipeline calls `runs.finish(run_id)`, which moves the run from `running` to `done` once no `admitted` admission remains; a run becomes `failed` only when the pipeline raises an error it cannot recover from (D23)
+**And** a run over the selected set with one forced item failure finishes with that item failed and every other item done.
 
 ### Story 1.8: Watch the agents work through a batch
 
@@ -510,8 +533,7 @@ So that a new assay or approval is noticed even before a paper or trial lists it
 ### Story 1.12: App shell in the DxP design
 
 **Points:** 2 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** NFR5, NFR11, `DESIGN.md`, `EXPERIENCE.md` Foundation and Information Architecture · **Demo path** · **Owner:** Vlad
-**PRs:** B01 `story/1.12-web-shell` (Web skeleton and minimal shell: Run console, Audit, Review, Impact, Vlad). Cards in `development-plan.md`.
-**Pivot change:** Trimmed to a minimal shell with four destinations: Run console, Audit, Record and Review, Run impact. The Alerts count, the Team picker and the "your name" picker are dropped; the top bar ends with the read-only "Signed in as" chip from `GET /whoami`, and the Review count stays. The tokens, fonts, badges and state patterns stay.
+**PRs:** B01 `story/1.12-web-shell` (Web skeleton and minimal shell: Run console, Audit, Record and Review, and Run impact behind the `impact` flag, Vlad; done when it builds locally, and deploys once A04 lands, D39). Cards in `development-plan.md`.
 
 As a judge watching the demo,
 I want every page to share one finished look and one navigation,
@@ -522,16 +544,18 @@ So that DxP reads as a real product, not a set of pages.
 **Given** the Next.js app with shadcn/ui and Tailwind
 **When** any page loads
 **Then** the colour, radius and font tokens from `DESIGN.md` are set as CSS variables, and the three fonts load through `next/font/google`
-**And** the top bar shows the DxP logo (`DESIGN.md` Logo), the icon navigation in the `EXPERIENCE.md` order, the Review count from `GET /proposals?status=pending` and the Alerts count from `GET /alerts?team_id=` (each count is simply hidden while its route still returns 501, so this story does not wait for Stories 2.2 and 3.1) and the read-only "Signed in as" chip from `GET /whoami`
+**And** the top bar shows a text wordmark, "DxP", set in the interface font; no prepared logo image is used unless an organiser clears it
+**And** the top bar shows the destinations in the `EXPERIENCE.md` order (Run console, Audit, Record and Review, Run impact), with Run impact and every link to the impact view hidden while the `impact` flag is off (D37); the Review count polls `GET /proposals?status=pending` (hidden while the route returns 501) until A12 has passed its check; and the read-only "Signed in as" chip from `GET /whoami`
+**And** the shell is done with the `feed` and `impact` flags off; nothing in it waits on supporting work
 **And** the top bar is the glass panel, and the page background is the tissue field drawn in CSS, with no image file
 **And** a shared stage-track component draws nine segments: reached stages solid, Early research stages in the ink tint, future stages hollow, with a tooltip naming each stage
 **And** the shared Early research and Synthetic badges match `DESIGN.md`
 **And** the API-unreachable toast and the loading skeletons from `EXPERIENCE.md` State Patterns are in place
-**And** the pages built before this story (Story 1.3) move into the shell without changing what they show.
+**And** nothing is copied from the prepared logo files, `scripts/` or any skill.
 
 ## Epic 2: Agents propose, the Reviewer decides, guardrails learn
 
-When new evidence arrives about a tracked Diagnostic, the agents draft field-level Proposed changes; a Reviewer accepts, edits or rejects each with a reason, the system drafts a Learned rule from the rejection, applies it once confirmed to flag other proposals, and lets the Reviewer switch it off. Every earlier value stays in the history.
+When new evidence arrives about a tracked Diagnostic, the agents draft field-level Proposed changes; a Reviewer accepts, edits or rejects each with a reason, the system drafts a Learned rule from the rejection, applies it once confirmed to flag other proposals, and lets the Reviewer switch it off. Every earlier value stays in the history. (Since the pivot, Saturday builds only the queue, the decision with its history and the Review screen, Stories 2.2 to 2.4; Learned rules are deferred, and Story 9.11 is the stretch replacement.)
 
 ### Story 2.1: Dry run the Held-back set against the Baseline
 
@@ -553,8 +577,7 @@ So that we find a matching problem while there is still time to fix it and pick 
 ### Story 2.2: Reviewer queue of Proposed changes
 
 **Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR15, FR18, AD-4, AD-14 · **Demo path** · **Owner:** Luis
-**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal, Luis). Cards in `development-plan.md`.
-**Pivot change:** Kept minimal: pending proposals for the current run, filterable by `run_id`. Ordering by Learned-rule flags is dropped with deferred Story 2.6.
+**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal, with the value review, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
 I want every pending Proposed change listed with the current value, the new value and its Evidence,
@@ -562,54 +585,61 @@ So that I can decide each one without opening the source.
 
 **Acceptance Criteria:**
 
-**Given** a live job has filed `pending` Proposed changes on tracked Diagnostics
-**When** I call `GET /api/v1/proposals?status=pending`, optionally with `diagnostic_id=` for one Record's pending changes
-**Then** each Proposal carries diagnostic name, field, new value and label, `current_value`, Evidence with source and data date, `check` with confidence and flags, `mode` and `trigger`
-**And** low-confidence proposals come first, then proposals flagged by a Learned rule, then the rest
+**Given** a run has filed `pending` Proposed changes on existing Diagnostics
+**When** I call `GET /api/v1/proposals?status=pending`, optionally with `run_id=`, `diagnostic_id=` or `field=`
+**Then** each Proposal carries `diagnostic_name`, field, new value and label, `current_value`, Evidence with source, quote and data date, `check` with confidence, `mode`, `run_id`, `action_id`, `decision_id`, `notification { action_id, status, posted_at }` (built at read time from the proposal's `notify_slack` action and never written to the proposal document, D47; null until that action exists; `status` is `queued`, `dispatching`, `delivered`, `failed` or `unknown`) and the stamp
+**And** (A14) `GET /proposals/<p_id>` returns that one proposal, in the same shape, whatever its status, or 404 with the error shape for an unknown ID, so the Review page can focus a proposal opened from a Slack alert's "Review in DxP" link; there is no `p_id=` query parameter (D42)
+**And** low-confidence proposals come first, then the rest, newest first
 **And** for a `list` field the proposal adds an entry and never replaces one
-**And** PubMed `raw_text` never appears in the response; only the quote does.
+**And** the response carries quotes only, never a Source item's `raw_text`.
 
 ### Story 2.3: Accept, edit or reject a Proposed change, keeping the history
 
-**Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4 · **Demo path** · **Owner:** Luis
-**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal, Luis). Cards in `development-plan.md`.
-**Pivot change:** Kept minimal: the decider is resolved server-side from the API key, never from the client-supplied `actor`, and the decision passes `gate.evaluate` with the Reviewer's grant. Each decision is stamped per AD-17 (`run_id: null` and the Reviewer's principal); the Proposal keeps the `run_id` that filed it. The reason on a rejection is kept; drafting a rule from it is stretch Story 9.11.
+**Points:** 2 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR16, FR17, NFR2, AD-1, AD-4, AD-17, AD-19 · **Demo path** · **Owner:** Luis
+**PRs:** A14 `story/2.3-proposals-decisions` (Proposals and decisions API, minimal: `ledger/decide.py`, `ledger/review.py`, `POST /diagnostics/<dx_id>/values/<value_id>/review` and their tests, Luis); A06 `story/9.3-policy-gate` (`ledger/apply.py`, which A14 calls, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
-I want to accept, edit or reject each change with a reason, and to review unreviewed values on new Records,
+I want to accept, edit or reject each change with a reason, and to review unreviewed values,
 So that no agent change reaches a tracked Record without a logged human decision.
 
 **Acceptance Criteria:**
 
-**Given** a `pending` Proposed change
-**When** I `POST /proposals/<p_id>/decision` with `accept`, `edit` (with a value) or `reject`, and an `actor`
-**Then** `edit` and `reject` without a `reason` return 400, and an edited value outside the field's allowed values returns 400
-**And** `accept` and `edit` claim the proposal (`pending` to `applied`) and apply it in one update; a second decision on the same proposal does nothing and returns the current state
-**And** the superseded value stays on the Record with its Evidence, `decided_by` and `decided_at`; nothing is deleted
+**Given** a `pending` Proposed change filed by a run
+**When** I `POST /proposals/<p_id>/decision { action: accept | edit | reject, value, reason }` with the web app's server-side key
+**Then** the decider is the Reviewer principal resolved from the key; no name in the body is read
+**And** `edit` and `reject` without a `reason` return 400, and an edited value outside the field's allowed values returns 400
+**And** the decision passes `gate.evaluate()` under Sam's Reviewer grant `sam@v1` (`decide_proposal`, scope the same `diagnostic_ids` as the agent grant, Story 9.2); check 4 records `n/a` for Reviewer kinds, and check 5 records `n/a` outside a run
+**And** the Decision is written with `run_id: null`, `agent: null`, `initiated_by` the Reviewer principal, the Reviewer's stamp, a server-generated `request_id` (so a blocked Reviewer decision can be retried and gets a new Decision) and `cause { proposal_id, origin_run_id }`, where `origin_run_id` is the run that filed the proposal (D19, D20)
+**And** `accept` and `edit` call `ledger.apply(proposal_id)` (Story 1.6, A06), which claims the proposal, makes the guarded update, upserts the edges, emits `value_applied` and marks it `applied`; A14 owns `ledger/decide.py` and `ledger/review.py` and does not edit `ledger/apply.py`
+**And** apply recovery runs on every decision call before the decision is applied (Story 1.6)
+**And** a second decision on the same proposal does nothing and returns its current state
+**And** `reject` marks the proposal `rejected` with the reason and changes no Record value
+**And** the superseded value stays on the Record with its Evidence, `decided_by`, `decided_at` and `reason`; nothing is deleted
 **And** `lifecycle_stage` changes only through this path once a Diagnostic exists
-**And** `POST /diagnostics/<dx_id>/values/<value_id>/review` accepts, edits or rejects an `unreviewed` value through `ledger.review_value()`
-**And** each decision emits an event.
+**And** `POST /diagnostics/<dx_id>/values/<value_id>/review { action, value, reason }` accepts, edits or rejects an `unreviewed` value through `ledger.review_value()` with the action kind `review_value` (D16), gated under `sam@v1` and recorded the same way with `run_id: null`, the Reviewer's stamp and a `request_id`; `edit` and `reject` without a reason return 400; it returns the `Record`
+**And** each decision emits an event with the Reviewer's stamp, and the response's `rule_draft` is null.
 
 ### Story 2.4: Review screen
 
 **Points:** 3 · **Time:** ~3.5 h (M, 7 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR15, FR16, FR18, accessibility convention · **Demo path** · **Owner:** Vlad
 **PRs:** B04 `story/2.4-record-review` (Record and Review screen, minimal, Vlad). Cards in `development-plan.md`.
-**Pivot change:** Trimmed into the minimal Record and Review screen: Accept and Reject with a reason, keyboard-reachable buttons with labels. Edit and the `j`, `k`, `a`, `e`, `r` shortcuts are optional; rule flags are dropped. No actor name is chosen or sent: the decider comes from the key (Story 2.3).
 
 As a Reviewer,
 I want one screen where I work through pending changes, see current against new with the quote, and decide each with a reason,
-So that reviewing a batch takes minutes.
+So that Sam can approve the agent's proposal on camera in seconds.
 
 **Acceptance Criteria:**
 
-**Given** the review page
+**Given** the Review half of the Record and Review screen, reading `GET /proposals?status=pending`
 **When** pending proposals exist
-**Then** each row shows Diagnostic, field, current value, new value, the quote with source link and data date, confidence (low marked) and any rule flags
-**And** Accept, Edit and Reject are buttons reachable and usable by keyboard, with labels; the focused row shows them full size and the other rows as compact buttons
-**And** `j` and `k` move between rows, `a` accepts, `e` edits, `r` rejects and `Esc` cancels, and the page lists these keys
-**And** Edit and Reject require a reason before they submit
-**And** a decided row leaves the queue and the count updates
-**And** no actor name is chosen or sent; the decider is resolved server-side from the key.
+**Then** each row shows Diagnostic (linked to its Record page), field, current value, new value, the quote with source link and data date, confidence (low marked), the `run_id` that filed it and its Slack alert status from `notification` when set ("Slack alert delivered" with the time, or Failed or Unknown); there are no Slack buttons, because approval and rejection happen here, never in Slack
+**And** (B04) the Review page (`web/app/review/`) supports `?proposal=<p_id>`: it opens with that proposal focused (read through `GET /proposals/<p_id>`, Story 2.2, D42) whatever its status, so the "Review in DxP" link in the Slack alert lands on it, and it shows "Proposal not found" when the ID is unknown
+**And** (B04) the Record page answers at `web/app/diagnostics/[id]`, the target of the alert's "Open diagnostic" link
+**And** Accept and Reject are buttons reachable and usable by keyboard, with labels; Reject requires a reason before it submits
+**And** Edit, with a required reason, and the `j`, `k`, `a`, `e`, `r` and `Esc` shortcuts are optional
+**And** a decided row leaves the queue and the Review count updates; the queue polls `GET /proposals?status=pending` until A12 has passed its check
+**And** a 400 or 403 from the API is shown as a message on the row, and the row stays
+**And** no name is chosen or sent; the decider is resolved server-side from the key.
 
 ### Story 2.5: Value history on the Record page
 
@@ -917,45 +947,46 @@ A user explores Diagnostics, biomarkers, tumour types, trials, drugs and Provide
 
 ### Story 5.1: Graph API built from the ledger's edges
 
-**Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR27, AD-10, AD-13 · **Demo path** · **Owner:** Luis
-**PRs:** A15 `story/5.1-graph-api` (Graph API scoped by `run_id`, with GitHub issues as nodes, Luis). Cards in `development-plan.md`.
-**Pivot change:** Scoped by `run_id` (FR43): `GET /graph?run_id=` returns only what the run touched, with each GitHub review issue as a node (`issue:<number>`) linked to its Diagnostic. `team_id`, `POST /teams/<team_id>/seen` and the cross-Category check are deferred with Stories 5.3 and 6.4.
+**Points:** 2 · **Time:** ~2.4 h (M, 6 h developer estimate × 0.4, back end) · **Lane:** [WEB] · **Covers:** FR26, FR43, AD-13 · **Supporting** (cuttable: A15 and B05 have their own acceptance checks) · **Owner:** Luis
+**PRs:** A15 `story/5.1-graph-api` (Graph API scoped by `run_id`, with Slack notifications as nodes, Luis). Cards in `development-plan.md`.
 
 As the web developer,
-I want nodes and links served from `edges`,
-So that the Graph view never derives links itself.
+I want the nodes and links one run touched served by the API, with context only on request,
+So that the impact view never derives links itself and never attributes to a run what it did not do.
 
 **Acceptance Criteria:**
 
-**Given** `GET /api/v1/graph?after=<seq>`
+**Given** `GET /api/v1/graph?run_id=<run_id>`
 **When** it is called
-**Then** it returns nodes with IDs `<type>:<value>`, type, label, Lifecycle stage, Early research and sample type for Diagnostics, and links with kind
-**And** nodes and links whose `seq` is above `after` carry `changed: true`
-**And** an optional `focus=<node_id>&depth=<n>` returns that node's neighbourhood using `$graphLookup` over `edges`
-**And** an optional `team_id=<team_id>` returns the neighbourhood of the Team's profile biomarkers, modalities and drugs, for the Home hero (Story 6.4)
-**And** `POST /teams/<team_id>/seen { seq }` stores the Team's `last_seen_seq` and `last_seen_at`, so screens can say "since 12 November"
-**And** the seeded FDA data alone produces links that cross categories, such as one biomarker shared by a tissue test and a plasma test.
+**Then** it returns only the changed elements: the values, proposals, edges and Slack notifications the run itself created or changed, each node and link carrying that `run_id`
+**And** nodes have IDs `<type>:<value>`, type, label, and for Diagnostics the Lifecycle stage, Early research and sample type
+**And** every Link carries `status` (`pending` or `applied`) and `proposal_id` (D29): a pending proposal appears as a link from its Diagnostic to the proposed value's node with `status: pending`, and an applied one with `status: applied`; an edge keeps the `run_id` of the run that first created it
+**And** each Slack notification of the run is a node `notification:<action_id>` with its status (`delivered`, `failed` or `unknown`) and `posted_at`, linked to its Diagnostic with kind `notification`, built at read time from `actions`, never stored in `edges`; it carries no webhook URL
+**And** a blocked decision adds nothing to the graph, because it changed nothing
+**When** `context=true` is added
+**Then** the touched Diagnostics' other neighbours are added from `edges`, each node and link marked `context: true` and carrying no `run_id`
+**And** a run that touched nothing returns empty `nodes` and `links`
+**And** it is supporting: no core PR depends on it, and A15 may be cut (D37).
 
 ### Story 5.2: Graph view with click-through
 
-**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, NFR5 · **Demo path** · **Owner:** Vlad
+**Points:** 3 · **Time:** ~5.6 h (M, 7 h developer estimate × 0.8, graph view) · **Lane:** [WEB] · **Covers:** FR26, FR43, NFR5 · **Supporting** (cuttable: A15 and B05 have their own acceptance checks) · **Owner:** Vlad
 **PRs:** B05 `story/5.2-impact-view` (Run impact view, graph by `run_id`, Vlad). Cards in `development-plan.md`.
-**Pivot change:** Becomes the run impact view (FR43): the graph for one `run_id`, with issue nodes opening the issue in GitHub. Reuse by the Home hero is deferred with Story 6.4.
 
 As a judge,
-I want to see diagnostics, biomarkers, tumour types, trials, drugs and providers as one connected graph,
-So that I see how the evidence links up, not just a list.
+I want to see what one run changed as a small graph, and its surroundings only when I ask,
+So that I see the agent's footprint at a glance and can click through to the Record or the Slack alert's action in the audit.
 
 **Acceptance Criteria:**
 
-**Given** the graph page using `react-force-graph-2d` loaded with `next/dynamic` and no server rendering
-**When** it loads
-**Then** each node type has its own colour and its own shape and a legend, Diagnostic nodes show their stage, and Early research nodes are marked
-**And** clicking a Diagnostic opens its Record; clicking a trial opens its Evidence
-**And** focusing a node shows its neighbourhood
-**And** the graph is one component the Home hero reuses (Story 6.4)
-**And** the page links to the comparison table with "View as table" and carries the `$graphLookup` capability tag
-**And** it renders every node from the Saturday data and stays interactive (drag, zoom, click) without visible stalls.
+**Given** the Run impact view using `react-force-graph-2d` loaded with `next/dynamic` and no server rendering, reading `GET /graph?run_id=` (Story 5.1)
+**When** it loads for a run
+**Then** it shows only the run's changed elements, each node type with its own colour, shape and a legend, and pending proposal links drawn as pending
+**And** clicking a Diagnostic opens its Record; clicking a notification node opens its decision in the Audit view, showing the Slack alert's result
+**And** a "Show context" control loads `context=true`; context nodes and links are visibly marked as context (muted and labelled) and are never shown as changed by the run
+**And** beside the graph, a keyboard-usable list of the changed elements, each with its `run_id`, is the non-visual equivalent
+**And** an empty run shows "This run changed nothing"
+**And** the view and every link to it sit behind the `impact` flag; with the flag off nothing links to it, and no core screen depends on it (D37). B05 may be cut.
 
 ### Story 5.3: Highlight what changed since the last visit
 
@@ -1075,52 +1106,59 @@ So that I do not lose it.
 
 ## Epic 8: Ship it to the judges
 
-A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a three-minute video that names which MongoDB capability powers which behaviour, with disclosure and credits.
+A judge opens a working production URL at any point in the day, and at submission receives the description, the public repository and a 60-second video that names which MongoDB capability powers which behaviour, with disclosure and credits; the 3-minute live demo for judging follows at 17:15.
 
 ### Story 8.1: Deploy a walking skeleton to production
 
-**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, environments, PR and merge · **Demo path** · **Owner:** Luis
+**Points:** 2 · **Time:** ~2 h (S, 4 h developer estimate × 0.5, new infra) · **Lane:** [WEB] · **Covers:** NFR8, NFR12, AD-23, AD-24, PR and merge · **Demo path** · **Owner:** Luis
 **PRs:** A04 `story/8.1-deploy-sandbox` (CI, Vercel and Modal deploy against the Atlas Sandbox, Luis). Cards in `development-plan.md`.
-**Pivot change:** Deploys against the Atlas Sandbox, not our own cluster, from 11:00 to 12:00 after the contract (A01). It checks that change streams work on the sandbox tier and records the result, so Story 9.9 knows whether to use polling.
 
 As the team,
-I want the API on Modal and the web app on Vercel live in production from the first two hours, and every story merged through a checked pull request,
+I want the API on Modal and the web app on Vercel live against the Atlas Sandbox by 12:00, and every story merged through a checked pull request,
 So that deploy and merge problems surface early, not at 17:00.
 
 **Acceptance Criteria:**
 
-**Given** Stories 1.1 and 1.3 are done
-**When** one person runs `modal deploy` with `DXP_DB=dxp` and the web app deploys to Vercel production with `NEXT_PUBLIC_API_URL`
-**Then** the production URL shows the seeded diagnostics
-**And** CORS allows only the Vercel origins
+**Given** the contract stub (A01) and the web skeleton (B01) merged; A04 merges after B01, and B01 is done when it builds locally (D39)
+**When** one person runs `modal deploy` with `DXP_DB=dxp` on the Atlas Sandbox and the web app deploys to Vercel production with `NEXT_PUBLIC_API_URL`
+**Then** the production URL loads the shell and the API answers, with stub routes returning the 501 error shape
+**And** A04 owns `backend/modal_app.py` and the deploy configuration only; the allowed CORS origins are set as an environment value that `app.py` (A01) reads, and A04 edits no API file
+**And** A04 checks whether change streams work on the sandbox tier by 12:00 and records the result as `DXP_FEED` (`change_stream` or `poll`) for Story 9.9
+**And** (A04, Luis) secrets go in two places only, entered from `.env` and never committed, logged or shown on screen (D48): Vercel holds `DXP_API_KEY` and `NEXT_PUBLIC_API_URL`; the Modal secret holds `DXP_AGENT_KEY`, `SLACK_WEBHOOK_URL`, `ANTHROPIC_API_KEY`, `MONGODB_URI` and `DXP_BASE_URL`, with `DXP_BASE_URL` set to the Vercel production URL
+**And** `.env.example` (A01) lists, with no values: `MONGODB_URI`, `DXP_DB`, `ANTHROPIC_API_KEY`, `DXP_API_KEY`, `DXP_AGENT_KEY`, `DXP_SEED_KEY`, `SLACK_WEBHOOK_URL`, `DXP_BASE_URL`, `DXP_ALLOWED_ORIGINS`, `DXP_FEED`, `DXP_DEMO_PACE`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_DXP_FEATURES`, `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` and `LANGSMITH_PROJECT`; `DXP_GITHUB_TOKEN` and `DXP_GITHUB_REPO` exist nowhere (D48)
 **And** a GitHub Actions workflow runs on every pull request into `main`: the web app's type check and build, and the backend tests
 **And** Vercel builds a preview for each pull request and deploys `main` to production on merge
 **And** `main` accepts changes only through a pull request with passing checks, merged by squash
-**And** the README says who deploys the API and how, and describes the PR and merge steps above.
+**And** (A04) `docs/deploy.md` says who deploys the API and how, and describes the PR and merge steps; A04 does not edit the README, which B07 alone owns (D36).
 
 ### Story 8.2: Rehearse the live run
 
-**Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** FR30, NFR5 · **Demo path** · **Owner:** Luis
-**PRs:** I2 `integration/i2-acceptance` (Final acceptance on the sandbox, every core and supporting piece, Luis); A16 `story/8.2-rehearsal` (Live-demo rehearsal and reset procedure, Luis). Cards in `development-plan.md`.
-**Pivot change:** Rehearses the 3-minute live demo on the sandbox: start a run over the selected trials, one allowed action opens a real issue, one action is blocked, Sam reviews a proposal, the run is stopped mid-flight, the audit view answers who authorised the change, the impact view shows what the run touched. Final acceptance 15:00 to 15:30, rehearsal and a written reset procedure 15:30 to 16:15. The Baseline snapshot, Learned rule and memory steps are dropped.
+**Points:** 2 · **Time:** ~2 h (run time, not shortened by agents) · **Lane:** [API] · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis
+**PRs:** I2 `integration/i2-acceptance` (Final acceptance on the sandbox: core PRs plus the minimal Record and Review screen, Luis, 15:00 to 15:30); A16 `story/8.2-rehearsal` (Live-demo rehearsal and reset procedure, Luis, 15:30 to 16:15). Cards in `development-plan.md`.
 
 As the team,
-I want to run the live demo end to end once before recording, then restore,
-So that what we record works the first time.
+I want the 3-minute live demo run end to end on the sandbox before recording, then reset,
+So that what we show the judges works the first time.
 
 **Acceptance Criteria:**
 
-**Given** the Baseline snapshot from Story 1.9
-**When** the live jobs run, `clinicaltrials.gov` held-back set `narrow` (40, traced) then `pubmed` held-back set `small` (24, untraced)
-**Then** Proposed changes and Alerts appear, one is accepted, one is rejected with a reason, and a Learned rule is confirmed and flags another proposal
-**And** a memory write and read happens live
-**And** the database is restored from the snapshot afterwards with `delete_many` and `mongorestore`.
+**Given** (I2) the core PRs and the minimal Record and Review screen merged and deployed on the Atlas Sandbox, and the post-seed snapshot of `dxp` taken in I1's first step (A13, D34, D41), restored with `scripts/reset_demo.py` before I2 starts
+**When** a run is started from the Run console over the selected set under the agent grant `lbdx@v1` for "Team Liquid Biopsy Dx" (D56), with `DXP_DEMO_PACE` set so NCT04712877 is the first item and items follow one at a time (D33)
+**Then** the steps run in the demo order used for both the 60-second video and the live demo:
+1. the run starts;
+2. the proposal to add NCT04712877 to FoundationOne Liquid CDx's trials is allowed: a `pending` proposal is filed and one real Slack alert arrives in `#all-mango-db-hackathon`, recorded `delivered` on the action, and its "Review in DxP" link opens the focused proposal on the deployed Review page; then the same trial's proposal for FoundationOne CDx is blocked before execution with check 2, `team_scope`, failed: no proposal filed, no record change, no Slack message, one blocked Decision;
+3. the run is stopped from the Run console while items remain, and shows `stopping`, then `stopped`, with admitted actions finishing;
+4. Sam approves the pending proposal on the Review screen, reached from the alert's "Review in DxP" link; FoundationOne Liquid CDx's Record shows the trial, and the approval appears under "After the run";
+5. the Audit view answers "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?": the agent, `initiated_by`, the grant as `{grant_id}@v{version}`, the policy-set version, the evidence quote, the Slack alert's result and the proposal's live DxP review status, with Sam's approval under "After the run"
+**And** I2 passes on core acceptance alone; the impact view, the live feed and each stretch item join the rehearsal only if their own acceptance check passed
+**And** (A16) the reset procedure is written in `docs/demo-and-reset.md` (not the README, which B07 owns); A16 uses A13's `scripts/reset_demo.py` and does not create it (D41): `mongorestore` of the post-seed snapshot returns `dxp` to the seeded state, so each take starts from the same point; the rehearsal's Slack alerts stay in the channel, and each take's alert is told apart by its action ID and run ID
+**And** the reset runs before I2, before each rehearsal, before the video (16:30) and between submission and the live demo (16:55 to 17:10) (D34, D41)
+**And** the integrators' smoke tests run with `DXP_DB=dxp_smoke`, never in `dxp` (D41).
 
 ### Story 8.3: Submission package
 
-**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11 · **Demo path** · **Owner:** Vlad
-**PRs:** B07 `story/8.3-submission` (README with the prepared vs built-today table, submission text, 60-second video script, Vlad). Cards in `development-plan.md`.
-**Pivot change:** The README carries a table separating material prepared before the event from what was built on 14 November, and pitches DxP for Problem Statement 1, "Agents You Can Audit". The demo shows only what was built on the day. Submitted by 16:55: description, public repository, video, team members.
+**Points:** 1 · **Time:** ~1 h (S, 2 h developer estimate × 0.5, docs) · **Lane:** [WEB] · **Covers:** NFR7, NFR10, NFR11, NFR13 · **Demo path** · **Owner:** Vlad
+**PRs:** B07 `story/8.3-submission` (README with the prepared vs built-today table, submission text, 60-second video script, Vlad, done by 14:00). Cards in `development-plan.md`.
 
 As a judge,
 I want a README and description that say what was built on the day, what was prepared before, and which MongoDB capability does what,
@@ -1130,168 +1168,229 @@ So that I can judge the work fairly.
 
 **Given** the public repository
 **When** a judge opens the README
-**Then** it discloses the pre-made data, scripts, skills and planning documents, lists what was built on Saturday, carries the MongoDB capability table and the credits, and links the production URL and the video.
+**Then** it describes DxP as a governed agent for Problem Statement 1, "Agents You Can Audit", and the pivot of 13 November
+**And** (B07) the README is owned by B07 alone; other PRs write `docs/deploy.md` (A04), `docs/demo-and-reset.md` (A16) and `docs/clearance.md` (Luis), and the README links them (D36)
+**And** a table separates material prepared before the event (planning documents, skills, `scripts/data/`, `data/`, logo images, the Slack incoming webhook and its channel `#all-mango-db-hackathon`, created and tested before the event, and the modified tracker script) from what was built on 14 November
+**And** it states what is not reused: no code from `scripts/data/` or any `dxp-*` skill, no file from `data/`, no prepared logo and no script used to test the Slack webhook (the notifier is written during the event), unless an organiser cleared it in writing, and lists the open organiser questions
+**And** it carries the MongoDB capability table (grants and policies with schema validation, conditional updates for the action claim, admissions and stop, change streams for the live feed, the `decisions` and `actions` audit history) and the credits line
+**And** it links the production URL; R1 adds the video link at submission (Story 8.4)
+**And** the submission text and the 60-second video script are written by 14:00.
 
-### Story 8.4: Three-minute demo video
+### Story 8.4: 60-second video, submission and live demo
 
-**Points:** 0 (about 30 minutes, both people; recorded 16:30 to 16:50, submitted by 16:55) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad
-**PRs:** B07 `story/8.3-submission` (60-second video script, Vlad). Recording itself has no PR. Cards in `development-plan.md`.
-**Pivot change:** Becomes the 60-second video, recorded 16:30 to 16:50 after code freeze and submitted by 16:55: 0 to 10 s the agent's scope (identity card, grant, policy set); 10 to 30 s an allowed action across two systems (the record with its quote, the issue open in GitHub); 30 to 45 s an out-of-scope action blocked before execution (no record change, no issue, one audit event); 45 to 60 s stop the run (stopping, then stopped) and show who authorised the completed action. Plus the 3-minute live demo for judging at 17:15, rehearsed in Story 8.2.
+**Points:** 0 (about 30 minutes, both people) · **Lane:** both · **Covers:** NFR5, NFR10 · **Demo path** · **Owner:** Luis and Vlad
+**PRs:** B07 `story/8.3-submission` (60-second video script, Vlad, by 14:00); R1, no branch (Record the video and submit, Luis and Vlad, 16:30 to 16:55). Cards in `development-plan.md`.
 
 As a judge,
-I want a three-minute video showing the agents, the review and learning loop, memory and the graph on real data,
+I want a 60-second video of the governed agent acting, being blocked and being stopped, plus a 3-minute live demo,
 So that I see real behaviour, not a mock-up.
 
 **Acceptance Criteria:**
 
-**Given** the HeyGen intro and close clips
-**When** the video is recorded
-**Then** it shows a live job, a Proposed change decided, a Learned rule created and flagging, a memory write and read, and the graph highlighting what changed
-**And** it names the MongoDB capability behind each behaviour, using the agreed memory wording for whichever backend ran
-**And** the submission video is about one minute, recorded 16:30 to 16:50 and submitted by 16:55, and the separate live demo for judging at 17:15 fits in three minutes.
+**Given** (B07) the 60-second script written by 14:00, and `dxp` reset to the post-seed snapshot before 16:30 (Story 8.2, D34)
+**When** (R1) the video is recorded 16:30 to 16:50, after code freeze, with `DXP_DEMO_PACE` set
+**Then** it follows the demo order (D33) with these timings (D52): 0 to 10 s, the problem and the scope (the run starting, the identity card, the grant as `{grant_id}@v{version}` and the policy set as `ps_ab12… (N policies)`)
+**And** 10 to 30 s shows the allowed proposal and its Slack alert (the pending proposal adding NCT04712877 to FoundationOne Liquid CDx with its quote, and the alert arriving in `#all-mango-db-hackathon`, whose "Review in DxP" link opens the focused proposal), then the FoundationOne CDx proposal blocked before execution by team scope: no proposal filed, no record change, no Slack message, one blocked Decision
+**And** 30 to 45 s stops the run while items remain (`stopping`, then `stopped`)
+**And** 45 to 60 s shows Sam approving the pending proposal in DxP, which appears under "After the run", then the Audit view answering "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?"
+**And** it names the MongoDB capability behind each behaviour and shows only what was built on 14 November
+**And** (R1) the description, public repository, video and team members are submitted by 16:55, and R1 adds the video link to the README
+**And** (R1) the reset (`scripts/reset_demo.py`, D41) is run again between 16:55 and 17:10, and the 3-minute live demo for judging at 17:15 follows the same order: start, allowed (the alert arriving in Slack `#all-mango-db-hackathon` on the second screen, its "Review in DxP" link opening the focused proposal) then blocked, stop while items remain, Sam's approval, the audit question.
 
 ## Epic 9: Governed agent actions
 
-Added by the pivot on 13 November for Problem Statement 1, "Agents You Can Audit". The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one audit event, one allowed action opens a real evidence-review issue in GitHub, a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". The first allowed-and-blocked loop must be green on the Atlas Sandbox by 14:30 (I1).
+Added by the pivot on 13 November for Problem Statement 1, "Agents You Can Audit". The agent acts only as a named run with a scoped grant: every change to a record and every action in another system passes a versioned policy check first, a blocked action changes nothing and leaves one blocked Decision and one `action_blocked` event, one allowed action sends a real notify-only Slack alert to `#all-mango-db-hackathon` (approval and rejection stay in DxP), a person can stop the run at any moment, and the audit view replays the run and answers "who authorised this action". The first allowed-and-blocked loop must be green on the Atlas Sandbox by 14:30 (I1).
 
 ### Story 9.1: Runs and identity
 
-**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR31 · **Core** · **Owner:** Luis
-**PRs:** A01 `story/1.1-contract` (Contract, including the run shapes and the frozen `runs.admit` and `runs.stop` signatures, Luis); A07 `story/9.5-runs-stop` (Runs: identity stamping, atomic admission, stop, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~0.9 h (S, 3 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR31, AD-17 · **Core** · **Owner:** Luis
+**PRs:** A01 `story/1.1-contract` (Contract, including the run shapes and the frozen `runs.admit`, `runs.release`, `runs.sweep`, `runs.settle`, `runs.finish` and `runs.stop` signatures, Luis); A07 `story/9.5-runs-stop` (Runs: identity, admissions, stop, Luis). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
-I want every run to carry a named identity that the server sets, and every write, event and external action stamped with it,
-So that I can always tell which agent, model, prompt and policy set did something, and for whom.
+I want every run to carry two server-set identities, who started it and which agent executes it, and every write, event, decision and external action stamped with them,
+So that I can always tell which agent, model, prompt and policy set did something, and who started it.
 
 **Acceptance Criteria:**
 
-**Given** `POST /api/v1/runs { source, set, limit, team_id }` with the `X-DxP-Key` header
-**When** a run starts
-**Then** the server creates a `runs` document with `run_id`, agent name, model, prompt version, policy-set version, the person the agent acts for and `status: running`, all resolved server-side; none of them is taken from the request body
-**And** `GET /runs` and `GET /runs/<run_id>` return the run with its identity, status and action counts
-**And** every ledger write, every event and every action created during the run carries the `run_id` and the identity fields
-**And** a write or an action with no `run_id` is refused by `runs.admit` and never reaches the ledger or GitHub
+**Given** `POST /api/v1/runs { grant_id, set }` with the `X-DxP-Key` header; there is no `team_id` in the body, because the grant defines the Team (D18)
+**When** a run is requested
+**Then** the server resolves the caller from the key (401 only for an unknown key, D17), loads the latest version of the grant, and checks that it is active and that the caller is in its `startable_by`; otherwise it returns 403 and creates nothing
+**And** it creates a `runs` document with `run_id`, `agent` (the executing agent principal named by the grant), `initiated_by` (the caller), the grant version pinned at start (`grant_id`, `grant_version`), model and prompt version from `llm`, the `policy_set_version`, `team_id` taken from the grant, and `status: running`; none of them is taken from the request body, and a client-supplied name never confers permission
+**And** it returns 409 while another run is `running` or `stopping`
+**And** `GET /runs` and `GET /runs/<run_id>` return the run with its identity, status and counts (including `early_research`)
+**And** a run becomes `done` only through `runs.finish(run_id)` and `failed` only when the pipeline raises an error it cannot recover from (D23)
+**And** the worker executes with the agent's key and the `run_id`; every agent write requires a `run_id`, and a write whose key does not resolve to that run's `agent` is refused and reaches neither the ledger nor Slack
+**And** `runs.stamp(run_id)` is the only stamp maker, and every Finding, proposal, value entry, edge, event, decision and action of the run carries its stamp
+**And** a Reviewer decision is allowed without a run: it carries `run_id: null`, `agent: null`, `initiated_by` the Reviewer principal, the Reviewer's stamp and `cause { proposal_id, origin_run_id }`; agent writes without a `run_id` are not allowed (D19)
+**And** the seed runs only from the command line with the dedicated seed key; its writes carry `{ kind: "seed", principal: "seed" }` and `run_id: null`, its decisions carry `agent: "seed"` and `initiated_by: "seed"`, and no route starts a seed
+**And** the caller's identity has the shape `Principal { id, name, kind, actions }`, where `actions` are the actions of the caller's current grant; `GET /whoami` (Story 9.2) returns it (D53)
 **And** `runs`, its index on `status` and its schema validation are created by `store.ensure_indexes()`.
 
 ### Story 9.2: Grants and versioned policies in Atlas
 
-**Points:** 3 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR32, FR33 · **Core** · **Owner:** Luis
-**PRs:** A03 `story/9.2-grants-policies` (Grants and policies with schema validation, seeded; server-side actor resolution, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~1.5 h (M, 5 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR32, FR33, AD-18 · **Core** · **Owner:** Luis
+**PRs:** A03 `story/9.2-grants-policies` (Grants, policies and policy sets with schema validation, seeded; server-side principal resolution, Luis). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
-I want the agent's authority written down in Atlas as grants and hand-written, versioned policies,
-So that what the agent may do is explicit, checkable and the same for every request.
+I want the agent's authority written down in Atlas as versioned grants and hand-written, versioned policies,
+So that what the agent may do is explicit, checkable and reconstructable for any past decision.
 
 **Acceptance Criteria:**
 
-**Given** the collections `grants` (agent, team, destination, allowed actions, expiry, version) and `policies` (hand-written, versioned, the policy-set version they belong to), each with `$jsonSchema` validation
-**When** the seed runs
-**Then** the demo grant and the demo policy set are inserted, and running the seed twice changes nothing
+**Given** the collections `grants`, `policies` and `policy_sets`, each with `$jsonSchema` validation applied at creation (`validationLevel: strict`, `validationAction: error`)
+**When** `python -m dxp.gate.seed` runs from the command line with the seed key, reading the hand-written documents in `gate/seed_data/` (D36)
+**Then** it inserts hand-written grants and the demo policies, and running it twice changes nothing:
+1. the agent grant `lbdx@v1` for Team "Team Liquid Biopsy Dx": agent principal `dxp-curator`, `startable_by` with `sam`, `scope.diagnostic_ids` exactly the Diagnostics whose trade names are "FoundationOne Liquid CDx", "Guardant360 CDx", "Guardant360® Liquid CDx" and "Agilent Resolution ctDx FIRST assay", matched through `normalise_name()` (every other Diagnostic, FoundationOne CDx among them, is out of scope and blocked by check 2, D32, D45, D56), destinations `ledger` and `slack:#all-mango-db-hackathon`, actions `file_proposal` and `notify_slack`, `expires_at`;
+2. Sam's Reviewer grant `sam@v1`: principal `sam`, actions `[decide_proposal, review_value, resolve_notification]`, destination `ledger`, scope the same `diagnostic_ids` as the agent grant (D16);
+3. the seed grant `seed@v1`: principal `seed`, actions `[apply_value]`, destination `ledger`, scope `{ all: true }` (D16)
+**And** at 10:45, A03 generates `DXP_AGENT_KEY`, `DXP_API_KEY` and `DXP_SEED_KEY` locally into `.env`; `python -m dxp.gate.seed` computes each grant's `key_hash` from the environment at seed time, so `gate/seed_data/` holds no key hash, and no key is ever committed (D48)
+**And** `scope.all: true` is valid only for the seed principal; the validator rejects it on any other grant
 **And** a document that breaks the schema is rejected by Atlas, not only by application code
-**And** changing a policy creates a new version; earlier decisions keep the version they were made under
-**And** the actor and the grant are resolved server-side from the API key; a request that names a different actor in its body is still evaluated against the grant linked to its key, and a client-supplied name never confers permission
-**And** a grant past its expiry allows nothing
-**And** `GET /grants` and `GET /policies` return the current grant and policy set with their versions, for the Run console's identity card, and `GET /whoami` returns the principal resolved from the key, for the read-only "Signed in as" chip.
+**And** grants and policies are never edited in place: a change inserts a new version, and a revocation or expiry is a new version with that status
+**And** selection works the same way for both: for each grant or policy ID, take the latest version first, then check its status; only a latest version that is `active` (and unexpired, for a grant) counts, so a newer `revoked` or `expired` version blocks
+**And** the first time a policy set is used, a `policy_sets` document `{ _id: policy_set_version, members: ["<policy_id>@v<n>", ...], created_at }` is written, where the version is the hash of the sorted members, so any decision's policy set can be rebuilt
+**And** the API hashes `X-DxP-Key` with SHA-256 and resolves the principal (the agent, Sam, or the seed) by `key_hash` across all grant versions, whatever their status; 401 means only an unknown key, and a revoked or expired grant is caught by check 1 and recorded as a blocked Decision (D17); the raw key is never stored, logged or traced; a request that names a different actor in its body is still judged as the key's principal
+**And** `GET /grants` (each grant with its Team and `startable_by`, so the Run console can list the grants the caller may start), `GET /grants/<grant_id>` (latest version; `?version=` for an earlier one) and `GET /policies` return the grants and the current policy set with their versions, for the Run console's grant picker and identity card, and `GET /whoami` returns `Principal { id, name, kind, actions }`, where `actions` are the actions of the caller's current grant, for the read-only "Signed in as" chip and for showing the Resolve control (D53).
 
 ### Story 9.3: Policy gate before every action
 
-**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR33, FR34 · **Core** · **Owner:** Luis
-**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
+**Points:** 3 · **Time:** ~1.8 h (M, 6 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR33, FR34, AD-19 · **Core** · **Owner:** Luis
+**PRs:** A06 `story/9.3-policy-gate` (Ledger with the policy gate before every write, including `ledger/apply.py`, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
-I want every proposed action checked against the grant and the policy set before anything happens,
-So that the agent cannot change a record or act in another system outside its authority.
+I want every proposed action checked against the grant and the policy set before anything happens, and every check recorded,
+So that the agent cannot change a record or act in another system outside its authority, and I can see why.
 
 **Acceptance Criteria:**
 
-**Given** a proposed action (a ledger write or a GitHub review issue) admitted to a running run
+**Given** a proposed action (a ledger write, a Slack alert or a Reviewer's resolution of a notification)
 **When** `gate.evaluate(ctx, action)` runs
-**Then** it runs five checks in this order: the run has an active, unexpired grant; the Diagnostic is in the team scope the grant authorises; the destination and the action type match the grant; the required evidence checks passed (the quote is found and supports the value, Story 1.5); the run is still authorised to act (`running`, not stopping or stopped)
-**And** the action proceeds only if all five pass, and the decision records the policy-set version and the grant version applied
-**And** blocked action: an action that fails any check makes no business-record change and no external call; exactly one audit event is written with the run identity, the policy and grant versions and the failed check, and nothing else is written
-**And** authority: the actor and grant used by the gate are resolved server-side from the API key; a client-supplied name never confers permission
-**And** `ledger.file` and apply call `gate.evaluate` first, so no code path writes a Record without a gate decision
-**And** I1 proves it on the sandbox: one out-of-scope action is blocked before execution, leaving the Records and the GitHub repository unchanged and one audit event naming the failed check.
+**Then** it runs five checks in this order, stopping at the first failure:
+1. `grant_active`: the latest version of the run's grant is `active` and unexpired; if it differs from the version pinned at run start and is not active, this check fails
+2. `team_scope`: the target Diagnostic, including one the action would create, is in the grant's `scope.diagnostic_ids`
+3. `destination_action`: the destination and the action kind are in the grant; a `notify_slack` action to any destination other than `slack:#all-mango-db-hackathon` fails this check
+4. `evidence_checks`: applies only to `file_proposal` and `notify_slack`, where every `requires` key of the run's policy set that applies to the action kind is met by the change's `check` (quote found, supported, confidence, Story 1.5); it records `n/a` for the seed's `apply_value` and for the Reviewer kinds `decide_proposal`, `review_value` and `resolve_notification`, and a Reviewer `edit` or `reject` must carry a reason instead (D16, D50)
+5. `run_authorised`: the action holds an admission for this run (one admission per action, `item_key = "<source_ref>|<kind>|<diagnostic_id>|<proposal_id or '-'>"`, D22), and the run is not `stopped`; an admitted action may finish while the run is `stopping`; outside a run (a Reviewer decision or the seed) it records `n/a`
+**And** every evaluation writes one `decisions` document: `decision_id`, `run_id`, the agent and `initiated_by` (`agent: null` and the Reviewer for Reviewer decisions; `"seed"` and `"seed"` for the seed, D19), the action kind and inputs, the evidence reference (source item, quote, checks), the destination, every check with its result and detail, the grant actually evaluated (`grant_id@version`), the `policy_set_version`, the outcome (`allowed` or `blocked`), `authorised_by` (principal, initiated by, acting for, granted by, the grant and version evaluated, expiry and policy-set version), timestamps, and `seq`, which is the `seq` of its `action_allowed` or `action_blocked` event (D21)
+**And** decision and action IDs derive from `(run_id or "-", kind, diagnostic_id, proposal_id or value_id or "<field>|<value>")`, with the `action_id` as the target for `resolve_notification` (D49), and Reviewer decisions add a server-generated `request_id`, so IDs never collide and a blocked Reviewer decision can be retried as a new Decision (D20)
+**And** allowed: the gate creates an action that points back to its `decision_id` (`status: queued`) and emits `action_allowed`; in `live` mode an allowed change to an existing Diagnostic is filed as a `pending` proposal and is never applied directly
+**And** blocked: no action, no business-record change and no external call; the only writes are the blocked decision, with the policy-set and grant versions and the failed check, and one `action_blocked` event carrying its `decision_id`
+**And** authority: the principal and grant used by the gate are resolved server-side from the API key; a client-supplied name never confers permission
+**And** `ledger.file`, `ledger.review_value`, the decision apply (Story 2.3) and `actions.dispatch` call `gate.evaluate` first, so no code path writes a Record or posts to Slack without a decision
+**And** tests prove each of the five checks blocks on its own and leaves the Records untouched and Slack uncalled
+**And** the gate is evaluated once per change: A10 calls `ledger.file` once for each admitted change, and each filed proposal gets its own `notify_slack` action, so there is one Slack alert per filed proposal (D46)
+**And** (I1) the first step (15 minutes) runs the grant seed, the selected-set load and the FDA seed on the sandbox (D38), then takes the post-seed snapshot with A13's procedure (D41)
+**And** (I1) asserts that both NCT04712877 Findings resolve to the seeded FoundationOne Liquid CDx and FoundationOne CDx (D31)
+**And** (I1) the loop is proved on the sandbox without A14, asserting at least (D46): the NCT04712877 trial proposal for FoundationOne Liquid CDx filed as `pending`, with its real Slack alert delivered to `#all-mango-db-hackathon` (HTTP 200 `ok` recorded on the action) and its "Review in DxP" and "Open diagnostic" links resolving on the deployed web app; the same trial's change for FoundationOne CDx blocked before execution (`team_scope`, with no Slack message); and `GET /runs/<run_id>/audit` reconstructing them; other proposals and alerts from the run may also appear; the console polls until A12 lands.
 
-### Story 9.4: External action: an evidence-review issue in GitHub
+### Story 9.4: External action: a Slack alert for diagnostic evidence
 
-**Points:** 5 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR35, FR36, FR37 · **Core** · **Owner:** Luis
-**PRs:** A09 `story/9.4-github-action` (GitHub review issue: action ID before send, atomic claim, read-back, reconcile, `unknown`, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
+**Points:** 5 · **Time:** ~2.1 h (M, 7 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR35, FR36, FR37, AD-20, NFR14 · **Core** · **Owner:** Luis
+**PRs:** A09 `story/9.4-slack-notify` (Slack notifier: action ID saved first, atomic claim, Block Kit alert with links back to DxP, observed outcome, `unknown` never retried, manual resolution, Luis); I1 `integration/i1-allowed-blocked` (Integration: the allowed-and-blocked loop on the sandbox, Luis). Cards in `development-plan.md`.
 
 As a reviewer,
-I want an allowed proposed change to open one evidence-review issue in GitHub, exactly once, even when the network fails,
-So that the agent's action in another system is real, traceable and never duplicated.
+I want an allowed proposal to send one Slack alert for its diagnostic evidence, exactly once, with links back to DxP, and an honest record of what happened even when the network fails,
+So that the team is told about new evidence in the channel it already watches, while approval stays in DxP and nothing is ever sent twice.
 
 **Acceptance Criteria:**
 
-**Given** an allowed action of kind `create_review_issue` and a fine-grained GitHub token restricted to `dxp-review-sandbox` (issues only), kept in `.env`
+**Given** an allowed action of kind `notify_slack` for a `pending` proposal, created by the gate with its `decision_id`, with destination `slack:#all-mango-db-hackathon` (S1, S2)
+**And** `SLACK_WEBHOOK_URL` read from the environment, set only in `.env` and in the Modal secret, and `DXP_BASE_URL` set to the production web address (S3)
 **When** `actions.dispatch(action, ctx)` runs
-**Then** the action ID is saved in `actions` before anything is sent, and the issue body includes it with the Diagnostic, the proposed change, the Evidence quote and source link, and the `run_id`
-**And** concurrent retries: the action is claimed atomically in Atlas with one conditional update from `queued` to `dispatching`; only the worker whose update succeeds calls GitHub, so two workers retrying the same action at once produce one call and one issue
-**And** ambiguous GitHub result: if the outcome is uncertain (timeout or 5xx), the system reconciles by searching the repository for the action ID and never blindly retries creation; if the issue is found, its number and URL are stored; if it is still unresolved, the action is marked `unknown` for manual reconciliation
-**And** after a successful create, the issue is read back and its number and URL are stored on the action with the sent and observed timestamps
-**And** the token never appears in a log, a response, a trace or the repository
-**And** `POST /actions/<action_id>/reconcile` repeats the search for the action ID and never creates an issue
-**And** I1 proves it on the sandbox: one allowed action creates one real issue that opens in GitHub and links back to the run.
+**Then** the sender refuses to start, and the action stays `queued`, if `DXP_BASE_URL` or `SLACK_WEBHOOK_URL` is not set; it never posts a link built from an empty base URL
+**And** the action ID (`derive("act_", run_id, kind, diagnostic_id, proposal_id)`, D20) is saved in `actions` before anything is sent; Story 9.4 never writes to `proposals`, because a proposal's `notification { action_id, status, posted_at }` is built at read time from this action (A14, A11, D47)
+**And** the action has the AD-14 shape exactly (D44): `result { http_status, response_body, posted_at, link_urls { review_url, diagnostic_url } }` and, once resolved by a Reviewer, `resolution { outcome, note, decision_id, by, at }`
+**And** concurrent retries: the action is claimed atomically in Atlas with one conditional update from `queued` to `dispatching`, recording `claimed_at`; only the worker whose update succeeds posts to Slack, so two workers retrying the same action at once produce one post (S7)
+**And** the message is a Block Kit alert (S5) with: a header "New diagnostic evidence for review" and the action ID; the Diagnostic name; the evidence, as the trial NCT ID with its ClinicalTrials.gov link and the quote of at most 300 characters; the proposed change, for example "Add trial NCT04712877 to Trials"; who acted, as the agent, the `run_id`, the grant as `{grant_id}@v{version}` and the policy set `ps_…`; and a context line "Approve or reject in DxP. Slack only notifies."
+**And** the alert carries two links built from `DXP_BASE_URL` (S6): "Review in DxP" to `${DXP_BASE_URL}/review?proposal=<p_id>` (the Review page focused on that proposal, Story 2.4, B04) and "Open diagnostic" to `${DXP_BASE_URL}/diagnostics/<dx_id>` (the Record page, Story 1.3, B04); a test checks that both links resolve on the deployed web app, the first opening the focused proposal and an unknown ID showing "Proposal not found"
+**And** notify only (S4): the message has links and no interactive elements, no approve or reject buttons and no Slack actions; Slack sends nothing back to DxP, and DxP exposes no Slack callback route
+**And** the outcome is recorded exactly as observed, because a webhook post cannot be looked up afterwards (S7):
+1. HTTP 200 with body `ok`: `delivered`, with `result.posted_at`, `result.http_status`, `result.response_body` and `result.link_urls`;
+2. HTTP 4xx other than 429 (for example `invalid_payload`, `no_service`, `channel_not_found`): `failed` with the status and body, never retried;
+3. HTTP 429: nothing was posted; the worker retries once after `Retry-After` while still holding the claim, and a second 429 means `failed`;
+4. timeout, connection error or HTTP 5xx: the outcome is ambiguous, so the action is marked `unknown` and is never retried automatically
+**And** every status update is conditional on the current status (`dispatching` to `delivered`, `failed` or `unknown`), so a slow worker never overwrites a later state (D24); each change emits `action_status_changed` and writes nothing to the proposal (D47)
+**And** `actions.mark_unknown(action_id, "abandoned_in_flight")` marks an action left `dispatching` by an abandoned admission `unknown`, never re-sent, and `actions.mark_failed(action_id, "abandoned_before_send")` marks one still `queued` `failed`; both are conditional updates called by the sweep's background task (Story 9.5, D43)
+**And** manual resolution (S8): `POST /actions/<action_id>/resolve { outcome: delivered | failed, note }` lets a Reviewer settle an `unknown` notification after checking `#all-mango-db-hackathon` for the action ID; it passes `gate.evaluate()` as kind `resolve_notification` under `sam@v1` (Story 9.2), is recorded as a Decision whose ID target is the `action_id` (D49), with the Reviewer's stamp, `run_id: null`, a `request_id` and `cause { proposal_id, origin_run_id }`, moves the action from `unknown` with a conditional update that writes `resolution { outcome, note, decision_id, by, at }` (D44), never posts to Slack, and returns 409 for an action that is not `unknown`
+**And** the audit record of each notification action (S9) keeps its Decision (the agent, `initiated_by`, the grant evaluated, the policy set and every check), its inputs and evidence reference, the destination, the timestamps queued, claimed, posted and observed, and the `result { http_status, response_body, posted_at, link_urls { review_url, diagnostic_url } }` (D44)
+**And** the webhook URL never appears in a log, a response, a trace, an event, an action, a decision, the screen or the repository; `.env.example` names `SLACK_WEBHOOK_URL` with no value
+**And** A09 is never stubbed: if the webhook or `DXP_BASE_URL` is missing, it is fixed before anything else (D37)
+**And** (I1) at least the alert for the NCT04712877 proposal on FoundationOne Liquid CDx is one real Slack alert delivered to `#all-mango-db-hackathon` (one alert per filed proposal, D46), recorded `delivered`, whose "Review in DxP" link opens the focused proposal and whose "Open diagnostic" link opens the Record on the deployed web app; the blocked action sends no Slack message.
 
 ### Story 9.5: Stop control
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR38 · **Core** · **Owner:** Luis
-**PRs:** A07 `story/9.5-runs-stop` (Runs: identity stamping, atomic admission, stop, Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR38, AD-21 · **Core** · **Owner:** Luis
+**PRs:** A07 `story/9.5-runs-stop` (Runs: identity, admissions, stop, Luis). Cards in `development-plan.md`.
 
-As the person the agent acts for,
-I want to stop a run at any moment and see exactly what is still finishing,
+As the person who started the run,
+I want to stop it at any moment and see exactly what is still finishing,
 So that I stay in control of the agent without losing track of actions already under way.
 
 **Acceptance Criteria:**
 
-**Given** a run with `status: running`
+**Given** a collection `admissions`, unique on `(run_id, item_key)`, each with `status` (`admitted`, `released` or `abandoned`) and a 10-minute lease `expires_at`; one admission per action, `item_key = "<source_ref>|<kind>|<diagnostic_id>|<proposal_id or '-'>"`, taken after extraction and before the gate (D22)
+**And** the public API is `runs.admit`, `runs.release`, `runs.sweep`, `runs.settle` and `runs.finish`, implemented in `runs/admissions.py`
+**When** `runs.admit(run_id, item_key)` is called
+**Then** it inserts an admission only if the run is `running`: the conditional check on the run and the insert happen in one transaction, or the run's `admitting` counter guards them, so a stop and an admission cannot race; it returns the `admission_id`, or nothing when refused
+**And** `runs.release(admission_id)` changes `admitted` to `released` with a conditional update, so a second release does nothing, then calls `runs.settle(run_id)`
+**And** sweep layering (D43): `runs` imports nothing from `actions`; `runs.sweep(run_id)` marks admissions past their lease `abandoned` and returns the actions they held
+**And** the background task in `routes_runs.py` then calls `actions.mark_unknown(action_id, "abandoned_in_flight")` for each `dispatching` action (its post may or may not have reached Slack; never re-sent and never retried, for a Reviewer to resolve in DxP, Story 9.4, S8) and `actions.mark_failed(action_id, "abandoned_before_send")` for each `queued` action (never sent, so safe), and finally calls `runs.settle(run_id)` (D24, D43); these names are used everywhere, and the name `mark_abandoned` is retired
+**And** `GET /runs/<run_id>` never calls Slack: it starts the sweep's background task and returns current state; `reconciling` exists only at read time, for an action the sweep is about to settle (D24, S7)
 **When** I `POST /runs/<run_id>/stop`
-**Then** stop semantics: admission is an atomic, conditional update on the run that succeeds only while it is `running`, so a stop and an admission cannot race
-**And** after the stop, `runs.admit` admits nothing new and the run shows `stopping`
-**And** actions already admitted may finish and show as in flight
-**And** the run moves to `stopped` once in-flight reaches zero, and each status change emits an event stamped with the `run_id`
-**And** stopping a run that is already stopping or stopped changes nothing and returns its current state
-**And** stretch, built only if the loop is green by 14:30: a narrowly scoped reversal of one run's Record changes, recorded as new audited actions (FR46).
+**Then** stop semantics: a conditional update moves the run from `running` to `stopping`; after the stop, nothing new is admitted; admitted actions may finish and show as in flight; the run shows `stopping` until no `admitted` admissions remain, then `stopped`; the stop request starts the sweep's background task and does not call Slack itself
+**And** `runs.settle(run_id)` only moves a run from `stopping` to `stopped`, with a conditional update, when no `admitted` admission remains; it never ends a `running` run (D23)
+**And** `runs.finish(run_id)`, called by the pipeline after the last item, moves the run from `running` to `done` once no `admitted` admission remains; a run becomes `failed` only when the pipeline raises an error it cannot recover from (D23)
+**And** stopping a run that is already `stopping`, `stopped`, `done` or `failed` changes nothing and returns its current state
+**And** each status change emits `run_status_changed` stamped with the `run_id`
+**And** a concurrency test fires a stop and many admissions together and never admits after the stop
+**And** A07 is never stubbed (D37). Reversal of a run (FR46) is not part of this story; it is a separate stretch item (D37).
 
 ### Story 9.6: Audit reconstruction
 
-**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR39 · **Core** · **Owner:** Luis
-**PRs:** A11 `story/9.6-audit-api` (Audit API and "who authorised", Luis). Cards in `development-plan.md`.
+**Points:** 2 · **Time:** ~1.2 h (S, 4 h developer estimate × 0.3, back end) · **Lane:** [API] · **Covers:** FR39, AD-22 · **Core** · **Owner:** Luis
+**PRs:** A11 `story/9.6-audit-api` (Audit API, decision detail and "who authorised", Luis). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
-I want to replay a run action by action from stored data alone,
-So that I can answer "who authorised this action, and under what authority?" without opening a log.
+I want to replay a run decision by decision from stored data alone,
+So that I can answer "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?" without opening a log.
 
 **Acceptance Criteria:**
 
-**Given** a run with allowed, blocked and `unknown` actions
+**Given** a run with allowed, blocked and `unknown` entries, and a Reviewer decision on one of its proposals
 **When** I call `GET /api/v1/runs/<run_id>/audit`
-**Then** it returns every action in order
-**And** audit reconstruction: each action keeps its inputs, Evidence reference, grant version, policy-set version, decision, timestamps (proposed, decided, sent, observed) and external result (issue number and URL, or `unknown`)
-**And** `GET /actions/<action_id>` answers "who authorised this action": the person the run acts for, the agent identity, the grant and policy-set versions and the Evidence behind it
-**And** a blocked action shows its failed check; an `unknown` action is listed, never hidden
-**And** the response carries quotes only, never PubMed `raw_text`
-**And** from the audit alone a reviewer can name the person, grant, policy version and Evidence behind one Lifecycle stage change.
+**Then** it returns the run (with `agent`, `initiated_by` and the pinned grant version), its policy set rebuilt from `policy_sets`, and every decision of the run in `seq` order (D21), allowed and blocked, each allowed one with its action
+**And** audit reconstruction: each entry keeps its inputs, evidence reference, grant version, policy-set version, decision, destination, timestamps (proposed, decided, queued, claimed, posted, observed) and, for a notification, its result (S9): the status (`delivered`, `failed` or `unknown`) and the action's `result { http_status, response_body, posted_at, link_urls { review_url, diagnostic_url } }` and, when resolved, `resolution { outcome, note, decision_id, by, at }`, exactly as AD-14 (D44), never the webhook URL
+**And** each entry with a proposal also shows that proposal's live DxP review status (`pending`, `applied` or `rejected`, with who decided and when), read at request time (S9); any proposal `notification` A11 returns is built at read time from the proposal's `notify_slack` action (D47)
+**And** a Reviewer's `resolve_notification` decision on an `unknown` action appears under "After the run" with the Reviewer, the outcome, the note and the time
+**And** after them, a section "After the run" lists the Reviewer decisions whose `cause.origin_run_id` is this run, with the Reviewer, the outcome, the reason and the time
+**And** `GET /decisions/<decision_id>` returns the audit detail of any entry, allowed or blocked: the agent, `initiated_by`, the action and inputs, the evidence quote and source, every check with its result, the grant evaluated read at its recorded version, the policy-set version with its members, the outcome, the action it created, if any, and `authorised_by` (principal, initiated by, acting for, granted by, the grant and version evaluated, expiry, policy-set version)
+**And** "who authorised" is always read from the Decision's `authorised_by`, never from `GET /actions/<action_id>` (D40)
+**And** `GET /actions/<action_id>` stays for action status and results, and `GET /actions?run_id=&status=` lists them
+**And** a blocked entry shows its failed check; an `unknown` action is listed, never hidden
+**And** grants and policies are read at the versions recorded, so a later version never changes an earlier answer
+**And** the response carries quotes only, never a Source item's `raw_text`
+**And** from the audit alone a reviewer answers the demo question: the agent and `initiated_by`, the grant and its version and scope, the policy-set version, the evidence quote, the Slack alert's result, the proposal's live DxP review status, and Sam's approval under "After the run".
 
 ### Story 9.7: Run console
 
 **Points:** 3 · **Time:** ~3 h (M, 6 h developer estimate × 0.5, screen) · **Lane:** [WEB] · **Covers:** FR40 · **Core** · **Owner:** Vlad
 **PRs:** B02 `story/9.7-run-console` (Run console, Vlad). Cards in `development-plan.md`.
 
-As the person the agent acts for,
+As the person who starts the agent,
 I want one screen showing who the agent is, what it may do, what it is doing and a stop button,
 So that I can watch the agent work and stop it.
 
 **Acceptance Criteria:**
 
 **Given** the Run console in the minimal shell (Story 1.12)
-**When** I start a run over the selected set
-**Then** the request goes through server-side Next.js code that adds `X-DxP-Key`, which never reaches the browser
-**And** an identity card shows the agent name, model, prompt version, policy-set version, the person it acts for and the grant scope
-**And** a live list of actions shows each as allowed, blocked (with the failed check named), in flight or `unknown`, with links to the GitHub issues
-**And** a stop button calls `POST /runs/<run_id>/stop`, and the run status shows `stopping`, then `stopped`
-**And** the list updates from the live feed (Story 9.9) without a page reload, and polls `GET /runs/<run_id>` until Story 9.9 lands
+**When** I start a run over the selected set by choosing a grant from a picker that lists the grants I may start (from `GET /grants`), each labelled with its Team; there is no separate Team picker (D18)
+**Then** the request `POST /runs { grant_id, set }` goes through server-side Next.js code that adds `X-DxP-Key`, which never reaches the browser
+**And** a 403 (not allowed to start under this grant) and a 409 (a run is already running, with a link to it) are shown as messages
+**And** an identity card shows the agent, `initiated_by`, model, prompt version, the policy set as `ps_ab12… (N policies)`, the grant as `{grant_id}@v{version}`, and the grant's Team scope; run and action IDs show in their stored `run_` and `act_` forms (D40)
+**And** a list of the run's decisions shows each as allowed (with its action in flight, done, or, for the Slack alert, "Slack alert delivered" with the time, Failed or Unknown) or blocked (with the failed check named); each Diagnostic links to its Record page, and impact-view links are hidden while the `impact` flag is off
+**And** an `unknown` Slack alert shows a Resolve control, calling `POST /actions/<action_id>/resolve { outcome, note }` through the server-side key, only when the `actions` from `GET /whoami` include `resolve_notification` (D53)
+**And** a stop button calls `POST /runs/<run_id>/stop`; the status shows `stopping` with the number of admitted actions still finishing, then `stopped`
+**And** the console is done with the `feed` flag off: it polls `GET /runs/<run_id>` and `GET /runs/<run_id>/audit` every 2 seconds; the live feed (Story 9.9) is shown only if A12 passed its check, and then follows it without a page reload (D37)
 **And** buttons are reachable by keyboard and labelled.
 
 ### Story 9.8: Audit view
@@ -1300,39 +1399,45 @@ So that I can watch the agent work and stop it.
 **PRs:** B03 `story/9.8-audit-view` (Audit view, Vlad). Cards in `development-plan.md`.
 
 As a reviewer auditing the agent,
-I want one run reconstructed on screen, action by action,
-So that I can answer "who authorised this" for any action in front of the judges.
+I want one run reconstructed on screen, decision by decision,
+So that I can answer "who authorised this" for any entry in front of the judges.
 
 **Acceptance Criteria:**
 
-**Given** `GET /runs/<run_id>/audit` (Story 9.6)
+**Given** `GET /runs/<run_id>/audit` and `GET /decisions/<decision_id>` (Story 9.6)
 **When** I open the Audit view for a run
-**Then** each action shows in order with its decision, inputs, Evidence quote and source, grant and policy-set versions, the four timestamps and the external result (issue link, or `unknown`)
-**And** selecting an action shows "who authorised this": the person, the agent identity, the grant and the policy version
-**And** blocked actions show the failed check, and `unknown` actions are marked for manual reconciliation
+**Then** each entry shows in order with its outcome, inputs, Evidence quote and source, the grant as `{grant_id}@v{version}`, the policy set as `ps_ab12… (N policies)`, the timestamps and, for a notification, its result ("Slack alert delivered" with the time, Failed or Unknown, with the HTTP status, Slack's response and the link URLs sent), plus the proposal's live DxP review status (pending, applied or rejected, with who decided and when); each Diagnostic links to its Record page
+**And** selecting an entry loads its decision detail and shows "who authorised this" from the Decision's `authorised_by` (D40): the agent, `initiated_by`, the grant and its version and scope, the policy set and every check
+**And** the view polls `GET /runs/<run_id>/audit` until A12 has passed its check, and is done with the `feed` and `impact` flags off; impact-view links are hidden while the `impact` flag is off
+**And** blocked entries show the failed check, and `unknown` notifications are marked "Unknown: check #all-mango-db-hackathon for the action ID" with a Resolve control that calls `POST /actions/<action_id>/resolve { outcome, note }` through the server-side key (Story 9.4); the control is shown only when the `actions` in `GET /whoami`'s `Principal { id, name, kind, actions }` include `resolve_notification` (D53); there is no reconcile button
+**And** a section "After the run" shows the Reviewer decisions on the run's proposals, such as Sam's approval
+**And** the demo question, "Who filed trial NCT04712877 against FoundationOne Liquid CDx, and under what authority?", is answered on this screen without leaving it
 **And** the screen renders only what the API returns, applying no rule of its own.
 
 ### Story 9.9: Live action feed through change streams
 
-**Points:** 2 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR42 · **Supporting** · **Owner:** Luis
+**Points:** 2 · **Time:** ~1.5 h (S, 3 h developer estimate × 0.5, new infra) · **Lane:** [API] · **Covers:** FR42, AD-10, AD-23 · **Supporting** · **Owner:** Luis
 **PRs:** A12 `story/9.9-change-feed` (Change-stream feed endpoint with polling fallback, Luis). Cards in `development-plan.md`.
 
-As the person the agent acts for,
-I want actions to appear on the console as they are decided,
+As the person who starts the agent,
+I want decisions and actions to appear on the console as they happen,
 So that I see the agent work in real time.
 
 **Acceptance Criteria:**
 
-**Given** the run's actions and events in Atlas
-**When** the Run console long-polls `GET /changes?after=<seq>&run_id=`
-**Then** with `DXP_FEED=change_stream` the request waits up to 25 seconds and is woken by an Atlas change stream on `events`, so new and changed actions appear within a few seconds
-**And** if change streams are not available on the Atlas Sandbox tier (checked in A04), `DXP_FEED=poll` returns at once and the console polls the same route every 2 seconds, with the same result shape
-**And** a dropped connection resumes from the last `seq` without missing or repeating an action.
+**Given** the run's events in Atlas, each with an integer `seq` and the stamp
+**When** the Run console calls `GET /changes?after=<seq>&run_id=`
+**Then** it returns the events after `seq` for that run and the `last_seq`; the query on `seq` is the only source of truth
+**And** `action_allowed` and `action_blocked` events carry their `decision_id`, and run and action status changes are events, so the feed shows allowed, blocked, in flight and `unknown` without reading `actions`
+**And** with `DXP_FEED=change_stream` the request waits up to 25 seconds and is woken by an Atlas change stream on `events`, so new entries appear within a few seconds
+**And** if change streams are not available on the Atlas Sandbox tier (checked in A04), `DXP_FEED=poll` returns at once and the console polls the same route every 2 seconds, with the same response shape
+**And** a dropped connection resumes from the last `seq` without missing or repeating an entry
+**And** it never blocks a core PR, and A12 may be cut (D37); until it has passed its check, the console, the Audit view and the Review count poll (Stories 9.7, 9.8, 1.12).
 
 ### Story 9.10: Spoken audit briefing
 
 **Points:** 2 · **Time:** ~1.6 h (S, 4 h developer estimate × 0.4, model work and screen) · **Lane:** [API] and [WEB] · **Covers:** FR44 · **Stretch** · **Owner:** Vlad
-**PRs:** B06 `story/9.10-audio-briefing` (Stretch: spoken audit briefing with ElevenLabs, Vlad). Cards in `development-plan.md`.
+**PRs:** B06 `story/9.10-audio-briefing` (Stretch: spoken audit briefing with ElevenLabs, Vlad; built from 13:00 behind a flag, merged only after the loop is green at 14:30). Cards in `development-plan.md`.
 
 As a reviewer,
 I want to hear a short audit summary of a run,
@@ -1342,15 +1447,15 @@ So that I can catch up on what the agent did without reading the log (and the te
 
 **Given** `GET /api/v1/runs/<run_id>/audit/audio`
 **When** it is called
-**Then** ElevenLabs text to speech reads a short summary built from the run's audit (actions allowed, blocked and `unknown`, issues opened, who authorised them), with ctDNA, MRD, EGFR and NSCLC pronounced correctly
+**Then** ElevenLabs text to speech reads a short summary built only from the run's audit response (decisions allowed and blocked, actions `unknown`, Slack alerts delivered, the agent and `initiated_by`, and Reviewer decisions after the run), with ctDNA, MRD, EGFR and NSCLC pronounced correctly
 **And** the audio is generated once per run state and cached
-**And** if ElevenLabs fails, the route returns `{ error }` with 503 and the Audit view still works
-**And** the Audit view has a play button with a loading state and an error message
-**And** built only if the loop is green by 14:30; it replaces Stories 3.4 and 3.5.
+**And** if ElevenLabs fails, the route returns the error shape with 503 and the Audit view still works
+**And** the Audit view has a "Listen" link to B06's briefing page for the run, which plays the audio with a loading state and an error message; the link shows only when the stretch flag is on
+**And** it may be built from 13:00 behind a flag, never blocks a core PR, and merges only after the allowed-and-blocked loop is green at 14:30; it replaces Stories 3.4 and 3.5.
 
 ### Story 9.11: Rejection drafts a policy for explicit approval
 
-**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] and [WEB] · **Covers:** FR45 · **Stretch** · **Owner:** Luis
+**Points:** 3 · **Time:** ~2 h (M, 5 h developer estimate × 0.4, model work) · **Lane:** [API] and [WEB] · **Covers:** FR45, NFR15 · **Stretch** · **Owner:** Luis
 **PRs:** A17 `story/9.11-policy-draft` (Stretch: rejection drafts a policy for approval, Luis). Cards in `development-plan.md`.
 
 As a Reviewer,
@@ -1359,47 +1464,52 @@ So that a correction tightens the agent's authority without model prose ever bec
 
 **Acceptance Criteria:**
 
-**Given** Sam rejects a proposed change with a reason
+**Given** Sam rejects a proposed change with a reason (Story 2.3)
 **When** the decision is saved
-**Then** the model drafts a new policy version as structured data limited to what a policy supports (`applies_to` and a `requires` object with only `quote_found`, `supported` and `min_confidence`), returned with `status: draft`
+**Then** the model drafts a new policy version as structured data limited to what a policy supports (`applies_to` and a `requires` object with only `quote_found`, `supported` and `min_confidence`), returned as `rule_draft` with `status: draft`
 **And** a draft that needs a check the gate does not support is refused with a message, not stored as a policy
-**And** the draft takes effect only after explicit approval by a person principal through `POST /policies/<policy_id>/approve { version }`, which creates a new policy-set version; later gate decisions cite it
+**And** the draft takes effect only after explicit approval by a person principal through `POST /policies/<policy_id>/approve { version }`, which inserts a new `active` version; the next run pins a new policy set, written to `policy_sets` on first use, and its decisions cite it; a run already under way keeps its pinned set
 **And** model text is never executed as authority: the gate reads only the structured policy fields
-**And** if drafting fails, the decision is still saved
+**And** if drafting fails, the decision is still saved and `rule_draft` is null
 **And** built only if the loop is green by 14:30; it replaces deferred Stories 2.6 and 2.7.
 
 ## Route ownership
 
-Every route in the AD-14 table, including the routes the pivot adds, is built by exactly one story. Route names match AD-14 exactly; if they ever differ, AD-14 wins and the owning story stays the same. Rows for deferred stories are kept for history and are not built on Saturday.
+Every route in the AD-14 table, including the routes the pivot and the readiness fixes add, is built by exactly one story and one PR, and has exactly one status (core, supporting, stretch, deferred or superseded), the same as in the AD-14 table (D40). Route names match AD-14; where AD-14 has not yet caught up with `readiness-fixes-2026-11-14.md`, the names that file defines win, and the owning story stays the same. Deferred rows are kept for history: the route is registered by A01 and stays 501.
 
-| Route under `/api/v1` | Story |
-|---|---|
-| `GET /schema` | 1.1 |
-| `GET /diagnostics`, `GET /diagnostics/<dx_id>` | 1.1 |
-| `GET /changes` (also the polling fallback for the live feed) | 1.1 |
-| `GET /teams` | 1.2 |
-| `POST /runs`, `GET /runs`, `GET /runs/<run_id>` | 9.1 |
-| `GET /whoami`, `GET /grants`, `GET /grants/<grant_id>`, `GET /policies` | 9.2 |
-| `POST /actions/<action_id>/reconcile` | 9.4 (supporting) |
-| `POST /runs/<run_id>/stop` | 9.5 |
-| `GET /runs/<run_id>/audit`, `GET /actions?run_id=&status=`, `GET /actions/<action_id>` (with `authorised_by`, "who authorised") | 9.6 |
-| `GET /changes?after=<seq>&run_id=` with the change-stream wake-up | 9.9 |
-| `GET /runs/<run_id>/audit/audio` | 9.10 (stretch) |
-| `POST /policies/<policy_id>/approve { version }` | 9.11 (stretch) |
-| `POST /jobs`, `GET /jobs`, `GET /jobs/<job_id>` | 1.7; superseded by the `/runs` routes since the pivot, not built |
-| `GET /proposals` | 2.2 |
-| `POST /proposals/<p_id>/decision`, `POST /diagnostics/<dx_id>/values/<value_id>/review` | 2.3 |
-| `GET /rules`, `POST /rules/<rule_id>/status` | 2.6 (deferred) |
-| `GET /alerts`, `POST /alerts/<alert_id>/dismiss` | 3.1 (deferred) |
-| `GET /digest` | 3.3 (deferred) |
-| `GET /alerts/<alert_id>/audio` | 3.4 (deferred; replaced by 9.10) |
-| `GET /terms` | 4.1 (deferred) |
-| `POST /query` | 4.2 (deferred) |
-| `POST /shortlists`, `GET /shortlists` | 4.4 (deferred) |
-| `POST /diagnostics/<dx_id>/values` | 4.7 (deferred) |
-| `GET /graph` (with `run_id`) | 5.1 |
-| `GET /graph` with `focus` and `team_id`, `POST /teams/<team_id>/seen` | 5.1 (deferred parts) |
-| `GET /teams/<team_id>` (with resume) | 6.3 (deferred) |
+| Route under `/api/v1` | Story (PR) | Status |
+|---|---|---|
+| Every route as a 501 stub, the error shape and the generated types | 1.1 (A01) | core |
+| `GET /schema` | 1.1 (A01) | core |
+| `GET /diagnostics/<dx_id>` | 1.1 (A18) | core |
+| `GET /diagnostics` (the list) | 1.1 | deferred (no Diagnostics list, D40) |
+| `GET /teams` | 1.2 (A13) | core |
+| `POST /runs { grant_id, set }`, `GET /runs`, `GET /runs/<run_id>` | 9.1 (A07) | core |
+| `GET /whoami` (returns `Principal { id, name, kind, actions }`, D53), `GET /grants`, `GET /grants/<grant_id>`, `GET /policies` | 9.2 (A03) | core |
+| `POST /actions/<action_id>/resolve { outcome: delivered \| failed, note }` (Reviewer, kind `resolve_notification`) | 9.4 (A09) | core |
+| `POST /runs/<run_id>/stop` | 9.5 (A07) | core |
+| `GET /runs/<run_id>/audit` (with "After the run"), `GET /decisions/<decision_id>`, `GET /actions?run_id=&status=`, `GET /actions/<action_id>` | 9.6 (A11) | core |
+| `GET /proposals` | 2.2 (A14) | core |
+| `GET /proposals/<p_id>` (one proposal, whatever its status; no `p_id=` query parameter, D42) | 2.2 (A14) | core |
+| `POST /proposals/<p_id>/decision` | 2.3 (A14) | core |
+| `POST /diagnostics/<dx_id>/values/<value_id>/review` | 2.3 (A14) | core |
+| `GET /changes?after=<seq>&run_id=`, by change stream or polling | 9.9 (A12) | supporting |
+| `GET /graph?run_id=` (with `context=true`) | 5.1 (A15) | supporting |
+| `GET /runs/<run_id>/audit/audio` | 9.10 (B06) | stretch |
+| `POST /policies/<policy_id>/approve { version }` | 9.11 (A17) | stretch |
+| `POST /jobs`, `GET /jobs`, `GET /jobs/<job_id>` | 1.7 | superseded by the `/runs` routes, not built |
+| `GET /rules`, `POST /rules/<rule_id>/status` | 2.6 | deferred |
+| `GET /alerts`, `POST /alerts/<alert_id>/dismiss` | 3.1 | deferred |
+| `GET /digest` | 3.3 | deferred |
+| `GET /alerts/<alert_id>/audio` | 3.4 | deferred (replaced by 9.10) |
+| `GET /terms` | 4.1 | deferred |
+| `POST /query` | 4.2 | deferred |
+| `POST /shortlists`, `GET /shortlists` | 4.4 | deferred |
+| `POST /diagnostics/<dx_id>/values` | 4.7 | deferred |
+| `GET /graph` with `focus`, `after` and `team_id`, `POST /teams/<team_id>/seen` | 5.1 | deferred |
+| `GET /teams/<team_id>` (with resume) | 6.3 | deferred |
+
+`GET /changes` moved from Story 1.1 to Story 9.9 (A12), because A01 builds stubs only and A12 owns the feed files. Until A12 passes its check, the Run console polls `GET /runs/<run_id>` and `GET /runs/<run_id>/audit`, the Audit view polls `GET /runs/<run_id>/audit`, and the Review count polls `GET /proposals?status=pending` (D40).
 
 ## Points and time summary
 
@@ -1409,7 +1519,7 @@ Saturday scope after the pivot (kept, trimmed and new stories). For Epic 9, "Dem
 
 | Epic | Stories | Points | Developer estimate | Agent time | Demo path | Cut candidates |
 |---|---|---|---|---|---|---|
-| 1 Evidence-backed records from real data | 8 | 23 | 50 h | 20.6 h | 20.6 h | 0 h |
+| 1 Evidence-backed records from real data | 8 | 23 | 53.5 h | 23.7 h | 23.7 h | 0 h |
 | 2 Agents propose, the Reviewer decides, guardrails learn | 3 | 7 | 15 h | 5.9 h | 5.9 h | 0 h |
 | 3 Teams get told what matters | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
 | 4 Find, compare and fill gaps | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
@@ -1418,7 +1528,7 @@ Saturday scope after the pivot (kept, trimmed and new stories). For Epic 9, "Dem
 | 7 Capture on the go | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
 | 8 Ship it to the judges | 4 | 5 | 8 h | 5 h | 5 h | 0 h |
 | 9 Governed agent actions | 11 | 29 | 51 h | 18.8 h | 15.2 h | 3.6 h |
-| **Total** | **28** | **69** | **137 h** | **58.3 h** | **54.7 h** | **3.6 h** |
+| **Total** | **28** | **69** | **140.5 h** | **61.4 h** | **57.8 h** | **3.6 h** |
 
 Deferred (pivot, 13 Nov), not built on Saturday:
 
@@ -1435,24 +1545,24 @@ Deferred (pivot, 13 Nov), not built on Saturday:
 | 9 Governed agent actions | 0 | 0 | 0 h | 0 h | 0 h | 0 h |
 | **Total** | **27** | **52** | **113.5 h** | **57.6 h** | **29.9 h** | **9.4 h** |
 
-All 55 stories together: 121 points, 250.5 h developer estimate, 115.9 h agent time. Before the pivot the plan was 44 stories, 92 points and 97.1 h.
+All 55 stories together: 121 points, 254 h developer estimate, 119 h agent time. The readiness fixes added about 1 h to Story 1.1 for PR A18 (the Record read model and `GET /diagnostics/<dx_id>`). Before the pivot the plan was 44 stories, 92 points and 97.1 h.
 
 | Lane (Saturday scope) | Agent time |
 |---|---|
-| [API] | 28.7 h |
+| [API] | 31.8 h |
 | [WEB] | 26 h |
 | [API] and [WEB] (Stories 9.10, 9.11) | 3.6 h |
 
 | Owner (Saturday scope) | Agent time |
 |---|---|
-| Luis | 35.1 h |
+| Luis | 38.2 h |
 | Vlad | 23.2 h |
 
 PR and merge: about 10 minutes per story, already inside the measured actuals the factors come from, so not added again.
 
 Capacity and timing for Saturday are in `build-schedule.md` and the PR cards in `development-plan.md`, both rewritten for 10:45 to 17:00. The totals above are summed cycle times, useful for comparing parts of the plan, not for deciding what fits.
 
-Timing: hacking 10:45 to 17:00 on the Atlas Sandbox; contracts frozen 11:45; the first allowed-and-blocked loop green by 14:30; final acceptance by 15:30; code freeze 16:30; the 60-second video (Story 8.4) recorded 16:30 to 16:50 and submitted by 16:55 with the description, public repository and team members; the 3-minute live demo for judging at 17:15.
+Timing: hacking 10:45 to 17:00 on the Atlas Sandbox; contracts frozen 11:45; the first allowed-and-blocked loop green by 14:30; final acceptance by 15:30; code freeze 16:30; the 60-second video script (Story 8.4, B07) written by 14:00; the video recorded 16:30 to 16:50 and submitted by 16:55 with the description, public repository and team members (task R1, Luis and Vlad); the 3-minute live demo for judging at 17:15.
 
 ## Departures
 
