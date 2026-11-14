@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useHotkeys } from "react-hotkeys-hook";
 import { CircleDashed, Gavel, ListOrdered, SearchX } from "lucide-react";
 
 import { AfterRunEntry } from "@/components/audit/after-run";
 import { RunEntry, type AuditContext } from "@/components/audit/audit-entry";
-import { Mono, Panel } from "@/components/audit/common";
+import { Mono, Panel, SyntheticPeopleProvider } from "@/components/audit/common";
 import { FeedSourceLabel } from "@/components/audit/feed-source-label";
 import { IdentityCard } from "@/components/audit/identity-card";
 import {
@@ -20,11 +20,12 @@ import {
 } from "@/components/audit/labels";
 import { SourcesPanel } from "@/components/audit/sources-panel";
 import { useAuditFeed } from "@/components/audit/use-audit-feed";
+import { useEntryHash } from "@/components/audit/use-entry-hash";
 import { WhoAuthorisedDock } from "@/components/audit/who-authorised";
 import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ApiError, isUnreachable } from "@/lib/api";
+import { ApiError, isUnreachable, itemsOf } from "@/lib/api";
 import { POLL_MS, useApi } from "@/lib/use-api";
 
 /**
@@ -37,11 +38,24 @@ import { POLL_MS, useApi } from "@/lib/use-api";
 export function AuditView({ runId }: { runId: string }) {
   const feed = useAuditFeed(runId);
   const whoami = useApi("/whoami", { interval: POLL_MS * 15 });
+  const teams = useApi("/teams");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const rawAudit = feed.audit;
   const announcement = useAnnouncement(rawAudit);
+
+  // The people of a run act for its Team: they are synthetic when that Team is (no per-person flag in the API).
+  const actingFor = rawAudit?.run.acting_for ?? null;
+  const agent = rawAudit?.run.agent ?? null;
+  const teamSynthetic = Boolean(actingFor && itemsOf(teams.data).some((t) => t.id === actingFor && t.synthetic));
+  const isSyntheticPerson = useCallback(
+    (id: string) => teamSynthetic && id !== agent && id !== "seed",
+    [teamSynthetic, agent],
+  );
+
+  // Open the entry the address names once the audit is on screen.
+  useEntryHash(Boolean(rawAudit), (rawAudit?.entries?.length ?? 0) + (rawAudit?.after_run?.length ?? 0));
 
   // j and k move between entries (EXPERIENCE "Interaction Primitives").
   const move = (step: 1 | -1) => {
@@ -93,74 +107,76 @@ export function AuditView({ runId }: { runId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-title">Audit</h1>
-        <p className="text-table text-muted-foreground">
-          One run, decision by decision. Run <Mono>{audit.run.id}</Mono>. Shortcuts: <kbd className="text-identifier">j</kbd> and{" "}
-          <kbd className="text-identifier">k</kbd> move between entries.
-        </p>
-      </div>
-
-      <p className="sr-only" role="status" aria-live="polite">
-        {announcement}
-      </p>
-
-      {feed.error ? (
-        <Notice icon={CircleDashed} title="Showing the last answer" role="status">
-          {isUnreachable(feed.error)
-            ? "The API did not answer the latest refresh. This is the last audit it returned; it will keep trying."
-            : `The latest refresh failed: ${feed.error.message}`}
-        </Notice>
-      ) : null}
-
-      <IdentityCard audit={audit} />
-
-      <FeedSourceLabel
-        source={feed.source}
-        polling={feed.polling}
-        halted={feed.halted}
-        updatedAt={feed.updatedAt}
-        refreshing={feed.isValidating}
-        onRefresh={() => void feed.refresh()}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div ref={listRef} className="flex min-w-0 flex-col gap-6">
-          <SourcesPanel audit={audit} />
-
-          <Panel icon={ListOrdered} title="Decisions, in order" headingId="entries-heading">
-            {entries.length === 0 ? (
-              <p className="text-body text-muted-foreground">
-                {running
-                  ? "No actions yet. The agent is scanning ClinicalTrials.gov for the scope."
-                  : "This run recorded no decisions."}
-              </p>
-            ) : (
-              <ol className="relative ml-3 flex flex-col gap-4 border-l border-border pl-6" aria-label="Decisions in order">
-                {entries.map((entry, i) => (
-                  <RunEntry key={entry.decision_id} entry={entry} position={i + 1} ctx={ctx} />
-                ))}
-              </ol>
-            )}
-          </Panel>
-
-          <Panel icon={Gavel} title="After the run" headingId="after-run-heading">
-            {afterRun.length === 0 ? (
-              <p className="text-body text-muted-foreground">No Reviewer decisions yet.</p>
-            ) : (
-              <ol className="relative ml-3 flex flex-col gap-4 border-l border-border pl-6" aria-label="Reviewer decisions after the run">
-                {afterRun.map((entry, i) => (
-                  <AfterRunEntry key={entry.decision_id} entry={entry} position={i + 1} ctx={ctx} />
-                ))}
-              </ol>
-            )}
-          </Panel>
+    <SyntheticPeopleProvider value={isSyntheticPerson}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-title">Audit</h1>
+          <p className="text-table text-muted-foreground">
+            One run, decision by decision. Run <Mono>{audit.run.id}</Mono>. Shortcuts: <kbd className="text-identifier">j</kbd> and{" "}
+            <kbd className="text-identifier">k</kbd> move between entries.
+          </p>
         </div>
 
-        <WhoAuthorisedDock selected={selected} audit={ctx.audit} onClose={() => closeWho(selectedId)} />
+        <p className="sr-only" role="status" aria-live="polite">
+          {announcement}
+        </p>
+
+        {feed.error ? (
+          <Notice icon={CircleDashed} title="Showing the last answer" role="status">
+            {isUnreachable(feed.error)
+              ? "The API did not answer the latest refresh. This is the last audit it returned; it will keep trying."
+              : `The latest refresh failed: ${feed.error.message}`}
+          </Notice>
+        ) : null}
+
+        <IdentityCard audit={audit} />
+
+        <FeedSourceLabel
+          mode={feed.mode}
+          autoRefresh={feed.autoRefresh}
+          halted={feed.halted}
+          updatedAt={feed.updatedAt}
+          refreshing={feed.isValidating}
+          onRefresh={() => void feed.refresh()}
+        />
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div ref={listRef} className="flex min-w-0 flex-col gap-6">
+            <SourcesPanel audit={audit} />
+
+            <Panel icon={ListOrdered} title="Decisions, in order" headingId="entries-heading">
+              {entries.length === 0 ? (
+                <p className="text-body text-muted-foreground">
+                  {running
+                    ? "No actions yet. The agent is scanning ClinicalTrials.gov for the scope."
+                    : "This run recorded no decisions."}
+                </p>
+              ) : (
+                <ol className="relative ml-3 flex flex-col gap-4 border-l border-border pl-6" aria-label="Decisions in order">
+                  {entries.map((entry, i) => (
+                    <RunEntry key={entry.decision_id} entry={entry} position={i + 1} ctx={ctx} />
+                  ))}
+                </ol>
+              )}
+            </Panel>
+
+            <Panel icon={Gavel} title="After the run" headingId="after-run-heading">
+              {afterRun.length === 0 ? (
+                <p className="text-body text-muted-foreground">No Reviewer decisions yet.</p>
+              ) : (
+                <ol className="relative ml-3 flex flex-col gap-4 border-l border-border pl-6" aria-label="Reviewer decisions after the run">
+                  {afterRun.map((entry, i) => (
+                    <AfterRunEntry key={entry.decision_id} entry={entry} position={i + 1} ctx={ctx} />
+                  ))}
+                </ol>
+              )}
+            </Panel>
+          </div>
+
+          <WhoAuthorisedDock selected={selected} audit={ctx.audit} onClose={() => closeWho(selectedId)} />
+        </div>
       </div>
-    </div>
+    </SyntheticPeopleProvider>
   );
 }
 
