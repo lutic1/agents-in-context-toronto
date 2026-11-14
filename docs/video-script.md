@@ -2,7 +2,7 @@
 
 Script for the 60-second submission video (Story 8.4, recorded by R1 from 16:30 to 16:50, submitted by 16:55). Timings follow V17 as amended by V25 to V48. If two decisions disagree, the higher number wins (V48 over V1 to V47; V38 to V47 over everything earlier; V33 to V37 over V25 to V27).
 
-Facts not known yet are `[[PENDING: ...]]` markers. Resolve each one in the pre-recording checklist, and never record with a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the avatar, revert, the live stream or the follow-up task run.
+Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the avatar, revert, the live stream or the follow-up task run.
 
 ## Fixed rules for every take
 
@@ -12,7 +12,7 @@ Facts not known yet are `[[PENDING: ...]]` markers. Resolve each one in the pre-
 4. **The rollback line (V48, never cut).** Segment 5 says, word for word: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." Say the agent "cannot change accepted knowledge without a human approval" (caption, see segment 5). Never claim any automatic rollback of external effects: a Slack alert that was sent stays sent.
 5. **Only what passed (D1, V29).** Show only behaviour that passed on the integrated build, built on 14 November. Never show a key, the Slack webhook address, `.env`, the Modal or Vercel secret pages, or browser developer tools.
 6. **Capability names.** Name a MongoDB capability only if it was proven on the sandbox. Say "Vector Search" only if the report's retrieval method was Vector Search; if it fell back, the screen reads "Related by text search" and the tag reads "Atlas Search (text)". Say "change streams" only if the console label read "Live (change stream)" on this take; otherwise do not name them. [[PENDING: retrieval method on this take, Vector Search or text search (OD1)]] [[PENDING: whether the console label reads "Live (change stream)" (S5, OD5)]]
-7. **Pace.** About 150 words a minute. Set `DXP_DEMO_PACE` so the anchor is the first item and the block is visible in the feed. Total narration budget is 150 words.
+7. **Pace and take.** The narration is read at 150 words a minute including pauses, and each segment must end within 0.5 s of its boundary. Set `DXP_DEMO_PACE` so the anchor is the first item and the block is visible in the feed. Total narration budget is 150 words. Decide before recording whether the 60 seconds is one continuous take or cut by segment. In a continuous take the report must be filed by 0:13 and the Slack alert must be visible by 0:35 on this take's own clock. If that does not hold in rehearsal pass 2, either start the run before the recording window (identity card first, then the report), or cut the take by segment and keep each segment's on-screen run time inside its boundaries.
 
 ## Approval variants
 
@@ -30,11 +30,11 @@ In variant A the task's run may be shown only if it actually ran in this take, a
 | Seconds | Segment | Cap at 150 wpm | Narration words |
 |---|---|---|---|
 | 0 to 10 | 1. Scope and identity | 25 | 23 |
-| 10 to 25 | 2. The signal, related evidence, the gap and M1 | 37 | 37 |
+| 10 to 25 | 2. The signal, related evidence, the gap and M1 | 37 | 33 |
 | 25 to 35 | 3. The block | 25 | 23 (24 with the claim variant) |
 | 35 to 45 | 4. Slack opens the report | 25 | 20 |
 | 45 to 60 | 5. Approval, the rollback line, audit | 37 | 36 (variant A), 35 (variant B) |
-| | **Total** | 149 | 138 to 140 (about 56 seconds) |
+| | **Total** | 149 | 134 to 136 (about 54 seconds) |
 
 Recount after any edit: count the words of the quoted narration in each segment, and keep each segment at or under its cap.
 
@@ -61,17 +61,17 @@ Recount after any edit: count the words of the quoted narration in each segment,
 5. 0:22 The M1 chip, only if it is visible on this take: "Wording changed because of M1 (Sam, 14 Nov): states recruiting status, no results yet", with Before and After. Tag "Memory in Atlas".
 6. The report must show "Named in the record" for both names and the intervention uncertainty. Do not zoom on or read any statement about an assay.
 
-**Narration (37 words)**
-> It finds an updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence carries checked quotes, the gap is named. M1, a correction from earlier today, changed the wording.
+**Narration (33 words)**
+> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence carries checked quotes; gap named. M1, a correction from earlier today, changed the wording.
 
-**Fallback narration, no relationship (37 words).** Use it whenever the first related item has no relationship label and both checked quotes. Replace "Related evidence carries checked quotes" with "Related evidence, no relationship claimed" (5 words for 5):
-> It finds an updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence, no relationship claimed, the gap is named. M1, a correction from earlier today, changed the wording.
+**Fallback narration, no relationship (33 words).** Use it whenever the first related item has no relationship label and both checked quotes:
+> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence, no relationship claimed; gap named. M1, a correction from earlier today, changed the wording.
 
-**Text-search variant (37 words).** Use it when retrieval fell back to text search:
-> It finds an updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text search relates evidence with checked quotes; gap named. M1, a correction from earlier today, changed the wording.
+**Text-search variant (33 words).** Use it when retrieval fell back to text search:
+> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text-search relations carry checked quotes; gap named. M1, a correction from earlier today, changed the wording.
 
-**Text-search variant with no relationship (37 words).** Use it when both apply:
-> It finds an updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text search: related evidence, no relationship claimed; gap named. M1, a correction from earlier today, changed the wording.
+**Text-search variant with no relationship (33 words).** Use it when both apply:
+> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text-search evidence, no relationship claimed; gap named. M1, a correction from earlier today, changed the wording.
 
 **Notes.** "A correction from earlier today" is the V32 line: M1 was created by Sam through the real UI during setup. "Updated trial", not "new trial": the anchor is a trial updated after the cursor (V36) and may have been in the registry for years. If the M1 chip with its Before and After is not visible on this take, delete the M1 sentence and the M1 on-screen step. Choose the variant before recording so nothing is edited on the fly.
 
@@ -107,11 +107,11 @@ Recount after any edit: count the words of the quoted narration in each segment,
 
 **On screen**
 1. 0:45 Press "Approve". The page shows the approval line for the chosen variant (see the table above) and the update "Accepted" in the scope's evidence collection. No assay record changes. Task line reads "Authorised" (or "Not run").
-2. 0:50 (variant B: 0:49) Open the Audit view. Caption the scripted question: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?" Scroll slowly through the sources and cursor, the retrieval, M1 with its effect, the block, the Slack result, and under "After the run", Sam's approval and the task authorisation. Caption tag: "Decisions and actions in Atlas" over the audit view, only if proven. [[PENDING: whether the decisions and actions audit history was proven (I3)]]
-3. 0:51 Caption, one line at a time, over the audit view: "The agent cannot change accepted knowledge without a human approval." then, at 0:55, "Pending reports can be rejected. History and source versions are never overwritten." and, only if S3 passed, "Memories can be revoked." [[PENDING: whether memory revoke passed S3 (A21+A22)]] The Slack row stays as it is: the alert that was sent stays sent.
-4. Optional caption, only if S4 (revert) passed: "An approval can be reverted." Do not press "Revert approval" in the video. [[PENDING: whether revert passed its check (S4)]]
+2. 0:50 (variant B: 0:49) Open the Audit view. Keep the scripted question as a persistent banner at the top of the screen until 0:55, at least 5 s: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?" Give the answer by scrolling only the four rows the question names, one after another: what was found (the sources and cursor), M1 and its effect, the block, and the authorisation (under "After the run", Sam's approval and the task authorisation). Do not scroll past the retrieval or the Slack result in this window. Caption tag: "Decisions and actions in Atlas" over the audit view, only if proven. [[PENDING: whether the decisions and actions audit history was proven (I3)]]
+3. 0:55 The banner leaves. In a lower-third line, caption: "The agent cannot change accepted knowledge without a human approval." Hold it to 0:58. Then it is replaced by: "Pending reports can be rejected. History and source versions are never overwritten." Hold that to the end. The Slack row stays as it is: the alert that was sent stays sent. Add "Memories can be revoked." (only if S3 passed) and the revert caption of step 4 only if each fits on screen, readable, before 0:59; otherwise leave them out. [[PENDING: whether memory revoke passed S3 (A21+A22)]]
+4. Optional caption, only if S4 (revert) passed and it fits before 0:59: "An approval can be reverted." Do not press "Revert approval" in the video. [[PENDING: whether revert passed its check (S4)]]
 5. Optional tag "Change streams", only if the console label read "Live (change stream)" on this take. [[PENDING: live label on this take (S5)]]
-6. 0:58 Hold on the Audit view for the close.
+6. 0:58 Hold on the Audit view for the close. Variant A, mandatory: at 0:58 a closing caption, centred and separate from the lower-third line, held to the end: "The aim: team-specific, longitudinal intelligence on the diagnostics a team follows. This demo shows one turn of that loop."
 
 **Narration, variant A (36 words, `task_run` on, V27)**
 > Approved: one update accepted. Follow-up task authorised; its findings will be pending review. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. Team-specific, longitudinal intelligence.
@@ -120,8 +120,8 @@ Recount after any edit: count the words of the quoted narration in each segment,
 > Approved: one update accepted. Follow-up task authorised; not run. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. Team-specific, longitudinal intelligence: one turn shown.
 
 **Notes**
-- **The close (V32).** The last words name the bigger value, team-specific, longitudinal intelligence. Variant A has no room for "one turn shown" (36 words plus 3 would be 39, over the 37 cap); keep the close at "Team-specific, longitudinal intelligence."
-- **The 15-second limit.** At 150 words a minute, 15 seconds holds about 37 words. The approval line, the 20-word rollback line and the close already fill it, so the spoken script cannot also carry the audit answer or the supporting points. The audit question and the supporting points are therefore on-screen captions, and the audit view carries the answer visually. This is a deliberate choice. Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail the AC: the V48 "cannot change accepted knowledge without a human approval" sentence, the supporting points, any revert mention and the audit answer are captions, because the spoken rollback line fills the 15 seconds; the full spoken form belongs to the 3-minute live demo. The rollback line is the narrated part. If more spoken time is wanted, take it from segment 4, not from the rollback line.
+- **The close (V32).** The last words name the bigger value, team-specific, longitudinal intelligence, and the close must say the demo shows one turn of that loop. Variant B says "one turn shown" aloud. Variant A has no room for it in the narration (36 words plus 3 would be 39, over the 37 cap), so variant A carries that qualifier as the mandatory closing caption at 0:58 (step 6), not as narration. Never end variant A on the bare spoken line with no caption.
+- **The 15-second limit.** At 150 words a minute, 15 seconds holds about 37 words. The approval line, the 20-word rollback line and the close already fill it, so the spoken script cannot also carry the audit answer or the supporting points. The audit question and the supporting points are therefore on-screen captions, and the audit view carries the answer visually: the question banner stays up from 0:50 to 0:55 so it can be read. This is a deliberate choice. Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail the AC: the V48 "cannot change accepted knowledge without a human approval" sentence, the supporting points, any revert mention and the audit answer are captions, because the spoken rollback line fills the 15 seconds; the full spoken form belongs to the 3-minute live demo. The rollback line is the narrated part. R1 keeps the two captions "The agent cannot change accepted knowledge without a human approval." and "Pending reports can be rejected. History and source versions are never overwritten." on screen for the whole of their windows. If more spoken time is wanted, take it from segment 4, not from the rollback line.
 - **The approval line on screen (V27, V38).** The full sentence appears as the page's own text, even though the narration reads "one" for "1".
 - **No completed follow-up work (V39).** Do not say the task found, completed or answered anything unless it ran in this take. "Approved" is not "accepted" for the task's findings.
 - **Rollback of external effects.** Never say or caption that anything was rolled back outside DxP.
@@ -137,7 +137,7 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Live label read: "Live (change stream)" or "Refreshing every 2 s". Change streams are named only for the first. [[PENDING: label on the console (S5)]]
 - [ ] The first related item shows a relationship label with both checked quotes, or the fallback narration is used; the M1 chip with Before and After is visible on this take, otherwise delete the M1 sentence and the M1 on-screen step. [[PENDING: relationship label and M1 chip on this take (OD2, I1)]]
 - [ ] S3 outcome known; the "Memories can be revoked." caption is used only if memory revoke passed S3. [[PENDING: whether memory revoke passed S3 (A21+A22)]]
-- [ ] Rehearsal pass 2 confirms the report is filed by 0:13 at the chosen `DXP_DEMO_PACE`, or the report page is opened from the Reports list.
+- [ ] The take style is decided: one continuous take, or cut by segment (rule 7). Rehearsal pass 2 confirms the report is filed by 0:13 and the Slack alert is visible by 0:35 at the chosen `DXP_DEMO_PACE`. If not, start the run before the recording window (identity card, then report) or cut by segment. The report page may be opened from the Reports list only if that report was filed earlier in the same take; the sandbox is reset with no report on the anchor, so nothing else exists to open.
 - [ ] S4 outcome known; the revert caption is used only if S4 passed. [[PENDING: whether revert passed (S4)]]
 - [ ] Every capability tag on screen was proven on the sandbox. [[PENDING: proven capabilities (README table)]]
 
@@ -159,8 +159,9 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] No narration, caption or on-screen text says the trial "uses", "used" or "studies" either assay name, or implies how any assay performs.
 - [ ] "FoundationOne Liquid" is never mapped to an FDA-approved product; the report's uncertainty about it stays on screen if it is shown.
 - [ ] The rollback line is said word for word. No automatic rollback of external effects is claimed.
+- [ ] Variant A: the closing caption "The aim: team-specific, longitudinal intelligence on the diagnostics a team follows. This demo shows one turn of that loop." is on screen from 0:58. The audit question banner is on screen from 0:50 (variant B: 0:49) to 0:55.
 - [ ] No completed follow-up work is narrated unless the task ran in this take.
-- [ ] Narration is 150 words or fewer in total and fits 60 seconds.
+- [ ] Narration is 150 words or fewer in total, read at 150 words a minute including pauses, and each segment ends within 0.5 s of its boundary.
 
 ### After the take (R1)
 - [ ] Upload the video, add its link to the README and paste `docs/submission.md` into the form with the public repository and team members, by 16:55.
