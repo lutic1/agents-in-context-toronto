@@ -17,7 +17,7 @@ export function CitationsPanel({ turnId, citations }: { turnId: string; citation
       <ol className="mt-3 flex flex-col gap-4">
         {citations.map((citation, index) => (
           <li key={`${citation.source_ref}-${citation.version_id}-${index}`} id={citationId(turnId, index + 1)} className="scroll-mt-24">
-            <blockquote className="evidence-quote">{citation.quote}</blockquote>
+            <blockquote className="evidence-quote break-words">{citation.quote}</blockquote>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
               <dt>Citation</dt>
               <dd className="text-identifier text-foreground">[{index + 1}]</dd>

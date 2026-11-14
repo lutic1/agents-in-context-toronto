@@ -140,7 +140,7 @@ function Answer({ id, response }: { id: string; response: InterviewResponse }) {
         ) : (
           <div key={index}>
             <p className="text-body">{part.leadIn}</p>
-            <blockquote className="evidence-quote my-1">{part.quote}</blockquote>
+            <blockquote className="evidence-quote my-1 break-words">{part.quote}</blockquote>
             <a href={`#${citationId(id, part.marker)}`} className="text-identifier text-foreground underline underline-offset-2">
               <span className="sr-only">Citation </span>[{part.marker}]
             </a>
