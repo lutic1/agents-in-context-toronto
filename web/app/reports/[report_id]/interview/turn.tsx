@@ -21,7 +21,7 @@ export function TurnView({ turn, speak }: { turn: Turn; speak: ((text: string) =
     <article
       aria-labelledby={`${id}-question`}
       aria-busy={outcome === null}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-sm"
+      className="flex flex-col gap-3 rounded-lg bg-card p-5 shadow-sm"
     >
       <h2 id={`${id}-question`} className="text-heading">
         <span className="sr-only">Question: </span>

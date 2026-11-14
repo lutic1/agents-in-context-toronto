@@ -22,7 +22,7 @@ export function CapabilityTag({
         <span
           tabIndex={0}
           className={cn(
-            "inline-flex items-center rounded-sm border border-border bg-transparent px-1.5 py-0.5 text-caption text-muted-foreground",
+            "inline-flex cursor-help items-center text-caption text-muted-foreground underline decoration-dotted underline-offset-4",
             className,
           )}
         >

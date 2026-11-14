@@ -87,6 +87,11 @@ export function ReportsList() {
         {pendingReports.length === 0 ? (
           <Notice icon={Inbox} title="No reports are waiting for review" role="status">
             Start a scan in the Run console. A report the agent files appears here and in the Slack alert.
+            <span className="mt-3 block">
+              <Link href="/runs" className={buttonVariants({ variant: "default" })}>
+                Open the Run console
+              </Link>
+            </span>
           </Notice>
         ) : (
           <ReportRows reports={pendingReports} caption="Reports pending review" />
@@ -113,17 +118,12 @@ export function ReportsList() {
             </p>
           )
         ) : decided.length === 0 ? (
-          <p className="text-body m-0 text-muted-foreground">No report has been decided yet.</p>
+          <p className="text-table m-0 text-muted-foreground">Nothing decided yet.</p>
         ) : (
           <ReportRows reports={decided} caption="Decided reports" />
         )}
       </section>
 
-      <div>
-        <Link href="/runs" className={buttonVariants({ variant: "outline" })}>
-          Open the Run console
-        </Link>
-      </div>
     </div>
   );
 }
@@ -181,7 +181,7 @@ function ReportRows({ reports, caption }: { reports: Report[]; caption: string }
 
       <ul aria-label={caption} className="m-0 flex list-none flex-col gap-3 p-0 md:hidden">
         {reports.map((r) => (
-          <li key={r.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-4 shadow-sm">
+          <li key={r.id} className="flex min-w-0 flex-col gap-2 rounded-lg bg-card p-4 shadow-sm">
             <Link href={`/reports/${encodeURIComponent(r.id)}`} className="text-table break-words font-semibold underline underline-offset-2">
               {r.headline}
             </Link>

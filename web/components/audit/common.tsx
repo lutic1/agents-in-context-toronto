@@ -39,7 +39,7 @@ export function Panel({
   return (
     <section
       aria-labelledby={headingId}
-      className={cn("rounded-lg border border-border bg-card p-5 shadow-sm", className)}
+      className={cn("rounded-lg bg-card p-5 shadow-sm", className)}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id={headingId} className="flex items-center gap-2 text-heading">

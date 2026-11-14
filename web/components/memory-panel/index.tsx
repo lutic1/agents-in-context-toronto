@@ -34,7 +34,7 @@ export function MemoryPanel({ reportId }: { reportId: string }) {
   }
 
   return (
-    <aside aria-labelledby="memory-panel-title" className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <aside aria-labelledby="memory-panel-title" className="rounded-lg bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 id="memory-panel-title" className="flex items-center gap-2 text-heading">
           <Brain className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />

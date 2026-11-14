@@ -34,7 +34,7 @@ export function Discovery({
     <section
       aria-labelledby={showHeader ? "discovery-heading" : undefined}
       aria-label={showHeader ? undefined : "Quotes and source fields"}
-      className="flex min-w-0 flex-col gap-5 rounded-lg border border-border bg-card p-5 shadow-sm"
+      className="flex min-w-0 flex-col gap-5 rounded-lg bg-card p-5 shadow-sm"
     >
       {showHeader ? (
         <>

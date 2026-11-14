@@ -53,7 +53,7 @@ export function ScanOrder({ run, scope }: { run: Run; scope: Scope | undefined }
   const rest = refs.slice(SHOWN);
 
   return (
-    <section aria-labelledby="scan-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+    <section aria-labelledby="scan-heading" className="rounded-lg bg-card p-5 shadow-sm">
       <h2 id="scan-heading" className="flex items-center gap-2 text-heading">
         <ListOrdered className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
         What this scan searched, and in what order

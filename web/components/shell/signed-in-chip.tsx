@@ -20,7 +20,7 @@ export function SignedInChip() {
   });
 
   if (isLoading && !data) {
-    return <Skeleton className="h-9 w-44 rounded-full" role="status" aria-label="Loading who is signed in" />;
+    return <Skeleton className="h-9 w-24 rounded-full sm:w-44" role="status" aria-label="Loading who is signed in" />;
   }
 
   if (!data) {
@@ -48,7 +48,7 @@ export function SignedInChip() {
       >
         {initials(name)}
       </span>
-      <span className="text-caption text-muted-foreground">Signed in as</span>
+      <span className="hidden text-caption text-muted-foreground sm:inline">Signed in as</span>
       <span className="text-table font-semibold text-foreground">{name}</span>
     </div>
   );

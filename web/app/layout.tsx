@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import {
-  Atkinson_Hyperlegible_Mono,
-  Atkinson_Hyperlegible_Next,
-  Source_Serif_4,
-} from "next/font/google";
+import { Atkinson_Hyperlegible_Mono, Manrope, Source_Serif_4 } from "next/font/google";
 
 import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 
-// The interface face, the identifier face and the evidence-quote face (DESIGN.md Typography).
-const atkinson = Atkinson_Hyperlegible_Next({
-  variable: "--font-atkinson",
+// The interface face (Manrope, brand DNA), the identifier face and the evidence-quote face.
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
   display: "swap",
 });
@@ -37,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${atkinson.variable} ${atkinsonMono.variable} ${sourceSerif.variable} h-full antialiased`}
+      className={`${manrope.variable} ${atkinsonMono.variable} ${sourceSerif.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <AppShell>{children}</AppShell>

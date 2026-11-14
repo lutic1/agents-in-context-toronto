@@ -24,7 +24,7 @@ export function Section({
   return (
     <section
       aria-labelledby={`${id}-heading`}
-      className={cn("flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm", className)}
+      className={cn("flex min-w-0 flex-col gap-4 rounded-lg bg-card p-5 shadow-sm", className)}
     >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id={`${id}-heading`} className="text-heading flex items-center gap-2">

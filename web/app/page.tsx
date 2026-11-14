@@ -10,7 +10,7 @@ import { ApiUnreachableNotice, Notice } from "@/components/shell/notice";
 import { PageSkeleton } from "@/components/shell/page-skeleton";
 import { buttonVariants } from "@/components/ui/button";
 
-/** "/" opens the latest run in the Run console. Without one, it explains what to do. */
+/** "/" opens the latest run while it is running, else the Run console list. Without runs, it explains what to do. */
 export default function Home() {
   return (
     <Suspense fallback={<PageSkeleton rows={2} />}>
@@ -25,8 +25,13 @@ async function LatestRunRedirect() {
 
   try {
     const page = await serverGet("/runs");
-    const latest = latestRun(itemsOf(page));
-    if (latest) target = `/runs/${encodeURIComponent(latest.id)}`;
+    const runs = itemsOf(page);
+    const latest = latestRun(runs);
+    // Open the latest run only while it is still going; otherwise land on the Run console list.
+    if (latest) {
+      const active = latest.status === "running" || latest.status === "stopping";
+      target = active ? `/runs/${encodeURIComponent(latest.id)}` : "/runs";
+    }
   } catch (error) {
     failure = error instanceof ApiUnreachableError ? "unreachable" : "other";
     if (error instanceof ApiError && error.status >= 500 && error.status !== 501) failure = "unreachable";

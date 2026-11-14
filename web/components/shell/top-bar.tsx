@@ -41,10 +41,14 @@ export function TopBar() {
   const onReports = pathname.startsWith("/reports");
 
   return (
-    <header className="glass-panel-strong z-40 rounded-none md:sticky md:top-0">
-      <div className="mx-auto flex min-h-16 w-full max-w-content flex-wrap items-center gap-x-8 gap-y-2 px-4 py-2 md:px-8">
+    <header className="glass-panel-strong sticky top-0 z-40 rounded-none">
+      {/* Phones: wordmark and chip on one row, the nav on a second scrollable row. md and up: one row. */}
+      <div className="mx-auto flex min-h-16 w-full max-w-content flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 md:flex-nowrap md:gap-x-8 md:px-8">
         <Wordmark />
-        <nav aria-label="Main" className="flex min-w-0 flex-wrap items-center gap-1">
+        <nav
+          aria-label="Main"
+          className="order-last -mx-2 flex w-[calc(100%+1rem)] min-w-0 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] md:order-none md:mx-0 md:w-auto md:overflow-visible md:px-0"
+        >
           <NavItem href="/runs" label="Run console" Icon={SquareTerminal} active={onRunConsole} />
           <NavItem
             href="/reports"
@@ -52,9 +56,10 @@ export function TopBar() {
             Icon={FileSearch}
             active={onReports}
             trailing={
-              pendingNotBuilt || pendingCount === null ? null : (
+              // Hidden while unknown, while the route is not built, and at zero: a "0" badge is noise.
+              pendingNotBuilt || pendingCount === null || (pendingCount === 0 && !hasMore) ? null : (
                 <span
-                  className="rounded-full bg-primary px-2 py-0.5 text-caption font-bold leading-none text-primary-foreground"
+                  className="rounded-full bg-apricot px-2 py-0.5 text-caption font-bold leading-none text-foreground"
                   title={`${pendingCount}${hasMore ? "+" : ""} pending`}
                 >
                   {pendingCount}
@@ -97,10 +102,11 @@ function NavItem({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-2 text-table font-semibold text-foreground transition-colors",
+        "flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 text-table font-semibold whitespace-nowrap text-foreground transition-colors duration-150",
         // Active: ink-tint fill plus a 2px ink bottom edge, so it does not rely on colour alone.
+        // The weight stays the same, so the tabs never change width between pages.
         active
-          ? "bg-ink-tint font-bold shadow-[inset_0_-2px_0_0_var(--ink-deep)]"
+          ? "bg-ink-tint shadow-[inset_0_-2px_0_0_var(--periwinkle)]"
           : "hover:bg-ink-tint/60",
       )}
     >

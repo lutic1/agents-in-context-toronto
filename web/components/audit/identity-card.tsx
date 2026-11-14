@@ -25,7 +25,7 @@ export function IdentityCard({ audit }: { audit: Audit }) {
   return (
     <section
       aria-labelledby="identity-heading"
-      className="rounded-lg border border-border bg-card p-5 shadow-sm"
+      className="rounded-lg bg-card p-5 shadow-sm"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id="identity-heading" className="flex items-center gap-2 text-heading">

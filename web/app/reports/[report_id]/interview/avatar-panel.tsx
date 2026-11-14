@@ -130,7 +130,7 @@ export function AvatarPanel({
   }
 
   return (
-    <section aria-labelledby="avatar-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
+    <section aria-labelledby="avatar-heading" className="rounded-lg bg-card p-5 shadow-sm">
       <h2 id="avatar-heading" className="flex items-center gap-2 text-heading">
         <Video className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
         DxP&apos;s evidence guide

@@ -89,7 +89,7 @@ export function DiagnosticView({ dxId }: { dxId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-sm">
+      <header className="flex min-w-0 flex-col gap-3 rounded-lg bg-card p-5 shadow-sm">
         <p className="text-caption m-0 font-semibold text-muted-foreground">Accepted knowledge</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="text-title break-words">{dx.name}</h1>
@@ -140,7 +140,7 @@ export function DiagnosticView({ dxId }: { dxId: string }) {
           <section
             key={key}
             aria-labelledby={`field-${key}`}
-            className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm"
+            className="flex min-w-0 flex-col gap-4 rounded-lg bg-card p-5 shadow-sm"
           >
             <h2 id={`field-${key}`} className="text-heading">
               {label}
