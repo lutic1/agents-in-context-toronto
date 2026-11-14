@@ -276,6 +276,10 @@ async def test_single_field_supersedes_on_reviewer_apply_and_is_held_for_baselin
                                         "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
     p = await w.db["proposals"].find_one({"_id": held.proposal_id})
     assert p["status"] == "pending" and p["reason"] == "held_for_review"
+    # holding never overwrites the stored value
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    assert [(e["value"], e["state"]) for e in d["fields"]["modality"]] == [("ngs", "current")]
+    assert d["rev"] == 1 and d["facets"]["modality"] == ["ngs"] and held.proposal_id not in d["applied_proposal_ids"]
     await ledger.apply_with(held.proposal_id, review="accepted", decided_by="sam")
     d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
     states = {e["value"]: e["state"] for e in d["fields"]["modality"]}
@@ -306,3 +310,33 @@ async def test_an_alias_created_in_a_live_run_never_resolves_as_an_fda_trade_nam
     assert (await w.db["diagnostics"].find_one({"_id": dx_id}))["created_mode"] == "live"
     # a seeded FDA trade name still resolves
     assert await resolve_exact("FoundationOne Liquid CDx", aliases=w.db["aliases"]) == w.dx_f1l
+
+
+async def test_stage_not_later_at_apply_is_a_recorded_outcome(world):
+    """AD-5: the stage moved on between filing and apply; apply records it, never raises."""
+    w = world
+    await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"lifecycle_stage": "discovery"}})
+    adm = await w.admit()
+    [r] = await ledger.file_detailed("f_stage", {"field": "lifecycle_stage", "value": "clinical_validation",
+                                                 "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD},
+                                     "live", w.run_ctx(adm))
+    assert r.status == "filed"
+    await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"lifecycle_stage": "regulatory_approval"}})
+    before = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    p = await ledger.apply(r.proposal_id)
+    assert p.status == "rejected" and p.reason == "stage_not_later"
+    assert await w.db["diagnostics"].find_one({"_id": w.dx_f1l}) == before
+    assert await w.count("events", {"type": "value_applied"}) == 0
+    [unknown] = await ledger.file_detailed("f_stage2", {"field": "lifecycle_stage", "value": "warp_speed",
+                                                        "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE,
+                                                        "check": GOOD}, "live", w.run_ctx(adm))
+    assert unknown.status == "not_filed"
+
+
+async def test_the_ledger_writes_no_finding(world):
+    w = world
+    adm = await w.admit()
+    await ledger.file("f_anchor", scope_change(), "live", w.run_ctx(adm, report_id="rep_a"))
+    await ledger.file("f_seed", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_tissue,
+                                 "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    assert await w.count("findings") == 0

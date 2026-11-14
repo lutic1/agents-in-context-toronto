@@ -10,6 +10,10 @@ write but the Decision and its ``action_blocked`` event.
   report decision applies it, through ``ledger.apply``.
 * ``baseline`` (seed and prior collection, under ``seed@v1``): an allowed
   change is filed and applied at once as ``unreviewed`` (AD-4).
+
+The ledger takes a ``finding_id`` and never writes a Finding: ``findings``
+belong to the ingest layer (A10's pipeline). The ledger writes Diagnostics and
+aliases (``ensure_diagnostic``), proposals, value entries, edges and events.
 """
 
 from __future__ import annotations
@@ -102,10 +106,11 @@ def _current_entries(diagnostic: dict[str, Any] | None, field: str) -> list[dict
 
 
 def stage_is_later(new: str, stored: str | None) -> bool:
-    """True when ``new`` is later than ``stored`` in the registry's stage order (AD-5)."""
+    """True when ``new`` is later than ``stored`` in the registry's stage order (AD-5).
+    An unknown stage is never later, so it is recorded as not filed, never raised."""
     order = deps.stage_order()
     if new not in order:
-        raise ValueError(f"unknown lifecycle stage {new!r}")
+        return False
     stored_index = order.index(stored) if stored in order else -1
     return order.index(new) > stored_index
 

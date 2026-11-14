@@ -17,6 +17,19 @@ A proposal goes ``pending`` -> ``applying`` -> ``applied``:
 4. Emit ``value_applied`` with ``dedupe_key = "value_applied|<p_id>"``.
 5. Mark the proposal ``applied``.
 
+Outcomes of step 2 that are recorded, never raised:
+
+* ``stage_not_later`` (AD-5: a ``lifecycle_stage`` applies only when the stored
+  stage is earlier): the proposal is set ``rejected`` with ``reason:
+  "stage_not_later"``; the Diagnostic is not written.
+* ``held`` (AD-2: a ``baseline`` value for a ``single`` field that already has
+  a current value): the proposal goes back to ``pending`` with ``reason:
+  "held_for_review"``; the stored value is never overwritten.
+
+IDs: a value entry's ``value_id`` is ``derive("v_", proposal_id)``, so the
+``v_`` prefix joins the AD-3 list (``dx_``, ``f_``, ``p_``, ``e_``, ``dec_``,
+``act_``, ``adm_``, ``ps_``, ...); one value entry per applied proposal.
+
 ``recover_applying()`` reruns steps 2 to 5 for every proposal stuck in
 ``applying``; each step is idempotent, so it is safe to run any number of
 times. It runs at API start, at the start of every run and on every decision
@@ -103,6 +116,7 @@ async def _guarded_diagnostic_update(p: dict[str, Any], review: str, session: An
             order = deps.stage_order()
             stored = d.get("lifecycle_stage")
             stored_index = order.index(stored) if stored in order else -1
+            # AD-5: apply only when the stored stage is earlier; an unknown stage is never later.
             if p["value"] not in order or order.index(p["value"]) <= stored_index:
                 return "stage_not_later"
             extra_set["lifecycle_stage"] = p["value"]
