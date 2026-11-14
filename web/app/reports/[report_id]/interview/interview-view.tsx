@@ -1,6 +1,6 @@
 "use client";
 
-import { FileClock, SearchX, ToggleLeft } from "lucide-react";
+import { AudioLines, FileClock, SearchX, Square, ToggleLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
@@ -14,9 +14,17 @@ import { isEnabled } from "@/lib/features";
 import { isUnreachable, useApi } from "@/lib/use-api";
 
 import { AvatarPanel } from "./avatar-panel";
+import { startConversation, type Conversation, type ConversationState } from "./conversation";
 import { askQuestion, QUESTION_LIMIT, VOICE_LABEL, type TurnOutcome } from "./interview-api";
 import { TurnView, type Turn } from "./turn";
+import { VOICE_DISCLOSURE, VOICE_MESSAGES, transcribe } from "./voice-api";
 import { VoiceInput } from "./voice-input";
+import { RecorderError } from "./voice-recorder";
+
+/** How long after the answer and the avatar are done before listening resumes, so the avatar's voice is never recorded. */
+const RESUME_DELAY_MS = 300;
+/** How long to wait for the avatar to start speaking an answer it was handed before listening anyway. */
+const AVATAR_START_WAIT_MS = 5000;
 
 /** Suggested questions: a click fills the box and asks. */
 const SUGGESTIONS = [
@@ -115,6 +123,19 @@ export function InterviewWorkspace({
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fieldId = useId();
 
+  // Conversation mode (V75): hands-free questions. The microphone stays open; each spoken segment is transcribed and
+  // asked through the same submit() path. Listening is paused while transcribing, while an answer is pending and while
+  // the avatar is starting or speaking (or has been handed an answer and not yet started).
+  const [conversationOn, setConversationOn] = useState(false);
+  const [conversationStarting, setConversationStarting] = useState(false);
+  const [conversationProblem, setConversationProblem] = useState<string | null>(null);
+  const [listenState, setListenState] = useState<ConversationState>("paused");
+  const [transcribing, setTranscribing] = useState(false);
+  const [awaitingAvatar, setAwaitingAvatar] = useState(false);
+  const [missed, setMissed] = useState(false);
+  const conversationRef = useRef<Conversation | null>(null);
+  const submitRef = useRef<(text: string) => Promise<void>>(async () => {});
+
   // The current speaker, read when an answer lands (the answer may arrive after the closure that asked was made).
   const speakRef = useRef<((text: string) => void) | null>(null);
   const onSpeaker = useCallback((fn: ((text: string) => void) | null) => {
@@ -154,14 +175,134 @@ export function InterviewWorkspace({
     setPending(false);
     // When the avatar session is ready it reads the answer shown on the page aloud, the same as "Speak with avatar".
     const spoken = spokenText(outcome);
-    if (spoken && speakRef.current) speakRef.current(spoken);
+    if (spoken && speakRef.current) {
+      // In conversation mode, listening stays paused until the avatar has started (and then finished) speaking.
+      if (conversationRef.current) setAwaitingAvatar(true);
+      speakRef.current(spoken);
+    }
   }
+
+  useEffect(() => {
+    submitRef.current = (text: string) => submit(text);
+  });
+
+  const endConversation = useCallback(() => {
+    conversationRef.current?.stop();
+    conversationRef.current = null;
+    setConversationOn(false);
+    setTranscribing(false);
+    setAwaitingAvatar(false);
+    setMissed(false);
+    setListenState("paused");
+  }, []);
+
+  async function beginConversation() {
+    if (conversationRef.current || conversationStarting) return;
+    setConversationStarting(true);
+    setConversationProblem(null);
+    let conversation: Conversation | null = null;
+    try {
+      conversation = await startConversation({
+        onState: (state) => {
+          setListenState(state);
+          if (state === "hearing") setMissed(false);
+        },
+        onSegment: (clip) => {
+          void (async () => {
+            const mine = conversation;
+            setTranscribing(true);
+            setMissed(false);
+            const result = await transcribe(reportId, clip);
+            // The conversation was ended (or replaced) while transcribing: drop the text.
+            if (!mine || conversationRef.current !== mine) return;
+            if (result.kind === "text") {
+              await submitRef.current(result.text.slice(0, QUESTION_LIMIT));
+            } else {
+              setMissed(true);
+            }
+            if (conversationRef.current === mine) setTranscribing(false);
+          })();
+        },
+      });
+      conversationRef.current = conversation;
+      setConversationOn(true);
+    } catch (error) {
+      const reason = error instanceof RecorderError ? error.reason : "failed";
+      setConversationProblem(reason === "denied" ? VOICE_MESSAGES.denied : reason === "unsupported" ? VOICE_MESSAGES.unsupported : VOICE_MESSAGES.unavailable);
+    } finally {
+      setConversationStarting(false);
+    }
+  }
+
+  // Pause at once when anything is busy; resume RESUME_DELAY_MS after everything is idle.
+  const shouldListen = conversationOn && !transcribing && !pending && !avatarBusy && !awaitingAvatar;
+  useEffect(() => {
+    const conversation = conversationRef.current;
+    if (!conversation) return;
+    if (!shouldListen) {
+      conversation.setPaused(true);
+      return;
+    }
+    const timer = window.setTimeout(() => conversation.setPaused(false), RESUME_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [shouldListen, conversationOn]);
+
+  // The avatar was handed an answer: stop waiting once it is busy, or after a few seconds if it never starts.
+  useEffect(() => {
+    if (!awaitingAvatar) return;
+    // Once busy, `avatarBusy` itself keeps listening paused, so the wait can end on the next tick.
+    const timer = window.setTimeout(() => setAwaitingAvatar(false), avatarBusy ? 0 : AVATAR_START_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [awaitingAvatar, avatarBusy]);
+
+  // The microphone is closed on unmount and when the page is hidden for good.
+  useEffect(() => {
+    const onPageHide = () => endConversation();
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      conversationRef.current?.stop();
+      conversationRef.current = null;
+    };
+  }, [endConversation]);
+
+  const conversationStatus =
+    transcribing && !pending
+      ? "Heard you — transcribing…"
+      : pending
+        ? "Finding the answer…"
+        : avatarBusy || awaitingAvatar
+          ? "Speaking…"
+          : missed
+            ? "Didn't catch that — keep talking"
+            : listenState === "calibrating"
+              ? "Getting ready — listening in a moment…"
+              : listenState === "hearing"
+                ? "Listening… (hearing you)"
+                : "Listening…";
 
   return (
     <div className={avatarOn && !stacked ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
       {/* Stacked: the avatar and its Engage button come first, the ask box and answers follow. */}
       {avatarOn && stacked ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} subtitle={subtitle} answering={pending} /> : null}
       <div className="flex min-w-0 flex-col gap-6">
+        {conversationOn ? (
+          <section aria-label="Conversation" className="flex flex-col gap-3 rounded-lg bg-card p-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="outline" aria-pressed={true} onClick={endConversation}>
+                <Square aria-hidden="true" />
+                End conversation
+              </Button>
+              <p role="status" aria-live="polite" className="flex items-center gap-2 text-body font-medium">
+                {shouldListen ? <span aria-hidden="true" className="inline-block size-2 rounded-full bg-destructive motion-safe:animate-pulse" /> : null}
+                {conversationStatus}
+              </p>
+            </div>
+            <p className="text-caption text-muted-foreground">
+              Speak your question and pause: it is asked after 2 seconds of silence. The microphone is paused while an answer is found or spoken. {VOICE_DISCLOSURE}
+            </p>
+          </section>
+        ) : (
         <form
           className="flex flex-col gap-2 rounded-lg bg-card p-5 shadow-sm"
           onSubmit={(event) => {
@@ -208,6 +349,22 @@ export function InterviewWorkspace({
             ))}
           </div>
           {voiceOn ? (
+            <div className="flex flex-col gap-2 rounded-md border border-dashed border-border px-3 py-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" aria-pressed={false} disabled={conversationStarting || pending} onClick={() => void beginConversation()}>
+                  <AudioLines aria-hidden="true" />
+                  {conversationStarting ? "Opening the microphone…" : "Start conversation"}
+                </Button>
+                <p className="text-caption text-muted-foreground">Hands-free: speak, pause, and the question is asked for you.</p>
+              </div>
+              {conversationProblem ? (
+                <p role="alert" className="text-caption font-medium">
+                  {conversationProblem}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {voiceOn ? (
             <VoiceInput
               reportId={reportId}
               disabled={avatarBusy || pending}
@@ -224,6 +381,7 @@ export function InterviewWorkspace({
             </Button>
           </div>
         </form>
+        )}
 
         <p role="status" aria-live="polite" className="sr-only">
           {announce}
