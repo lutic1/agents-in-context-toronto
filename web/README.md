@@ -11,7 +11,7 @@ npm run dev
 | Variable | Where | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | server and client | API origin, without `/api/v1` |
-| `NEXT_PUBLIC_DXP_FEATURES` | client | display flags: `briefing`, `avatar`, `memory_edit`, `task_run` (comma separated; empty means off) |
+| `NEXT_PUBLIC_DXP_FEATURES` | client | display flags: `briefing`, `avatar`, `memory_edit`, `task_run`, `revert`, `live_stream` (comma separated; empty means off) |
 | `DXP_API_KEY` | server only | reviewer key; added as `X-DxP-Key` by `app/api/dxp/[...path]/route.ts`; never `NEXT_PUBLIC_` |
 
 Scripts: `npm run build`, `npm run lint`, `npm run typecheck`, `npm run gen:types` (writes `lib/types.ts` from the API's OpenAPI document, `OPENAPI_URL` defaults to `http://localhost:8000/openapi.json`).
