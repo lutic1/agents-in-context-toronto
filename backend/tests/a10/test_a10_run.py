@@ -11,7 +11,17 @@ from typing import Any
 import pytest
 
 from dxp import pipeline
-from tests.a10.conftest import ANCHOR, OUT_OF_SCOPE_DX, RUN_ID, SCOPE_ID, SECOND, TEAM_ID, World, add_source, version_id_for
+from tests.a10.conftest import (
+    ANCHOR,
+    OUT_OF_SCOPE_DX,
+    RUN_ID,
+    SCOPE_ID,
+    SECOND,
+    TEAM_ID,
+    World,
+    add_source,
+    version_id_for,
+)
 
 
 def released_once(w: World) -> bool:

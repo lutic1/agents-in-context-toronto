@@ -300,7 +300,7 @@ async def related_items(retrieved: Any) -> list[dict[str, Any]]:
         else:
             doc = await progress.load_version(version_id) if version_id else None
             if doc is None:
-                src, doc = await progress.load_source(ref)
+                _, doc = await progress.load_source(ref)
                 version_id = (doc or {}).get("_id")
             kind = "source_item"
         if doc is None:

@@ -10,13 +10,13 @@ notifier that records one Slack post (A09). I1 proves the real modules.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import UTC, datetime
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
-from dxp.api.models import Principal, ProposedAction, RunContext, Stamp, Target
+from dxp.api.models import Principal, RunContext, Stamp
 from tests.a10.fakedb import FakeDB
 
 RUN_ID = "run_test0001"
@@ -352,7 +352,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     monkeypatch.setattr(dxp.tasks, "run", task_run)
 
     # Stop the run after a given item, as POST /runs/<run_id>/stop would.
-    import dxp.pipeline.progress as progress
+    from dxp.pipeline import progress
 
     original_done = progress.Progress.item_done
 
