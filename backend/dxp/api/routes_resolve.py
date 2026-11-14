@@ -8,7 +8,8 @@ and recorded as a Decision with the Reviewer's stamp. It never posts to Slack.
 
 - 200 `{ action, decision }`: resolved, or blocked by the gate (a blocked action is not an
   error: the action is unchanged and the Decision says why, D5).
-- 401 missing or unknown key; 403 the seed key, or a caller with no person grant.
+- 401 missing or unknown key; 403 the seed key. The grant is the one the key belongs to
+  (A03's `auth.grant_for_key`); an agent's grant lacks `resolve_notification`, so the gate blocks.
 - 404 no such action; 409 the action is not an `unknown` Slack alert; 422 no note.
 
 Paths, methods, parameters and response models are A01's frozen ones.
@@ -21,7 +22,6 @@ import secrets
 from fastapi import APIRouter, Request
 
 from dxp import actions
-from dxp.actions import records
 from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
@@ -32,17 +32,19 @@ KEY_HEADER = "X-DxP-Key"
 
 
 async def reviewer_context(request: Request) -> m.RunContext:
-    """The Reviewer's context: principal from the key, their latest person grant, a
+    """The Reviewer's context: principal and grant from the key (A03), a
     server-generated `request_id` (D20), `run_id: null` (AD-17)."""
     key = request.headers.get(KEY_HEADER) or ""
     if not key:
         raise ApiError(401, "missing_key", "Send your DxP key in the X-DxP-Key header.")
+    # A03 (PR #17): the latest version of the grant this key belongs to, whatever its status
+    # (check 1 judges the status), or None for an unknown key.
+    grant = await auth.grant_for_key(key)
+    if grant is None:
+        raise ApiError(401, "unknown_key", "Unknown API key.")
     principal = await auth.resolve_actor(key)
     if principal.kind == "seed":
         raise ApiError(403, "seed_key_not_accepted", "The seed key is for the command line only.")
-    grant = await records.latest_grant_of(principal.id)
-    if grant is None:
-        raise ApiError(403, "no_reviewer_grant", "Only a Reviewer can resolve a Slack alert.")
     stamp = m.Stamp(
         kind="reviewer",
         run_id=None,

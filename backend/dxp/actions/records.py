@@ -4,8 +4,8 @@ Every status change is one `update_one` conditional on the current status, so a 
 worker never overwrites a later state (a swept `unknown` or a Reviewer's resolution), and
 each change that matched emits one `action_status_changed` event (AD-10).
 
-A09 writes only `actions` (and, through the gate, `decisions`). It reads `reports`,
-`proposals` and `grants` to build a message or a Reviewer context, and never writes them.
+A09 writes only `actions` (and, through the gate, `decisions`). It reads `reports` and
+`proposals` to build the message, and never writes them.
 Nothing here imports `memory`, `retrieval` or `reports` (AD-28).
 """
 
@@ -19,7 +19,6 @@ from pymongo.errors import DuplicateKeyError
 ACTIONS = "actions"
 REPORTS = "reports"
 PROPOSALS = "proposals"
-GRANTS = "grants"
 
 
 def get_db() -> Any:
@@ -92,10 +91,3 @@ async def get_proposals(proposal_ids: list[str]) -> list[dict[str, Any]]:
     order = {pid: i for i, pid in enumerate(proposal_ids)}
     return sorted(found, key=lambda p: order.get(p["_id"], len(order)))
 
-
-async def latest_grant_of(principal_id: str) -> dict[str, Any] | None:
-    """The latest version of the person grant held by `principal_id`, whatever its status
-    (check 1 judges the status)."""
-    cursor = get_db()[GRANTS].find({"principal": principal_id, "kind": "person"}).sort("version", -1).limit(1)
-    found = await cursor.to_list(length=1)
-    return found[0] if found else None

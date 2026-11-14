@@ -88,12 +88,17 @@ def reviewer(monkeypatch):
             raise ApiError(401, "unknown_key", "Unknown API key.")
         return principals[key]
 
-    async def latest_grant_of(principal_id: str):
-        return {"grant_id": "sam", "version": 1, "principal": "sam", "kind": "person"} if principal_id == "sam" else None
+    grants = {
+        "sam-key": {"_id": "sam@v1", "grant_id": "sam", "version": 1, "principal": "sam", "kind": "person"},
+        "seed-key": {"_id": "seed@v1", "grant_id": "seed", "version": 1, "principal": "seed", "kind": "seed"},
+    }
+
+    async def grant_for_key(key, db=None):
+        """A03's `auth.grant_for_key(api_key, db=None)`: the key's latest grant, or None."""
+        return grants.get(key)
 
     monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
-    monkeypatch.setattr(records, "latest_grant_of", latest_grant_of)
-
+    monkeypatch.setattr(auth, "grant_for_key", grant_for_key, raising=False)
 
 def post(api_client, action_id: str, key: str | None = "sam-key", **body):
     headers = {"X-DxP-Key": key} if key else {}
