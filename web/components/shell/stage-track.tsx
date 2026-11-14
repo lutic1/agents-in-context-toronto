@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type Stage = { id: string; label: string };
@@ -6,8 +7,8 @@ export type Stage = { id: string; label: string };
  * The shared stage track (DESIGN.md "Stage track"): nine segments in Lifecycle
  * order. Reached stages are solid ink, except the two Early research stages
  * (the first two: discovery and assay development), which are a solid
- * haematoxylin wash. Future stages are hollow. A tooltip-style title names each
- * stage, and the current stage's name follows in caption text.
+ * haematoxylin wash. Future stages are hollow. A tooltip, reachable by hover or
+ * keyboard focus, names each stage, and the current stage's name follows in caption text.
  *
  * `stages` comes from GET /schema (the stage order), so the labels are never
  * typed here. `currentIndex` is the zero-based current stage, or null for
@@ -47,23 +48,30 @@ export function StageTrack({
           const early = i < EARLY_RESEARCH_STAGES;
           const newest = justAdvanced && current === i;
           const name = stage?.label ?? `Stage ${i + 1}`;
+          const state = reached ? (i === current ? "current" : "reached") : "not yet";
           return (
-            <li
-              key={stage?.id ?? i}
-              title={`${name}${reached ? (i === current ? " (current)" : " (reached)") : " (not yet)"}`}
-              className={cn(
-                "rounded-sm",
-                dense ? "h-2 w-3" : "h-2.5 w-4",
-                reached && !early && "bg-foreground",
-                reached && early && "bg-ink-tint",
-                newest && "bg-eosin",
-                !reached && "border border-border bg-transparent",
-              )}
-            >
-              <span className="sr-only">
-                {name}: {reached ? (i === current ? "current" : "reached") : "not yet"}
-              </span>
-            </li>
+            <Tooltip key={stage?.id ?? i}>
+              <TooltipTrigger asChild>
+                <li
+                  tabIndex={0}
+                  className={cn(
+                    "rounded-sm",
+                    dense ? "h-2 w-3" : "h-2.5 w-4",
+                    reached && !early && "bg-foreground",
+                    reached && early && "bg-ink-tint",
+                    newest && "bg-eosin",
+                    !reached && "border border-border bg-transparent",
+                  )}
+                >
+                  <span className="sr-only">
+                    {name}: {state}
+                  </span>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                {name} ({state})
+              </TooltipContent>
+            </Tooltip>
           );
         })}
       </ol>

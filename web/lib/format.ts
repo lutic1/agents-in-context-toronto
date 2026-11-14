@@ -21,6 +21,20 @@ export function formatPolicySet(policySetVersion: string, policyCount?: number):
   return `${short} (${policyCount} ${policyCount === 1 ? "policy" : "policies"})`;
 }
 
+/** The same policy set split in two, so a caller can set the hash in the mono face and the count in body text. */
+export function formatPolicySetParts(
+  policySetVersion: string,
+  policyCount?: number,
+): { hash: string; count: string } {
+  const body = policySetVersion.startsWith("ps_")
+    ? policySetVersion.slice(3)
+    : policySetVersion;
+  return {
+    hash: `ps_${body.slice(0, 4)}…`,
+    count: policyCount === undefined ? "" : `(${policyCount} ${policyCount === 1 ? "policy" : "policies"})`,
+  };
+}
+
 /** Shorten a long derived ID for display, keeping its prefix: `run_ab12cd34…`. */
 export function shortId(id: string, keep = 8): string {
   const at = id.indexOf("_");
@@ -31,19 +45,27 @@ export function shortId(id: string, keep = 8): string {
 /**
  * A date such as "14 Nov 2026". A date-only string ("2024-07-17", a registry
  * date) is shown as written, never shifted by the viewer's time zone; a full
- * timestamp is shown in the viewer's time zone. Empty for a missing value.
+ * timestamp is shown in the viewer's time zone, so use the time helpers in
+ * client components (a server render runs in UTC and would not match the
+ * browser). Empty for a missing value.
  */
 export function formatDate(value: string | number | Date | null | undefined): string {
   const date = toDate(value);
   if (!date) return "";
   const dateOnly = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
-  return new Intl.DateTimeFormat("en-GB", {
+  // Fixed three-letter months: some ICU versions write "Sept" for September.
+  const parts = new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
-    month: "short",
+    month: "numeric",
     year: "numeric",
     ...(dateOnly ? { timeZone: "UTC" } : {}),
-  }).format(date);
+  }).formatToParts(date);
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const month = MONTHS[Number(pick("month")) - 1] ?? "";
+  return `${pick("day")} ${month} ${pick("year")}`;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** A time of day such as "10:45:03", in the viewer's time zone. Shown in the mono face. */
 export function formatTime(value: string | number | Date | null | undefined): string {

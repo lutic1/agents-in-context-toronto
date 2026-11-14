@@ -56,7 +56,7 @@ export function TopBar() {
             trailing={
               pendingNotBuilt || pendingCount === null ? null : (
                 <span
-                  className="rounded-full bg-primary px-2 py-0.5 text-[12px] font-bold leading-none text-primary-foreground"
+                  className="rounded-full bg-primary px-2 py-0.5 text-caption font-bold leading-none text-primary-foreground"
                   title={`${pendingCount}${hasMore ? "+" : ""} pending`}
                 >
                   {pendingCount}
@@ -99,8 +99,8 @@ function NavItem({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-2 text-table font-semibold text-foreground transition-colors hover:bg-ink-tint",
-        active && "bg-ink-tint",
+        "flex items-center gap-2 rounded-md px-3 py-2 text-table font-semibold text-foreground transition-colors",
+        active ? "bg-ink-deep text-primary-foreground" : "hover:bg-ink-tint",
       )}
     >
       <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />

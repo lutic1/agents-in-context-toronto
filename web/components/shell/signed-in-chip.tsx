@@ -9,6 +9,10 @@ import type { PrincipalLike } from "@/lib/runs";
  * The read-only "Signed in as" chip from GET /whoami. It is a label, not a
  * control: who the caller is comes from the server-side key, and nothing here
  * can change it (EXPERIENCE "Foundation").
+ *
+ * No Synthetic badge here on purpose: the Principal shape from GET /whoami has
+ * no synthetic field, so the chip cannot tell a synthetic person from a real
+ * one. Add SyntheticBadge once the API says so.
  */
 export function SignedInChip() {
   const { data, error, isLoading } = useApi<PrincipalLike>("whoami", {
@@ -17,7 +21,7 @@ export function SignedInChip() {
   });
 
   if (isLoading && !data) {
-    return <Skeleton className="h-9 w-44 rounded-full" aria-label="Loading who is signed in" />;
+    return <Skeleton className="h-9 w-44 rounded-full" role="status" aria-label="Loading who is signed in" />;
   }
 
   if (!data) {
