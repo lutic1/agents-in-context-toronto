@@ -67,18 +67,18 @@ class FakeTools:
         self.calls.append(argv)
         config = Path(next(a for a in argv if a.startswith("--config=")).split("=", 1)[1])
         self.configs.append((config.read_text(), oct(config.stat().st_mode & 0o777)))
-        opts = dict(a[2:].split("=", 1) for a in argv[1:] if a.startswith("--"))
+        opts = dict((a[2:].split("=", 1) + [""])[:2] for a in argv[1:] if a.startswith("--"))
         if self.returncode == 0 and argv[0].endswith("mongodump"):
             out = Path(opts["out"]) / opts["db"]
             out.mkdir(parents=True)
-            (out / "dump.json").write_text(json.dumps(self.client.dbs[opts["db"]].data))
-        elif self.returncode == 0 and argv[0].endswith("mongorestore"):
+            for name, docs in self.client.dbs[opts["db"]].data.items():
+                (out / f"{name}.bson").write_text(json.dumps(docs))
+        elif self.returncode == 0 and argv[0].endswith("mongorestore") and "dryRun" not in opts:
             src = opts["nsInclude"].removesuffix(".*")
             target = opts.get("nsTo", opts["nsInclude"]).removesuffix(".*")
-            data = json.loads((Path(opts["dir"]) / src / "dump.json").read_text())
             db = self.client.dbs.setdefault(target, SyncDB(self.client, target))
-            for name, docs in data.items():
-                db.data.setdefault(name, []).extend(docs)
+            for bson in sorted((Path(opts["dir"]) / src).glob("*.bson")):
+                db.data.setdefault(bson.stem, []).extend(json.loads(bson.read_text()))
         return SimpleNamespace(returncode=self.returncode, stderr=f"error near {URI}" if self.returncode else "")
 
 
@@ -140,8 +140,10 @@ def test_snapshot_then_restore_into_the_named_database_only(reset_demo, client, 
     assert other.data["teams"] == [{"_id": "untouched"}]  # another database is never touched
     assert {entry[1] for entry in client.log if entry[0] in ("db", "delete_many")} == {"dxp_test_demo"}
     assert {entry[2] for entry in client.log if entry[0] == "delete_many"} == {"grants", "memories", "reports", "runs", "teams"}
-    restore_argv = tools.calls[1]
-    assert restore_argv[0] == "/usr/bin/mongorestore"
+    dry_argv, restore_argv = tools.calls[1], tools.calls[2]
+    assert dry_argv[0] == "/usr/bin/mongorestore" and "--dryRun" in dry_argv
+    assert dry_argv[:-2] == restore_argv[:-1]  # same restore, checked first without writing
+    assert restore_argv[0] == "/usr/bin/mongorestore" and "--dryRun" not in restore_argv
     assert f"--nsInclude=dxp_test_demo.*" in restore_argv
     assert not any(a.startswith(("--drop", "--nsFrom", "--nsTo")) for a in restore_argv)
 
@@ -151,7 +153,7 @@ def test_restore_into_another_database_maps_the_namespace(reset_demo, client, tm
     snap = tmp_path / "snap"
     reset_demo.snapshot(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=tools)
     reset_demo.restore(client, "dxp_test_copy", snap, uri=URI, tools=TOOLS, runner=tools, allow_other_source=True)
-    argv = tools.calls[1]
+    argv = tools.calls[2]
     assert "--nsFrom=dxp_test_demo.*" in argv and "--nsTo=dxp_test_copy.*" in argv
     assert client.dbs["dxp_test_copy"].data["teams"] == [{"_id": "team_a"}, {"_id": "team_b"}]
 
@@ -231,6 +233,23 @@ def test_restore_refuses_another_databases_snapshot_unless_allowed(reset_demo, c
         reset_demo.restore(client, "dxp_test_target", snap, uri=URI, tools=TOOLS, runner=tools)
     assert target.data["teams"] == [{"_id": "keep"}]  # refused before anything was emptied
     assert not any(entry[0] == "delete_many" for entry in client.log) and len(tools.calls) == 1
+
+
+def test_a_failing_dry_run_or_missing_bson_empties_nothing(reset_demo, client, tmp_path) -> None:
+    snap = tmp_path / "snap"
+    reset_demo.snapshot(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=FakeTools(client))
+    demo = client.dbs["dxp_test_demo"]
+    before = json.loads(json.dumps(demo.data))
+    client.log.clear()
+    failing = FakeTools(client, returncode=1)  # e.g. the sandbox refuses the login (OD6)
+    with pytest.raises(reset_demo.ResetError, match="Fallback"):
+        reset_demo.restore(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=failing)
+    assert len(failing.calls) == 1 and "--dryRun" in failing.calls[0]
+    assert demo.data == before and not any(e[0] == "delete_many" for e in client.log)
+    (snap / "dxp_test_demo" / "teams.bson").unlink()
+    with pytest.raises(reset_demo.ResetError, match="no BSON file for teams"):
+        reset_demo.restore(client, "dxp_test_demo", snap, uri=URI, tools=TOOLS, runner=FakeTools(client))
+    assert demo.data == before and not any(e[0] == "delete_many" for e in client.log)
 
 
 def _write_snapshot(root: Path, name: str, db: str, taken: str) -> Path:

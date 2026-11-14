@@ -17,7 +17,10 @@ every collection of the database named by `--db`,
 `delete_many({})` (never a drop, so validators and indexes, including the Atlas Search and
 Vector Search indexes, stay), then `mongorestore` of the snapshot into that database only
 (`--nsInclude`, and `--nsFrom`/`--nsTo` when the snapshot came from another database), then a
-count check against the manifest.
+count check against the manifest. Before emptying anything it checks that the dump holds a
+BSON file for every non-empty collection and runs `mongorestore --dryRun` (it connects,
+authenticates and reads the dump, writing nothing), so a broken dump or a refused login never
+leaves the database empty.
 
 Rules:
 - It touches only the database named by `--db`; there is no default. It refuses `dxp_smoke`
@@ -233,12 +236,21 @@ def restore(
             "to restore it into another database"
         )
     tools = tools or require_tools(["mongorestore"])
-    db = client[db_name]
-    for name in user_collections(db):
-        db[name].delete_many({})
+    missing = sorted(
+        name for name, count in manifest["collections"].items()
+        if count and not (snapshot_dir / source / f"{name}.bson").is_file()
+    )
+    if missing:
+        raise ResetError(f"the dump has no BSON file for {', '.join(missing)}: not restoring")
     argv = [tools["mongorestore"], f"--dir={snapshot_dir}", f"--nsInclude={source}.*"]
     if source != db_name:
         argv += [f"--nsFrom={source}.*", f"--nsTo={db_name}.*"]
+    # A dry run first (connects, authenticates and reads the dump, writes nothing), so a
+    # failure that would leave the database empty is found before anything is emptied.
+    _run_tool([*argv, "--dryRun"], uri, runner)
+    db = client[db_name]
+    for name in user_collections(db):
+        db[name].delete_many({})
     _run_tool(argv, uri, runner)
     restored = collection_counts(db)
     expected = {k: v for k, v in manifest["collections"].items() if v}
