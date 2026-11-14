@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DxP key screen: Review</title>
+<link rel="icon" type="image/svg+xml" href="logo-x.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400&family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400&display=swap" rel="stylesheet">
+<style>
+/*
+  Key screen: Review (/review), v5: queue sorted low confidence, then flagged by your new rule, then the rest; dark rule card. Calm page, no hero.
+  In the live app the PubMed rows also show a quote of at most 300 characters; this public mock shows PMIDs only.
+  Governing spine sections:
+    DESIGN.md      Elevation & Depth (tissue field "elsewhere", solid panels), Shapes, Components (Logo, Icons,
+                   Navigation pill, Avatar, Button primary, Reject button, Stage track, Evidence quote, Changed mark,
+                   Low-confidence marker, Synthetic badge), Do's and Don'ts
+    EXPERIENCE.md  Component Patterns (Proposal row, Rule draft panel), State Patterns (Low confidence, Synthetic),
+                   Interaction Primitives (j/k/a/e/r), Evidence Display Rules, MongoDB Capability Tags, Flow 1 step 3
+  Quotes are word for word from data/clinicaltrials/heldback.jsonl. PubMed items appear only as PMIDs.
+  Icons: lucide-static (ISC), inlined. Spines win on conflict with this mock.
+*/
+:root{
+  --field-base:#EEF0F8; --foreground:#23264F; --ink-deep:#171A3D; --muted:#5A5F7D;
+  --border:#CDD3E0; --ink-tint:#E3E5F3; --eosin:#D2457A; --eosin-text:#B8325F; --low:#9A6512;
+  --card:#FFFFFF; --glass-strong:rgba(255,255,255,.88);
+  --sans:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --mono:'Atkinson Hyperlegible Mono',ui-monospace,Menlo,monospace;
+  --r-sm:4px; --r-md:8px; --r-lg:12px; --r-xl:16px;
+  --shadow:0 8px 24px -16px rgba(35,38,79,.25),0 1px 2px rgba(35,38,79,.05);
+  --gutter:72px; --main:752px; --side:520px; --gap:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#D9DDE7;font-family:var(--sans);color:var(--foreground);padding:24px 0}
+a{color:var(--foreground)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.i.sm{width:16px;height:16px} .i.xs{width:14px;height:14px}
+.i.fill{fill:currentColor;stroke:none}
+:focus-visible{outline:2px solid var(--ink-deep);outline-offset:2px;box-shadow:0 0 0 4px #fff}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.id{font-family:var(--mono);font-size:13.5px}
+
+.frame{width:1440px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid #B9C0CF;background:var(--field-base)}
+.chrome{height:36px;background:#E9ECF2;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 14px}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#C7CCD7;display:block}
+.chrome .url{margin-left:18px;flex:0 0 420px;height:22px;border-radius:6px;background:#fff;border:1px solid var(--border);font-size:12px;color:var(--muted);display:flex;align-items:center;padding:0 10px}
+.synthetic{font-size:12px;color:var(--muted);border:1px dotted var(--muted);border-radius:9999px;padding:1px 8px;white-space:nowrap}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--ink-deep);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+
+
+.btn{font-family:var(--sans);font-size:14.5px;font-weight:600;height:38px;padding:0 15px;border-radius:var(--r-md);border:1px solid rgba(35,38,79,.18);background:#fff;color:var(--foreground);display:inline-flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer}
+.btn.primary{background:linear-gradient(180deg,#2C3068 0%,var(--ink-deep) 100%);color:#fff;border-color:var(--ink-deep);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 1px 2px rgba(23,26,61,.3)}
+.btn.reject:hover,.btn.reject:focus-visible{color:#B42318;border-color:#B42318}
+.btn.small{height:32px;font-size:13.5px;padding:0 11px;gap:6px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--ink-tint);color:var(--foreground)}
+.btn .i{width:16px;height:16px}
+
+/* tissue field, "elsewhere" variant: very large blurred stain circles behind the page */
+.stage-area{position:relative;overflow:hidden}
+.field{position:absolute;inset:0;pointer-events:none;z-index:0}
+.field b{position:absolute;border-radius:50%;filter:blur(100px)}
+.lower{position:relative;z-index:1;display:grid;grid-template-columns:var(--main) var(--side);gap:var(--gap);padding:28px var(--gutter) 36px;align-items:start}
+.panel{background:var(--card);border:1px solid rgba(35,38,79,.1);border-radius:var(--r-lg);box-shadow:var(--shadow)}
+
+/* page header lives on the queue panel: text never sits on the field */
+.qhead{display:flex;align-items:flex-start;gap:16px;padding:22px 28px 18px;border-bottom:1px solid rgba(35,38,79,.08)}
+.qhead .title{display:flex;align-items:center;gap:10px}
+.qhead .title .i{width:22px;height:22px}
+.qhead h1{font-size:26px;font-weight:700;letter-spacing:-0.01em;color:var(--ink-deep);line-height:1.15}
+.qhead .num{font-size:15px;color:var(--muted);margin-top:6px;line-height:1.45}
+.qhead .num b{color:var(--foreground);font-weight:600}
+.keys{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--muted);align-items:center}
+.keys span{display:inline-flex;gap:4px;align-items:center}
+.keys span kbd:last-of-type{margin-right:4px}
+kbd{font-family:var(--mono);font-size:13px;min-width:22px;height:22px;padding:0 4px;display:inline-grid;place-items:center;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:#fff;color:var(--foreground)}
+
+/* rows */
+.rows{padding:8px 10px 4px}
+.row{padding:18px 18px 14px;border-top:1px solid rgba(35,38,79,.08);border-radius:var(--r-md);scroll-margin-top:80px}
+.row:first-child,.row.focus + .row{border-top:none}
+.row.focus{margin:2px 0 6px;padding:20px 22px 18px 24px;background:#EEF0FA;box-shadow:inset 5px 0 0 var(--ink-deep),0 12px 26px -16px rgba(23,26,61,.45)}
+.rtop{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.rtop h2{font-size:18px;font-weight:700;color:var(--ink-deep);line-height:1.3}
+.row.compactrow .rtop h2{font-size:16.5px}
+.stage{display:flex;align-items:center;gap:10px}
+.track{display:flex;gap:3px}
+.track span{width:16px;height:10px;border-radius:var(--r-sm);box-shadow:inset 0 0 0 1px #BFC5D6}
+.track span.f{background:var(--foreground);box-shadow:none}
+.track span.er{background:#D9DCF0;box-shadow:none}
+.track span.adv{background:var(--eosin);box-shadow:none}
+.stage-name{font-size:13.5px;color:var(--muted)}
+.newmark{font-size:14px;font-weight:600;color:var(--eosin-text);display:inline-flex;align-items:center;gap:6px}
+.newmark::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--eosin)}
+.chg{margin-top:8px;font-size:15.5px}
+.chg .i{color:var(--muted);vertical-align:-3px;margin-right:8px}
+.chg b{font-weight:600}
+.chg .note{font-size:13.5px;color:var(--muted);margin-left:10px}
+blockquote{font-family:var(--serif);font-size:16.5px;line-height:1.55;border-left:3px solid #D9DCF0;padding:1px 0 1px 14px;margin:10px 0 0 26px;max-width:66ch}
+.source{font-size:13px;color:var(--muted);margin:7px 0 0 26px}
+.source .i{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+.low{display:flex;align-items:center;gap:7px;margin:10px 0 0 26px;font-size:14px;color:var(--low)}
+.low::before{content:"";width:7px;height:7px;border:1.5px solid var(--low);border-radius:50%;flex:none}
+.low b{font-weight:600}
+.low .why{color:var(--muted)}
+.acts{display:flex;gap:8px;margin:14px 0 0 26px}
+.acts.compact{gap:0;margin:8px 0 0 15px}
+.teamflag{margin:10px 0 0 26px;font-size:13px;color:var(--muted);line-height:1.45;max-width:66ch}
+.teamflag .synthetic{margin-left:6px}
+.flag{display:flex;gap:10px;align-items:flex-start;margin:12px 0 0 26px;background:#ECEDF8;border-radius:var(--r-md);padding:10px 12px;font-size:14px;line-height:1.45;max-width:66ch}
+.flag .i{width:16px;height:16px;margin-top:2px;color:var(--foreground)}
+.flag .lab{font-weight:600;margin-right:4px}
+.flag .lab .synthetic{font-weight:400;margin-left:6px}
+.pm{font-size:13px;color:var(--muted);margin:6px 0 0 26px}
+.pm .i{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+.pm a{color:var(--foreground)}
+.more{padding:12px 30px 18px;font-size:14px;color:var(--muted);border-top:1px solid rgba(35,38,79,.08);display:flex;align-items:center;gap:6px}
+
+/* rule panel */
+.side{position:sticky;top:20px}
+.panel-head{display:flex;align-items:center;gap:8px;padding:20px 24px 4px}
+.panel-head h2{font-size:19px;font-weight:600}
+.pbody{padding:8px 24px 20px}
+.rejected{background:#F1F2F9;border-radius:var(--r-md);padding:12px 14px;font-size:14px;line-height:1.5}
+.rejected .st{display:flex;align-items:center;gap:6px;font-weight:600}
+.rejected .st .i{width:15px;height:15px}
+.rejected .m{color:var(--muted)}
+.rejected a{color:var(--foreground)}
+.who{display:flex;align-items:center;gap:6px}
+.who .avatar{width:20px;height:20px;font-size:9px}
+.rulecard{margin-top:16px;border-radius:var(--r-lg);padding:18px 20px 14px;color:#fff;background:linear-gradient(160deg,var(--ink-deep) 0%,#2C3068 100%);box-shadow:0 18px 36px -20px rgba(10,12,40,.6)}
+.ruleon{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.8)}
+.ruleon .ok{width:8px;height:8px;border-radius:50%;background:#5FC2AE}
+.ruletext{margin-top:8px;font-size:19px;line-height:1.35;font-weight:600}
+.flags{margin-top:14px;font-size:14px;line-height:1.5;color:rgba(255,255,255,.78)}
+.flags b{color:#fff;font-weight:600}
+.flags ul{list-style:none;margin-top:8px}
+.flags li a{display:flex;align-items:center;gap:8px;color:#fff;font-size:15px;padding:4px 0;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:3px}
+.flags li .i{width:15px;height:15px;color:rgba(255,255,255,.8)}
+.rulecard .cap-line{color:rgba(255,255,255,.7)}
+.rulecard .btn.ghost{color:rgba(255,255,255,.85)}
+.rulecard .btn.ghost:hover{background:rgba(255,255,255,.1);color:#fff}
+.rulecard :focus-visible{outline-color:#fff}
+.cap-line{margin-top:14px;font-size:13px;color:var(--muted)}
+.cap-line .i{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+.pacts{display:flex;gap:2px;margin:12px 0 0 -11px}
+footer{position:relative;z-index:1;background:#fff;border-top:1px solid rgba(35,38,79,.08);padding:14px var(--gutter);font-size:13px;color:var(--muted);line-height:1.5}
+/* ---- top bar v3 (template for every page; keep this block whole) ---- */
+.frame{width:auto;max-width:1440px}
+.topbar{position:relative;z-index:3;height:60px;display:flex;align-items:center;padding:0 24px;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);border-bottom:1px solid rgba(35,38,79,.08)}
+.topbar-inner{display:flex;align-items:center;gap:10px;width:100%;min-width:0}
+.topbar .logo{display:flex;align-items:center;text-decoration:none;margin-right:6px;flex:none}
+.topbar .dxp-logo{height:28px;width:auto;display:block}
+.topbar .nav{display:flex;align-items:center;gap:0;position:relative}
+.topbar .nav a,.topbar .nav .more-btn{height:36px;padding:0 7px;border-radius:var(--r-md);display:flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:400;color:var(--muted);text-decoration:none;white-space:nowrap;background:none;border:0;cursor:pointer}
+.topbar .nav .i{width:16px;height:16px}
+.topbar .nav .active{background:var(--ink-tint);color:var(--foreground);font-weight:600}
+.topbar .count{font-size:11.5px;font-weight:700;min-width:19px;height:19px;padding:0 5px;border-radius:9999px;background:var(--foreground);color:#fff;display:inline-flex;align-items:center;justify-content:center}
+.topbar .menu{position:absolute;right:0;top:42px;min-width:160px;list-style:none;background:#fff;border:1px solid rgba(35,38,79,.14);border-radius:var(--r-md);box-shadow:0 12px 28px -12px rgba(23,26,61,.35);padding:4px}
+.topbar .menu[hidden]{display:none}
+.topbar .menu a{height:34px;color:var(--foreground)}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.topbar .ctl{height:36px;border-radius:var(--r-md);border:1px solid rgba(35,38,79,.14);background:rgba(255,255,255,.7);display:flex;align-items:center;gap:7px;padding:0 10px;font:inherit;font-size:14px;color:var(--foreground);white-space:nowrap;cursor:pointer}
+.topbar .ctl .i{width:16px;height:16px;color:var(--muted)}
+.topbar .capture{color:var(--muted)}
+.topbar .synthetic{font-size:12px;color:var(--muted);border:1px dotted var(--muted);border-radius:9999px;padding:1px 8px;white-space:nowrap}
+.topbar .avatar{width:26px;height:26px;border-radius:50%;background:var(--ink-deep);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.topbar .me{padding-left:5px}
+.topbar .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (max-width:1399px){.topbar .nav .i:not(.chev){display:none}}
+/* ---- end top bar v3 ---- */
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-microscope" viewBox="0 0 24 24"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-waypoints" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.5"/><path d="m10.2 6.3-3.9 3.9"/><circle cx="4.5" cy="12" r="2.5"/><path d="M7 12h10"/><circle cx="19.5" cy="12" r="2.5"/><path d="m13.8 17.7 3.9-3.9"/><circle cx="12" cy="19.5" r="2.5"/></symbol>
+  <symbol id="i-clipboard-check" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+  <symbol id="i-layout-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></symbol>
+  <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></symbol>
+  <symbol id="i-flask-conical" viewBox="0 0 24 24"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></symbol>
+  <symbol id="i-pill" viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></symbol>
+  <symbol id="i-dna" viewBox="0 0 24 24"><path d="m10 16 1.5 1.5"/><path d="m14 8-1.5-1.5"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="m16.5 10.5 1 1"/><path d="m17 6-2.891-2.891"/><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="m20 9 .891.891"/><path d="M3.109 14.109 4 15"/><path d="m6.5 12.5 1 1"/><path d="m7 18 2.891 2.891"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></symbol>
+</svg>
+<div class="frame">
+  <div class="chrome"><i></i><i></i><i></i><div class="url">dxp.vercel.app/review</div></div>
+  <!-- top bar v3 (template for every page): Home, Diagnostics, Find, Categories, Graph, Review, Alerts, Jobs, More (Rules, Terms) -->
+  <header class="topbar"><div class="topbar-inner">
+    <a class="logo" href="#" aria-label="DxProvida home"><span class="sr-only">DxProvida</span><svg class="dxp-logo" viewBox="219 52 1525 476" height="28" aria-hidden="true" focusable="false"><path fill="#A78ED5" fill-rule="evenodd" d="M526.0 526.0 L251.0 526.8 L236.0 522.0 L225.8 512.0 L221.8 503.0 L220.7 495.0 L220.7 88.0 L223.9 72.0 L235.3 59.0 L243.0 55.3 L253.0 53.6 L483.0 53.5 L525.0 54.4 L567.0 59.7 L614.0 73.6 L654.0 93.8 L675.0 109.0 L690.6 123.0 L703.6 137.0 L720.4 160.0 L736.2 189.0 L744.3 210.0 L752.0 242.3 L755.4 274.0 L755.2 308.0 L750.3 346.0 L742.0 375.7 L728.1 408.0 L713.1 432.0 L695.3 454.0 L675.0 473.0 L649.0 491.2 L622.0 505.0 L592.0 515.4 L559.0 522.5 L526.0 526.0 Z M1393.0 526.3 L1292.0 526.5 L1275.8 519.0 L1269.6 512.0 L1265.6 503.0 L1264.6 86.0 L1265.9 77.0 L1270.0 68.1 L1281.0 57.9 L1296.0 53.5 L1586.0 53.6 L1613.0 55.6 L1635.0 59.9 L1658.0 68.5 L1677.0 78.9 L1699.8 97.0 L1718.6 121.0 L1731.3 147.0 L1739.2 176.0 L1742.3 211.0 L1739.5 247.0 L1731.3 279.0 L1716.1 310.0 L1698.1 333.0 L1676.0 352.3 L1646.0 369.1 L1619.0 378.2 L1600.0 382.0 L1572.0 384.6 L1419.1 385.0 L1417.7 501.0 L1414.1 511.0 L1409.0 517.9 L1401.0 523.5 L1393.0 526.3 Z M1232.0 152.5 L1229.0 151.0 L1235.0 144.0 L1236.4 147.0 L1232.0 152.5 Z M1216.0 172.4 L1213.0 171.0 L1219.0 164.0 L1220.4 167.0 L1216.0 172.4 Z M480.8 407.0 L511.0 402.2 L539.0 390.3 L559.0 375.0 L574.3 356.0 L585.1 333.0 L592.2 299.0 L591.3 268.0 L583.0 236.0 L572.3 217.0 L557.0 200.8 L539.0 189.0 L517.0 179.9 L479.0 173.8 L375.0 174.1 L374.4 406.0 L480.8 407.0 Z M1537.9 266.0 L1552.0 262.2 L1564.0 255.5 L1573.2 246.0 L1579.5 233.0 L1581.4 220.0 L1579.5 207.0 L1574.0 195.0 L1565.9 186.0 L1551.0 177.7 L1533.0 173.7 L1419.0 174.5 L1419.0 266.0 L1537.9 266.0 Z M1185.0 425.4 L1180.6 423.0 L1181.0 420.6 L1184.2 422.0 L1185.0 425.4 Z M1066.0 514.3 L1060.0 511.4 L1059.6 509.0 L1061.0 508.0 L1064.4 510.0 L1066.9 513.0 L1066.0 514.3 Z"/><path fill="#8B6EC2" fill-rule="evenodd" d="M1216.0 526.0 L1102.0 525.9 L1086.0 523.4 L1070.0 517.3 L1051.0 505.1 L1039.3 494.0 L951.0 395.3 L879.2 494.0 L867.0 506.0 L849.0 517.4 L832.0 523.4 L814.0 525.8 L714.0 525.8 L706.0 524.3 L701.0 521.2 L697.0 516.0 L695.3 510.0 L695.8 503.0 L698.9 496.0 L819.9 333.0 L835.0 316.2 L854.0 299.9 L883.0 284.0 L911.0 275.0 L958.0 267.2 L970.0 261.1 L978.0 253.0 L953.0 249.5 L917.0 251.6 L888.0 258.8 L848.0 274.7 L736.8 143.0 L732.8 135.0 L731.6 127.0 L732.7 120.0 L737.0 112.4 L746.0 105.7 L758.0 103.2 L855.0 103.5 L871.0 105.9 L886.0 110.9 L902.0 119.9 L918.5 134.0 L997.0 226.7 L1061.6 136.0 L1076.0 121.9 L1095.0 109.8 L1110.0 104.9 L1128.0 103.4 L1219.0 103.4 L1234.6 109.0 L1240.8 117.0 L1243.5 126.0 L1242.9 135.0 L1238.0 144.9 L1103.3 311.0 L1086.0 326.1 L1059.0 342.2 L1037.0 349.3 L994.0 357.9 L980.3 364.0 L971.2 371.0 L983.0 374.6 L1002.0 376.1 L1040.0 371.6 L1073.0 359.2 L1108.0 337.2 L1112.0 338.5 L1240.7 490.0 L1243.6 502.0 L1240.2 514.0 L1230.0 523.1 L1216.0 526.0 Z"/></svg></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-house"/></svg>Home</a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-microscope"/></svg>Diagnostics</a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>Find</a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-layout-grid"/></svg>Categories</a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-waypoints"/></svg>Graph</a>
+      <a class="active" aria-current="page" href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-clipboard-check"/></svg>Review <span class="count" aria-hidden="true">7</span><span class="sr-only">, 7 waiting</span></a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-bell"/></svg>Alerts <span class="count" aria-hidden="true">5</span><span class="sr-only">, 5 unread</span></a>
+      <a href="#"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-cpu"/></svg>Jobs</a>
+      <button class="more-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu">More<svg class="i chev" aria-hidden="true" focusable="false"><use href="#i-chevron-down"/></svg></button>
+      <ul class="menu" id="more-menu" role="menu" hidden><li role="none"><a role="menuitem" href="#">Rules</a></li><li role="none"><a role="menuitem" href="#">Terms</a></li></ul>
+    </nav>
+    <div class="right">
+      <button class="ctl capture" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg>Add a diagnostic</button>
+      <button class="ctl" type="button">Thoracic oncology <span class="synthetic">Synthetic</span></button>
+      <button class="ctl me" type="button" aria-label="Your name: Sam. Change"><span class="avatar">SA</span>Sam</button>
+    </div>
+  </div></header>
+  <!-- end top bar v3 -->
+
+  <div class="stage-area">
+    <div class="field" aria-hidden="true">
+      <b style="left:-160px;top:40px;width:520px;height:520px;background:#6F6BC2;opacity:.22"></b>
+      <b style="left:520px;top:-120px;width:460px;height:460px;background:#E78AAE;opacity:.20"></b>
+      <b style="left:1020px;top:160px;width:560px;height:560px;background:#7FC2B5;opacity:.16"></b>
+      <b style="left:240px;top:760px;width:600px;height:600px;background:#E78AAE;opacity:.16"></b>
+      <b style="left:900px;top:900px;width:520px;height:520px;background:#6F6BC2;opacity:.20"></b>
+      <b style="left:-120px;top:1120px;width:420px;height:420px;background:#7FC2B5;opacity:.14"></b>
+    </div>
+  <main class="lower">
+    <section class="panel queue" aria-labelledby="q-title">
+      <div class="qhead">
+        <div>
+          <div class="title"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-clipboard-check"/></svg><h1 id="q-title">Review</h1></div>
+          <p class="num" aria-live="polite"><b>7</b> proposed changes waiting. Low-confidence first, then the 2 your new rule flagged.</p>
+          <div class="keys" aria-label="Keyboard shortcuts">
+            <span><kbd>j</kbd><kbd>k</kbd>move</span>
+            <span><kbd>a</kbd><kbd>e</kbd><kbd>r</kbd>accept, edit, reject</span>
+            <span><kbd>Esc</kbd>cancel</span>
+          </div>
+        </div>
+      </div>
+      <div class="rows">
+        <article class="row focus" id="row-guardant" aria-current="true">
+          <div class="rtop"><h2>Guardant360 CDx</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span><span></span></span><span class="stage-name">Regulatory approval</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-stethoscope"/></svg>Add <b>response monitoring</b> to Clinical uses<span class="note">2 listed today</span></div>
+          <blockquote>Patients will receive individualized follow-up and adjuvant therapy based on dynamic changes in ctDNA at various preoperative and postoperative timepoints, as well as pathological response.</blockquote>
+          <div class="source"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>ClinicalTrials.gov, <a href="#" class="id">NCT07894458</a>, data as of 12 November 2026</div>
+          <div class="low"><span><b>Low confidence:</b> <span class="why">the trial monitors ctDNA but does not name the test it uses.</span></span></div>
+          <div class="acts"><button class="btn primary" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+        <article class="row compactrow" id="row-malat1">
+          <div class="rtop"><h2>FoundationOne CDx</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span><span></span></span><span class="stage-name">Regulatory approval</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-dna"/></svg>Add biomarker <b>MALAT1</b> to Biomarkers</div>
+          <div class="pm"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>PubMed, <a href="https://pubmed.ncbi.nlm.nih.gov/42934891/" class="id">PMID 42934891</a>, data as of 13 November 2026</div>
+          <div class="flag"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg><div><span class="lab">Flagged by your new rule:</span>Flag findings from cell-line or animal studies.</div></div>
+          <div class="acts compact"><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn small ghost reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+        <article class="row compactrow" id="row-gata5">
+          <div class="rtop"><h2>Oncomine Dx Target Test</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span><span></span></span><span class="stage-name">Regulatory approval</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-dna"/></svg>Add biomarker <b>GATA5</b> to Biomarkers</div>
+          <div class="pm"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>PubMed, <a href="https://pubmed.ncbi.nlm.nih.gov/42968152/" class="id">PMID 42968152</a>, data as of 13 November 2026</div>
+          <div class="flag"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg><div><span class="lab">Flagged by your new rule:</span>Flag findings from cell-line or animal studies.</div></div>
+          <div class="acts compact"><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn small ghost reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+        <article class="row">
+          <div class="rtop"><h2>SuperARMS EGFR mutation detection</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="adv"></span><span></span><span></span><span></span><span></span></span><span class="stage-name">Clinical utility</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pill"/></svg>Add <b>osimertinib</b> to Linked drugs<span class="note">none listed today</span></div>
+          <blockquote>To describe the characteristics of EGFR mutation changes at baseline and after 3 weeks of osimertinib treatment.</blockquote>
+          <div class="source"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>ClinicalTrials.gov, <a href="#" class="id">NCT06422546</a>, data as of 12 November 2026</div>
+          <div class="acts compact"><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn small ghost reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+        <article class="row">
+          <div class="rtop"><h2>FoundationOne Liquid CDx</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span><span></span></span><span class="stage-name">Regulatory approval</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-stethoscope"/></svg>Add <b>treatment selection</b> to Clinical uses<span class="note">1 listed today</span></div>
+          <blockquote>The ultimate goal is to use this information from the screening process to select the optimal neoadjuvant therapy</blockquote>
+          <div class="source"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>ClinicalTrials.gov, <a href="#" class="id">NCT04712877</a>, data as of 12 November 2026</div>
+          <div class="acts compact"><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn small ghost reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+        <article class="row">
+          <div class="rtop"><h2>Ventana PD-L1 (SP263) Assay</h2><span class="stage"><span class="track" aria-hidden="true"><span class="er"></span><span class="er"></span><span class="f"></span><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span><span></span></span><span class="stage-name">Regulatory approval</span></span></div>
+          <div class="chg"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-flask-conical"/></svg>Add trial <b class="id">NCT06284317</b> to Trials<span class="note">4 listed today</span></div>
+          <blockquote>To ensure comparability of results, it is strongly encouraged that PD-L1 testing is done with the Ventana PD-L1 (SP263) assay.</blockquote>
+          <div class="source"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-file-text"/></svg>ClinicalTrials.gov, <a href="#" class="id">NCT06284317</a>, data as of 12 November 2026</div>
+          <div class="teamflag">Rule<span class="synthetic">Synthetic</span>: count an assay as used in a trial only when the trial lists it as an intervention. This trial recommends the assay but does not list it.</div>
+          <div class="acts compact"><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Accept</button><button class="btn small ghost" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg>Edit</button><button class="btn small ghost reject" type="button"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Reject</button></div>
+        </article>
+
+
+      </div>
+      <div class="more">1 more change below. Press <kbd>j</kbd> to keep going.</div>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-labelledby="rule-title">
+        <div class="panel-head"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-shield-check"/></svg><h2 id="rule-title">Rule from your rejection</h2></div>
+        <div class="pbody">
+          <div class="rejected">
+            <div class="st"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-x"/></svg>Rejected</div>
+            <div>Add biomarker ZNF471 to Guardant360 CDx</div>
+            <div class="m">PubMed, <a href="https://pubmed.ncbi.nlm.nih.gov/42985469/" class="id">PMID 42985469</a>, data as of 13 November 2026</div>
+            <div class="m">Reason: Cell-line study, not patients.</div>
+            <div class="m who"><span class="avatar">SA</span>Sam, just now</div>
+          </div>
+          <div class="rulecard">
+            <div class="ruleon"><span class="ok"></span>Rule on</div>
+            <div class="ruletext">Flag findings from cell-line or animal studies.</div>
+            <div class="flags"><b>It flags 2 of 7 pending changes.</b> It never rejects them; you decide.
+              <ul>
+                <li><a href="#row-malat1"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg>FoundationOne CDx, add MALAT1</a></li>
+                <li><a href="#row-gata5"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-flag"/></svg>Oncomine Dx Target Test, add GATA5</a></li>
+              </ul>
+            </div>
+            <div class="cap-line"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-database"/></svg>Agent Memory, procedural</div>
+            <div class="pacts"><button class="btn small ghost" type="button">Turn off</button><button class="btn small ghost" type="button">Open rules</button></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+  </div>
+  <footer>Data: ClinicalTrials.gov (U.S. National Library of Medicine), PubMed (courtesy of the U.S. National Library of Medicine), U.S. Food and Drug Administration, HGNC, OncoTree (CC BY 4.0), NCI Thesaurus (CC BY 4.0). DxP is not endorsed by these organisations.</footer>
+</div>
+</body>
+</html>

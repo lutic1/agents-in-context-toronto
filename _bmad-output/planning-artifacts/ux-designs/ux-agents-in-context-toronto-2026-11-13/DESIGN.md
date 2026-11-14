@@ -1,7 +1,7 @@
 ---
 name: DxProvida (DxP)
 description: Lung cancer diagnostics tracked by agents, every value backed by a quote. shadcn/ui on Next.js 16 with Tailwind; this file specifies the brand layer only.
-status: draft
+status: final
 created: 2026-11-13
 updated: 2026-11-13
 sources:
@@ -145,6 +145,8 @@ components:
     border: '1px dotted {colors.muted-foreground}'
     radius: '{rounded.full}'
 ---
+
+Key-screen mockups for all eleven surfaces are in [`mockups/`](mockups/index.html), each with a screenshot in `mockups/shots/`. This file and `EXPERIENCE.md` win over any mockup where they disagree.
 
 ## Brand & Style
 
