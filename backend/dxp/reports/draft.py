@@ -753,6 +753,12 @@ async def draft(item: dict[str, Any], findings: list[dict[str, Any]], related: l
     for one in drafts:
         one["uncertainties"] = build_uncertainties(source, mentions, one["intervention_plain"], seeded)
     final = drafts[-1]
+    # Each memory's score is the one memory.retrieve returned; A10 keeps that Retrieval on the item.
+    scores = {str(i.get("ref")): i.get("score")
+              for i in (_plain(i) for i in _plain(source.get("memory_retrieval")).get("items") or [])}
+    for memory in memory_dicts:
+        if memory.get("score") is None:
+            memory["score"] = scores.get(_memory_id(memory))
     effects = memory_effects(first, final, memory_dicts, cited) if memory_dicts else []
     for use in effects:
         use["source"] = use["source"] or {"decision_id": None, "report_id": None}

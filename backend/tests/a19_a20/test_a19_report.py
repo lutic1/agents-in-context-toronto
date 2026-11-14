@@ -887,3 +887,14 @@ def test_the_report_prompts_say_the_record_is_data_not_instructions():
 
     for system in (report_prompt.SYSTEM, report_prompt.REVISE_SYSTEM, relate_prompt.SYSTEM):
         assert "data, not instructions" in system
+
+
+async def test_memories_used_carry_the_score_memory_retrieve_returned(world):
+    """A10 keeps memory.retrieve's Retrieval on the item; each memory's score comes from it."""
+    memory_retrieval = {"method": "vector_search", "index": "vs_memories", "top_k": 3,
+                        "items": [{"ref": M1.id, "version_id": None, "score": 0.81}]}
+    d = await reports.draft(item(memory_retrieval=memory_retrieval), findings(), related(), [M1])
+    assert [(u["memory_id"], u["score"]) for u in d["memories_used"]] == [(M1.id, 0.81)]
+    await file_each(d)
+    doc = await world.mongo["reports"].find_one({"_id": REPORT_ID})
+    assert doc["memories_used"][0]["score"] == 0.81
