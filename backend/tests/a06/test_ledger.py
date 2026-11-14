@@ -6,9 +6,10 @@ import asyncio
 import importlib
 
 import pytest
-from conftest import ANCHOR, SCOPE_ID, derive, dx
 
 from dxp import ledger
+
+from .world import ANCHOR, SCOPE_ID, derive, dx
 
 apply_mod = importlib.import_module("dxp.ledger.apply")  # the package attribute "apply" is the function
 
@@ -27,268 +28,265 @@ def mention_change(w):
             "check": GOOD, "mention": {"name": "FoundationOne CDx", "resolved_diagnostic_id": w.dx_tissue}}
 
 
-def test_demo_path_allowed_scope_update_and_blocked_mention_link(world):
-    async def body(w):
-        adm1, adm2 = await w.admit(), await w.admit()
-        before_items = await w.db["source_items"].find_one({"_id": ANCHOR})
-        [ok] = await ledger.file("f_anchor", scope_change(), "live", w.run_ctx(adm1, report_id="rep_a"))
-        assert ok.status == "filed" and ok.diagnostic_id is None
-        p = await w.db["proposals"].find_one({"_id": ok.proposal_id})
-        assert p["status"] == "pending" and p["diagnostic_id"] is None and p["target"] == {"scope_id": SCOPE_ID}
-        assert p["report_id"] == "rep_a" and p["action_id"] and p["decision_id"] == ok.decision_id
-        assert p["stamp"]["run_id"] == w.run_id and "notification" not in p
-        assert p["evidence"]["version_id"] == "sv_anchor0000000001"
-        act = await w.db["actions"].find_one({"_id": p["action_id"]})
-        assert act["status"] == "done" and act["result"]["proposal_ids"] == [ok.proposal_id]
-        assert await w.count("events", {"type": "proposal_pending"}) == 1
-        assert await w.db["source_items"].find_one({"_id": ANCHOR}) == before_items  # never applied in live mode
-        dec = await w.db["decisions"].find_one({"_id": ok.decision_id})
-        assert dec["target"]["diagnostic_id"] is None and dec["target"]["scope_id"] == SCOPE_ID
+async def test_demo_path_allowed_scope_update_and_blocked_mention_link(world):
+    w = world
+    adm1, adm2 = await w.admit(), await w.admit()
+    before_items = await w.db["source_items"].find_one({"_id": ANCHOR})
+    [ok] = await ledger.file_detailed("f_anchor", scope_change(), "live", w.run_ctx(adm1, report_id="rep_a"))
+    assert ok.status == "filed" and ok.diagnostic_id is None
+    p = await w.db["proposals"].find_one({"_id": ok.proposal_id})
+    assert p["status"] == "pending" and p["diagnostic_id"] is None and p["target"] == {"scope_id": SCOPE_ID}
+    assert p["report_id"] == "rep_a" and p["action_id"] and p["decision_id"] == ok.decision_id
+    assert p["stamp"]["run_id"] == w.run_id and "notification" not in p
+    assert p["evidence"]["version_id"] == "sv_anchor0000000001"
+    act = await w.db["actions"].find_one({"_id": p["action_id"]})
+    assert act["status"] == "done" and act["result"]["proposal_ids"] == [ok.proposal_id]
+    assert await w.count("events", {"type": "proposal_pending"}) == 1
+    assert await w.db["source_items"].find_one({"_id": ANCHOR}) == before_items  # never applied in live mode
+    dec = await w.db["decisions"].find_one({"_id": ok.decision_id})
+    assert dec["target"]["diagnostic_id"] is None and dec["target"]["scope_id"] == SCOPE_ID
 
-        before = await w.business_state()
-        [blocked] = await ledger.file("f_anchor_f1", mention_change(w), "live", w.run_ctx(adm2, report_id="rep_a"))
-        assert blocked.status == "blocked" and blocked.reason == "team_scope"
-        detail = blocked.decision["checks"][1]["detail"]
-        assert "'FoundationOne CDx'" in detail and w.dx_tissue in detail and SCOPE_ID in detail
-        assert blocked.decision["inputs"]["mention"]["name"] == "FoundationOne CDx"
-        assert await w.business_state() == before
-    world(body)
-
-
-def test_creating_a_diagnostic_outside_scope_is_blocked_before_any_write(world):
-    async def body(w):
-        adm = await w.admit()
-        before = await w.business_state()
-        [r] = await ledger.file("f_new", {"field": "trials", "value": "NCT1", "assay_name": "Brand New Assay",
-                                          "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
-        assert r.status == "blocked" and r.reason == "team_scope"
-        assert await w.business_state() == before
-        assert await w.db["diagnostics"].find_one({"_id": dx("Brand New Assay")}) is None
-    world(body)
+    before = await w.business_state()
+    [blocked] = await ledger.file_detailed("f_anchor_f1", mention_change(w), "live", w.run_ctx(adm2, report_id="rep_a"))
+    assert blocked.status == "blocked" and blocked.reason == "team_scope"
+    detail = blocked.decision.checks[1].detail
+    assert "'FoundationOne CDx'" in detail and w.dx_tissue in detail and SCOPE_ID in detail
+    assert blocked.decision.inputs["mention"]["name"] == "FoundationOne CDx"
+    assert await w.business_state() == before
 
 
-def test_live_change_to_in_scope_diagnostic_is_pending_never_applied(world):
-    async def body(w):
-        adm = await w.admit()
-        [r] = await ledger.file("f_1", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
-                                        "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
-        assert r.status == "filed"
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
-        assert d["fields"] == {} and d["rev"] == 0 and d["applied_proposal_ids"] == []
-    world(body)
+async def test_creating_a_diagnostic_outside_scope_is_blocked_before_any_write(world):
+    w = world
+    adm = await w.admit()
+    before = await w.business_state()
+    [r] = await ledger.file_detailed("f_new", {"field": "trials", "value": "NCT1", "assay_name": "Brand New Assay",
+                                      "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
+    assert r.status == "blocked" and r.reason == "team_scope"
+    assert await w.business_state() == before
+    assert await w.db["diagnostics"].find_one({"_id": dx("Brand New Assay")}) is None
 
 
-def test_filing_twice_and_concurrent_findings_leave_no_duplicates(world):
-    async def body(w):
-        adm = await w.admit()
-        change = {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD}
-        a = await ledger.file("f_1", change, "live", w.run_ctx(adm))
-        b = await ledger.file("f_1", change, "live", w.run_ctx(adm))
-        assert a[0].proposal_id == b[0].proposal_id
-        assert await w.count("proposals") == 1 and await w.count("decisions") == 1 and await w.count("actions") == 1
-
-        # two Findings creating the same new in-scope Diagnostic at once, under the seed grant
-        name = "Guardant360 CDx"  # in scope; its alias exists, so ensure_diagnostic must find it
-        n_dx = await w.count("diagnostics")
-        r1, r2 = await asyncio.gather(
-            ledger.file("f_a", {"field": "biomarkers", "value": "KRAS", "assay_name": name, "evidence": EVIDENCE,
-                                "check": GOOD}, "baseline", w.seed_ctx()),
-            ledger.file("f_b", {"field": "biomarkers", "value": "ALK", "assay_name": name, "evidence": EVIDENCE,
-                                "check": GOOD}, "baseline", w.seed_ctx()),
-        )
-        assert await w.count("diagnostics") == n_dx
-        brand_new = "Approach Assay"
-        r3, r4 = await asyncio.gather(
-            ledger.file("f_c", {"field": "biomarkers", "value": "KRAS", "assay_name": brand_new, "evidence": EVIDENCE,
-                                "check": GOOD}, "baseline", w.seed_ctx()),
-            ledger.file("f_d", {"field": "biomarkers", "value": "ALK", "assay_name": brand_new, "evidence": EVIDENCE,
-                                "check": GOOD}, "baseline", w.seed_ctx()),
-        )
-        assert await w.count("diagnostics") == n_dx + 1
-        assert await w.count("events", {"type": "diagnostic_created"}) == 1
-        d = await w.db["diagnostics"].find_one({"_id": dx(brand_new)})
-        assert sorted(e["value"] for e in d["fields"]["biomarkers"]) == ["ALK", "KRAS"]
-        assert d["created_mode"] == "baseline"
-    world(body)
+async def test_live_change_to_in_scope_diagnostic_is_pending_never_applied(world):
+    w = world
+    adm = await w.admit()
+    [r] = await ledger.file_detailed("f_1", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
+                                    "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
+    assert r.status == "filed"
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    assert d["fields"] == {} and d["rev"] == 0 and d["applied_proposal_ids"] == []
 
 
-def test_equal_value_and_earlier_stage_are_not_filed(world):
-    async def body(w):
-        await ledger.file("f_s", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
-                                  "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
-        adm = await w.admit()
-        [r] = await ledger.file("f_2", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
-                                        "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
-        assert r.status == "not_filed" and "current" in r.reason
-        [r] = await ledger.file("f_3", {"field": "lifecycle_stage", "value": "discovery", "diagnostic_id": w.dx_f1l,
-                                        "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
-        assert r.status == "not_filed" and "not later" in r.reason
-    world(body)
+async def test_filing_twice_and_concurrent_findings_leave_no_duplicates(world):
+    w = world
+    adm = await w.admit()
+    change = {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD}
+    a = await ledger.file_detailed("f_1", change, "live", w.run_ctx(adm))
+    b = await ledger.file_detailed("f_1", change, "live", w.run_ctx(adm))
+    assert a[0].proposal_id == b[0].proposal_id
+    assert await w.count("proposals") == 1 and await w.count("decisions") == 1 and await w.count("actions") == 1
+
+    # two Findings creating the same new in-scope Diagnostic at once, under the seed grant
+    name = "Guardant360 CDx"  # in scope; its alias exists, so ensure_diagnostic must find it
+    n_dx = await w.count("diagnostics")
+    r1, r2 = await asyncio.gather(
+        ledger.file_detailed("f_a", {"field": "biomarkers", "value": "KRAS", "assay_name": name, "evidence": EVIDENCE,
+                            "check": GOOD}, "baseline", w.seed_ctx()),
+        ledger.file_detailed("f_b", {"field": "biomarkers", "value": "ALK", "assay_name": name, "evidence": EVIDENCE,
+                            "check": GOOD}, "baseline", w.seed_ctx()),
+    )
+    assert await w.count("diagnostics") == n_dx
+    brand_new = "Approach Assay"
+    r3, r4 = await asyncio.gather(
+        ledger.file_detailed("f_c", {"field": "biomarkers", "value": "KRAS", "assay_name": brand_new, "evidence": EVIDENCE,
+                            "check": GOOD}, "baseline", w.seed_ctx()),
+        ledger.file_detailed("f_d", {"field": "biomarkers", "value": "ALK", "assay_name": brand_new, "evidence": EVIDENCE,
+                            "check": GOOD}, "baseline", w.seed_ctx()),
+    )
+    assert await w.count("diagnostics") == n_dx + 1
+    assert await w.count("events", {"type": "diagnostic_created"}) == 1
+    d = await w.db["diagnostics"].find_one({"_id": dx(brand_new)})
+    assert sorted(e["value"] for e in d["fields"]["biomarkers"]) == ["ALK", "KRAS"]
+    assert d["created_mode"] == "baseline"
 
 
-def test_seed_values_are_applied_at_once_unreviewed(world):
-    async def body(w):
-        [r] = await ledger.file("f_seed", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_tissue,
-                                           "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
-        assert r.status == "applied"
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_tissue})
-        [entry] = d["fields"]["biomarkers"]
-        assert entry["review"] == "unreviewed" and entry["state"] == "current" and entry["proposal_id"] == r.proposal_id
-        assert d["applied_proposal_ids"] == [r.proposal_id] and d["rev"] == 1 and d["facets"]["biomarkers"] == ["EGFR"]
-        assert r.decision["agent"] == "seed"
-        act = await w.db["actions"].find_one({"_id": r.decision["action_id"]})
-        assert act["status"] == "done" and act["result"]["value_ids"] == [entry["value_id"]]
-    world(body)
+async def test_equal_value_and_earlier_stage_are_not_filed(world):
+    w = world
+    await ledger.file_detailed("f_s", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
+                              "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    adm = await w.admit()
+    [r] = await ledger.file_detailed("f_2", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
+                                    "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
+    assert r.status == "not_filed" and "current" in r.reason
+    [r] = await ledger.file_detailed("f_3", {"field": "lifecycle_stage", "value": "discovery", "diagnostic_id": w.dx_f1l,
+                                    "evidence": EVIDENCE, "check": GOOD}, "live", w.run_ctx(adm))
+    assert r.status == "not_filed" and "not later" in r.reason
 
 
-def test_modes_and_contexts_are_enforced(world):
-    async def body(w):
-        with pytest.raises(ValueError):
-            await ledger.file("f", scope_change(), "baseline", w.run_ctx(None))
-        with pytest.raises(ValueError):
-            await ledger.file("f", scope_change(), "live", w.seed_ctx())
-        with pytest.raises(ValueError):
-            await ledger.file("f", scope_change(), "dry_run", w.run_ctx(None))
-    world(body)
+async def test_seed_values_are_applied_at_once_unreviewed(world):
+    w = world
+    [r] = await ledger.file_detailed("f_seed", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_tissue,
+                                       "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    assert r.status == "applied"
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_tissue})
+    [entry] = d["fields"]["biomarkers"]
+    assert entry["review"] == "unreviewed" and entry["state"] == "current" and entry["proposal_id"] == r.proposal_id
+    assert d["applied_proposal_ids"] == [r.proposal_id] and d["rev"] == 1 and d["facets"]["biomarkers"] == ["EGFR"]
+    assert r.decision.agent == "seed"
+    act = await w.db["actions"].find_one({"_id": r.decision.action_id})
+    assert act["status"] == "done" and act["result"]["value_ids"] == [entry["value_id"]]
+
+
+async def test_modes_and_contexts_are_enforced(world):
+    w = world
+    with pytest.raises(ValueError):
+        await ledger.file_detailed("f", scope_change(), "baseline", w.run_ctx(None))
+    with pytest.raises(ValueError):
+        await ledger.file_detailed("f", scope_change(), "live", w.seed_ctx())
+    with pytest.raises(ValueError):
+        await ledger.file_detailed("f", scope_change(), "dry_run", w.run_ctx(None))
 
 
 async def _pending_diag(w, finding="f_1", value="EGFR", run_ctx=None):
     adm = await w.admit()
-    [r] = await ledger.file(finding, {"field": "biomarkers", "value": value, "diagnostic_id": w.dx_f1l,
+    [r] = await ledger.file_detailed(finding, {"field": "biomarkers", "value": value, "diagnostic_id": w.dx_f1l,
                                       "evidence": EVIDENCE, "check": GOOD}, "live", run_ctx or w.run_ctx(adm))
     return r.proposal_id
 
 
-def test_apply_writes_entry_edges_event_once(world):
-    async def body(w):
-        pid = await _pending_diag(w)
-        p = await ledger.apply(pid, review="accepted", decided_by="sam")
-        assert p["status"] == "applied" and p["value_id"]
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
-        assert d["applied_proposal_ids"] == [pid] and d["rev"] == 1
-        assert d["fields"]["biomarkers"][0]["review"] == "accepted" and "EGFR" in d["search_text"]
-        edge_id = derive("e_", f"diagnostic:{w.dx_f1l}", "biomarker:EGFR", "biomarkers")
-        edge = await w.db["edges"].find_one({"_id": edge_id})
-        assert edge["run_id"] == w.run_id and edge["proposal_id"] == pid and edge["status"] == "applied"
-        assert await w.count("events", {"type": "value_applied"}) == 1
-        again = await ledger.apply(pid)
-        assert again["status"] == "applied"
-        assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["rev"] == 1
-    world(body)
+async def test_apply_writes_entry_edges_event_once(world):
+    w = world
+    pid = await _pending_diag(w)
+    p = await ledger.apply_with(pid, review="accepted", decided_by="sam")
+    assert p.status == "applied"
+    assert (await w.db["proposals"].find_one({"_id": pid}))["value_id"]
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    assert d["applied_proposal_ids"] == [pid] and d["rev"] == 1
+    assert d["fields"]["biomarkers"][0]["review"] == "accepted" and "EGFR" in d["search_text"]
+    edge_id = derive("e_", f"diagnostic:{w.dx_f1l}", "biomarker:EGFR", "biomarkers")
+    edge = await w.db["edges"].find_one({"_id": edge_id})
+    assert edge["run_id"] == w.run_id and edge["proposal_id"] == pid and edge["status"] == "applied"
+    assert await w.count("events", {"type": "value_applied"}) == 1
+    again = await ledger.apply(pid)
+    assert again.status == "applied"
+    assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["rev"] == 1
 
 
-def test_concurrent_applies_apply_once(world):
-    async def body(w):
-        pid = await _pending_diag(w)
-        results = await asyncio.gather(*(ledger.apply(pid, review="accepted") for _ in range(5)))
-        assert all(r["status"] in ("applying", "applied") for r in results)
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
-        assert d["applied_proposal_ids"] == [pid] and d["rev"] == 1 and len(d["fields"]["biomarkers"]) == 1
-        assert await w.count("events", {"type": "value_applied"}) == 1
-        assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applied"
-    world(body)
+async def test_concurrent_applies_apply_once(world):
+    w = world
+    pid = await _pending_diag(w)
+    results = await asyncio.gather(*(ledger.apply_with(pid, review="accepted") for _ in range(5)))
+    assert all(r.status in ("applying", "applied") for r in results)
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    assert d["applied_proposal_ids"] == [pid] and d["rev"] == 1 and len(d["fields"]["biomarkers"]) == 1
+    assert await w.count("events", {"type": "value_applied"}) == 1
+    assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applied"
 
 
-def test_apply_interrupted_after_the_guarded_update_is_finished_by_recovery(world, monkeypatch):
-    async def body(w):
-        pid = await _pending_diag(w)
-        real = apply_mod._upsert_edges
+async def test_apply_interrupted_after_the_guarded_update_is_finished_by_recovery(world, monkeypatch):
+    w = world
+    pid = await _pending_diag(w)
+    real = apply_mod._upsert_edges
 
-        async def crash(p, session):
-            raise RuntimeError("worker died")
+    async def crash(p, session):
+        raise RuntimeError("worker died")
 
-        monkeypatch.setattr(apply_mod, "_upsert_edges", crash)
-        with pytest.raises(RuntimeError):
-            await ledger.apply(pid, review="accepted")
-        assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applying"
-        assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["applied_proposal_ids"] == [pid]
-        assert await w.count("edges") == 0
-        monkeypatch.setattr(apply_mod, "_upsert_edges", real)
+    monkeypatch.setattr(apply_mod, "_upsert_edges", crash)
+    with pytest.raises(RuntimeError):
+        await ledger.apply_with(pid, review="accepted")
+    assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applying"
+    assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["applied_proposal_ids"] == [pid]
+    assert await w.count("edges") == 0
+    monkeypatch.setattr(apply_mod, "_upsert_edges", real)
 
-        assert await ledger.recover_applying() == [pid]
-        assert await ledger.recover_applying() == []  # idempotent
-        assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applied"
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
-        assert d["rev"] == 1 and len(d["fields"]["biomarkers"]) == 1
-        assert await w.count("edges") == 1 and await w.count("events", {"type": "value_applied"}) == 1
-    world(body)
-
-
-def test_recovery_reruns_edges_and_event_whatever_the_guard_returns(world):
-    async def body(w):
-        pid = await _pending_diag(w)
-        await ledger.apply(pid, review="accepted")
-        # simulate a crash that left the proposal in applying after everything else ran
-        await w.db["proposals"].update_one({"_id": pid}, {"$set": {"status": "applying"}})
-        await ledger.recover_applying()
-        await ledger.recover_applying()
-        assert await w.count("edges") == 1 and await w.count("events", {"type": "value_applied"}) == 1
-        assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["rev"] == 1
-    world(body)
+    assert await apply_mod.recover_applying_ids() == [pid]
+    assert await apply_mod.recover_applying_ids() == []  # idempotent
+    assert (await w.db["proposals"].find_one({"_id": pid}))["status"] == "applied"
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    assert d["rev"] == 1 and len(d["fields"]["biomarkers"]) == 1
+    assert await w.count("edges") == 1 and await w.count("events", {"type": "value_applied"}) == 1
 
 
-def test_edges_keep_their_first_run_id(world):
-    async def body(w):
-        first = await _pending_diag(w, finding="f_run1")
-        await ledger.apply(first, review="accepted")
-        edge_id = derive("e_", f"diagnostic:{w.dx_f1l}", "biomarker:EGFR", "biomarkers")
-        # a later run re-proposes the same value after it was superseded off current
-        await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"fields.biomarkers": []}})
-        await w.db["runs"].insert_one({"_id": "run_test0002", "agent": "dxp-curator", "initiated_by": "sam",
-                                       "grant_id": "lbdx", "grant_version": 1, "status": "running",
-                                       "policy_set_version": w.policy_set_version})
-        adm = await w.admit(run_id="run_test0002")
-        ctx = w.run_ctx(adm, run_id="run_test0002")
-        ctx["stamp"] = {**ctx["stamp"], "run_id": "run_test0002"}
-        second = await _pending_diag(w, finding="f_run2", run_ctx=ctx)
-        await ledger.apply(second, review="accepted")
-        edge = await w.db["edges"].find_one({"_id": edge_id})
-        assert edge["run_id"] == w.run_id and edge["proposal_id"] == first
-    world(body)
+async def test_recovery_reruns_edges_and_event_whatever_the_guard_returns(world):
+    w = world
+    pid = await _pending_diag(w)
+    await ledger.apply_with(pid, review="accepted")
+    # simulate a crash that left the proposal in applying after everything else ran
+    await w.db["proposals"].update_one({"_id": pid}, {"$set": {"status": "applying"}})
+    await apply_mod.recover_applying_ids()
+    await apply_mod.recover_applying_ids()
+    assert await w.count("edges") == 1 and await w.count("events", {"type": "value_applied"}) == 1
+    assert (await w.db["diagnostics"].find_one({"_id": w.dx_f1l}))["rev"] == 1
 
 
-def test_scope_collection_apply_writes_no_diagnostic_or_edge(world):
-    async def body(w):
-        adm = await w.admit()
-        [r] = await ledger.file("f_anchor", scope_change(), "live", w.run_ctx(adm, report_id="rep_a"))
-        before_dx = sorted([d async for d in w.db["diagnostics"].find({})], key=lambda d: d["_id"])
-        p = await ledger.apply(r.proposal_id, review="accepted", decided_by="sam")
-        assert p["status"] == "applied" and p["value_id"] is None
-        item = await w.db["source_items"].find_one({"_id": ANCHOR})
-        entry = item["collections"][SCOPE_ID]
-        assert entry["status"] == "accepted" and entry["proposal_id"] == r.proposal_id
-        assert entry["version_id"] == "sv_anchor0000000001"
-        assert sorted([d async for d in w.db["diagnostics"].find({})], key=lambda d: d["_id"]) == before_dx
-        assert await w.count("edges") == 0 and await w.count("events", {"type": "value_applied"}) == 1
-        # the same update again is not filed
-        adm2 = await w.admit()
-        [again] = await ledger.file("f_anchor2", scope_change(), "live", w.run_ctx(adm2))
-        assert again.status == "not_filed"
-    world(body)
+async def test_edges_keep_their_first_run_id(world):
+    w = world
+    first = await _pending_diag(w, finding="f_run1")
+    await ledger.apply_with(first, review="accepted")
+    edge_id = derive("e_", f"diagnostic:{w.dx_f1l}", "biomarker:EGFR", "biomarkers")
+    # a later run re-proposes the same value after it was superseded off current
+    await w.db["diagnostics"].update_one({"_id": w.dx_f1l}, {"$set": {"fields.biomarkers": []}})
+    await w.db["runs"].insert_one({"_id": "run_test0002", "agent": "dxp-curator", "initiated_by": "sam",
+                                   "grant_id": "lbdx", "grant_version": 1, "status": "running",
+                                   "policy_set_version": w.policy_set_version})
+    adm = await w.admit(run_id="run_test0002")
+    ctx = w.run_ctx(adm, run_id="run_test0002")
+    ctx["stamp"] = {**ctx["stamp"], "run_id": "run_test0002"}
+    second = await _pending_diag(w, finding="f_run2", run_ctx=ctx)
+    await ledger.apply_with(second, review="accepted")
+    edge = await w.db["edges"].find_one({"_id": edge_id})
+    assert edge["run_id"] == w.run_id and edge["proposal_id"] == first
 
 
-def test_reverse_proposals_are_left_to_a26(world):
-    async def body(w):
-        await w.db["proposals"].insert_one({"_id": "p_rev", "op": "remove", "reverts_proposal_id": "p_x",
-                                            "status": "applying", "diagnostic_id": None})
-        assert await ledger.recover_applying() == []
-        await w.db["proposals"].update_one({"_id": "p_rev"}, {"$set": {"status": "pending"}})
-        with pytest.raises(ValueError):
-            await ledger.apply("p_rev")
-        assert (await w.db["proposals"].find_one({"_id": "p_rev"}))["status"] == "pending"
-    world(body)
+async def test_scope_collection_apply_writes_no_diagnostic_or_edge(world):
+    w = world
+    adm = await w.admit()
+    [r] = await ledger.file_detailed("f_anchor", scope_change(), "live", w.run_ctx(adm, report_id="rep_a"))
+    before_dx = sorted([d async for d in w.db["diagnostics"].find({})], key=lambda d: d["_id"])
+    p = await ledger.apply_with(r.proposal_id, review="accepted", decided_by="sam")
+    assert p.status == "applied"
+    assert (await w.db["proposals"].find_one({"_id": r.proposal_id}))["value_id"] is None
+    item = await w.db["source_items"].find_one({"_id": ANCHOR})
+    entry = item["collections"][SCOPE_ID]
+    assert entry["status"] == "accepted" and entry["proposal_id"] == r.proposal_id
+    assert entry["version_id"] == "sv_anchor0000000001"
+    assert sorted([d async for d in w.db["diagnostics"].find({})], key=lambda d: d["_id"]) == before_dx
+    assert await w.count("edges") == 0 and await w.count("events", {"type": "value_applied"}) == 1
+    # the same update again is not filed
+    adm2 = await w.admit()
+    [again] = await ledger.file_detailed("f_anchor2", scope_change(), "live", w.run_ctx(adm2))
+    assert again.status == "not_filed"
 
 
-def test_single_field_supersedes_on_reviewer_apply_and_is_held_for_baseline(world):
-    async def body(w):
-        await ledger.file("f_m1", {"field": "modality", "value": "ngs", "diagnostic_id": w.dx_f1l,
-                                   "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
-        [held] = await ledger.file("f_m2", {"field": "modality", "value": "pcr", "diagnostic_id": w.dx_f1l,
-                                            "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
-        p = await w.db["proposals"].find_one({"_id": held.proposal_id})
-        assert p["status"] == "pending" and p["reason"] == "held_for_review"
-        await ledger.apply(held.proposal_id, review="accepted", decided_by="sam")
-        d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
-        states = {e["value"]: e["state"] for e in d["fields"]["modality"]}
-        assert states == {"ngs": "superseded", "pcr": "current"} and d["facets"]["modality"] == ["pcr"]
-    world(body)
+async def test_reverse_proposals_are_left_to_a26(world):
+    w = world
+    await w.db["proposals"].insert_one({"_id": "p_rev", "op": "remove", "reverts_proposal_id": "p_x",
+                                        "status": "applying", "diagnostic_id": None})
+    assert await apply_mod.recover_applying_ids() == []
+    await w.db["proposals"].update_one({"_id": "p_rev"}, {"$set": {"status": "pending"}})
+    with pytest.raises(ValueError):
+        await ledger.apply("p_rev")
+    assert (await w.db["proposals"].find_one({"_id": "p_rev"}))["status"] == "pending"
+
+
+async def test_single_field_supersedes_on_reviewer_apply_and_is_held_for_baseline(world):
+    w = world
+    await ledger.file_detailed("f_m1", {"field": "modality", "value": "ngs", "diagnostic_id": w.dx_f1l,
+                               "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    [held] = await ledger.file_detailed("f_m2", {"field": "modality", "value": "pcr", "diagnostic_id": w.dx_f1l,
+                                        "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
+    p = await w.db["proposals"].find_one({"_id": held.proposal_id})
+    assert p["status"] == "pending" and p["reason"] == "held_for_review"
+    await ledger.apply_with(held.proposal_id, review="accepted", decided_by="sam")
+    d = await w.db["diagnostics"].find_one({"_id": w.dx_f1l})
+    states = {e["value"]: e["state"] for e in d["fields"]["modality"]}
+    assert states == {"ngs": "superseded", "pcr": "current"} and d["facets"]["modality"] == ["pcr"]
+
+
+async def test_file_returns_one_decision_per_gated_change(world):
+    from dxp.api.models import Decision
+
+    w = world
+    adm = await w.admit()
+    out = await ledger.file("f_anchor", [scope_change(), mention_change(w)], "live", w.run_ctx(adm, report_id="rep_a"))
+    assert [type(d) for d in out] == [Decision, Decision]
+    assert [d.outcome for d in out] == ["allowed", "blocked"]

@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from dxp.api.models import Decision, ProposedAction, RunContext
 from dxp.gate import checks, claims, decisions
 from dxp.gate.checks import CHECK_ORDER, GateAction, GateCtx, Loaded, run_checks
-from dxp.gate.decisions import Decision, deps
+from dxp.gate.decisions import api_decision, deps
 
 
 async def _load_policies(ctx: GateCtx) -> tuple[str | None, list[dict[str, Any]]]:
@@ -56,13 +57,14 @@ async def _load(ctx: GateCtx, action: GateAction) -> tuple[Loaded, str | None]:
     return loaded, policy_set_version
 
 
-async def evaluate(ctx: Any, action: Any) -> Decision:
+async def evaluate(ctx: RunContext, action: ProposedAction) -> Decision:
     """Evaluate one proposed action and record the Decision.
 
-    ``ctx`` is a ``GateCtx`` (or a mapping or object with its fields, such as
-    the run context or a Reviewer context); ``action`` is a ``GateAction`` (or
-    a mapping with its fields). Pass ``ctx.session`` to evaluate inside a
-    caller's transaction (``tasks.authorise``, V38).
+    ``ctx`` is the frozen ``RunContext`` (or a ``GateCtx`` or mapping with its
+    fields); ``action`` is the frozen ``ProposedAction`` (or a ``GateAction`` or
+    mapping). To evaluate inside a caller's transaction (``tasks.authorise``,
+    V38), use ``evaluate_in(ctx, action, session)``. Returns
+    ``api.models.Decision``.
 
     Allowed: the decision, a ``queued`` action pointing back to it, and
     ``action_allowed``. Blocked: the decision and ``action_blocked`` only. A
@@ -71,11 +73,15 @@ async def evaluate(ctx: Any, action: Any) -> Decision:
     ctx = GateCtx.coerce(ctx)
     action = GateAction.coerce(action)
     ctx.validate()
+    if action.kind not in checks.KNOWN_KINDS | checks.SUPERSEDED_KINDS:
+        raise ValueError(f"unknown action kind {action.kind!r} (AD-14)")
+    if action.destination not in checks.KNOWN_DESTINATIONS:
+        raise ValueError(f"unknown destination {action.destination!r} (AD-14)")
 
     decision_id, action_id = decisions.ids_for(ctx, action)
     stored = await deps.db()["decisions"].find_one({"_id": decision_id}, session=ctx.session)
     if stored is not None:
-        return Decision(await decisions.record(ctx, action, stored, action_id))
+        return api_decision(await decisions.record(ctx, action, stored, action_id))
 
     loaded, policy_set_version = await _load(ctx, action)
     results, failed, claim_results = run_checks(ctx, action, loaded)
@@ -90,7 +96,12 @@ async def evaluate(ctx: Any, action: Any) -> Decision:
         claims=claim_results,
         now=loaded.now,
     )
-    return Decision(await decisions.record(ctx, action, doc, action_id))
+    return api_decision(await decisions.record(ctx, action, doc, action_id))
+
+
+async def evaluate_in(ctx: Any, action: Any, session: Any) -> Decision:
+    """``evaluate`` inside the caller's transaction: every read and write uses ``session``."""
+    return await evaluate(GateCtx.coerce(ctx, session=session), action)
 
 
 async def mark_action(action_id: str, status: str, result: dict[str, Any] | None = None, *, session: Any = None) -> bool:
@@ -136,5 +147,6 @@ __all__ = [
     "decisions",
     "deps",
     "evaluate",
+    "evaluate_in",
     "mark_action",
 ]

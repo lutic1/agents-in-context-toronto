@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from conftest import CLAIM_POLICY_IDS, NOW, SCOPE_ID, TEAM_ID, grant_doc, policy_doc
 
 from dxp.gate.checks import CHECK_ORDER, GateAction, GateCtx, Loaded, run_checks
+
+from .world import CLAIM_POLICY_IDS, NOW, SCOPE_ID, TEAM_ID, grant_doc, policy_doc
 
 PLASMA_DX = ["dx_plasma1", "dx_plasma2"]
 TISSUE_DX = "dx_tissue"
@@ -60,7 +61,9 @@ def scope_change(**kw):
 
 def outcome(ctx, action, ld):
     checks, failed, claims = run_checks(ctx, action, ld)
-    assert [c["check"] for c in checks] == list(CHECK_ORDER)
+    names = [c["check"] for c in checks]
+    assert names == list(CHECK_ORDER)[: len(names)]
+    assert (failed is None and len(names) == 5) or names[-1] == failed
     return checks, failed, claims
 
 
@@ -77,7 +80,7 @@ def test_allowed_scope_collection_update_passes_all_five():
 def test_check1_blocks_on_its_own(grant, expect):
     checks, failed, _ = outcome(run_ctx(), scope_change(), loaded(grant=grant))
     assert failed == "grant_active" and expect in checks[0]["detail"]
-    assert [c["passed"] for c in checks[1:]] == ["not_run"] * 4
+    assert len(checks) == 1
 
 
 def test_check1_reads_the_latest_version_so_an_expired_task_grant_v2_blocks():

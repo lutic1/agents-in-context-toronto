@@ -26,19 +26,14 @@ from dxp.gate.checks import GateAction, GateCtx
 class _Deps:
     """Late-bound access to modules this PR does not own.
 
-    Assumed names, to reconcile against A01, A02 and A03 at the rebase:
+    * ``dxp.store.db()`` and ``dxp.store.emit_event(event, *, session=None) -> int`` (A01);
+    * ``dxp.identity.derive`` and ``normalise_name`` (A02);
+    * ``dxp.gate.policy_sets.current_grant(grant_id) -> Grant | None`` (latest version, any
+      status), ``current_set() -> PolicySet`` and ``policies_in_set(policy_set_version)`` (A03);
+    * ``dxp.schema.registry.STAGE_ORDER`` and ``get_field(key).cardinality`` (A02).
 
-    * ``dxp.store.db()`` returns the async database named by ``DXP_DB``;
-    * ``dxp.store.emit_event(event: dict, *, session=None) -> int`` writes one
-      event (``type``, ``dedupe_key``, ``stamp`` and its fields) and returns its
-      ``seq``; a repeated ``dedupe_key`` returns the stored ``seq`` (AD-10);
-    * ``dxp.identity.derive(prefix, *parts)`` and ``normalise_name(text)``;
-    * ``dxp.gate.policy_sets.current_grant(grant_id)`` returns the latest grant
-      version, whatever its status, or ``None``; ``current_set()`` returns the
-      current ``(policy_set_version, policies)``;
-    * ``dxp.schema.registry.STAGE_ORDER`` and ``cardinality(field)``.
-
-    Tests replace any of them with ``deps.override(...)``.
+    Grants and policies come back as plain documents (``model_dump``) so the checks stay
+    pure. Tests replace any of them with ``deps.override(...)``.
     """
 
     def __init__(self) -> None:
@@ -71,10 +66,17 @@ class _Deps:
         return self._pick("normalise_name", "dxp.identity")(text)
 
     async def current_grant(self, grant_id: str) -> dict[str, Any] | None:
-        return await _maybe_await(self._pick("current_grant", "dxp.gate.policy_sets")(grant_id))
+        return as_doc(await _maybe_await(self._pick("current_grant", "dxp.gate.policy_sets")(grant_id)))
 
     async def current_set(self) -> tuple[str, list[dict[str, Any]]]:
-        return await _maybe_await(self._pick("current_set", "dxp.gate.policy_sets")())
+        """The current ``(policy_set_version, policies)``."""
+        if "current_set" in self._overrides:
+            return await _maybe_await(self._overrides["current_set"]())
+        ps = await _maybe_await(self._real("dxp.gate.policy_sets", "current_set")())
+        ps_doc = as_doc(ps) or {}
+        version = ps_doc.get("id") or ps_doc.get("_id")
+        policies = await _maybe_await(self._real("dxp.gate.policy_sets", "policies_in_set")(version))
+        return version, [as_doc(p) for p in policies]
 
     def stage_order(self) -> list[str]:
         if "stage_order" in self._overrides:
@@ -85,14 +87,32 @@ class _Deps:
         if "cardinality" in self._overrides:
             return self._overrides["cardinality"](field)
         try:
-            return self._real("dxp.schema.registry", "cardinality")(field)
-        except (ImportError, AttributeError):
+            return self._real("dxp.schema.registry", "get_field")(field).cardinality
+        except (ImportError, AttributeError, KeyError):
             return "single" if field in SINGLE_FIELDS else "list"
 
     def now(self) -> datetime:
         if "now" in self._overrides:
             return self._overrides["now"]()
         return datetime.now(timezone.utc)
+
+
+def as_doc(obj: Any) -> dict[str, Any] | None:
+    """A model or a document as a plain dict (models keep ``id``; documents keep ``_id``)."""
+    if obj is None:
+        return None
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return dict(obj)
+
+
+def to_api(doc: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A stored document with Mongo's ``_id`` mapped to the API's ``id``."""
+    if doc is None:
+        return None
+    out = {k: v for k, v in doc.items() if k != "_id"}
+    out.setdefault("id", doc.get("_id"))
+    return out
 
 
 # AD-2 cardinality table, used only until the registry is on main.
@@ -178,7 +198,7 @@ def authorised_by(ctx: GateCtx, grant: dict[str, Any] | None, policy_set_version
         "acting_for": grant.get("acting_for"),
         "granted_by": grant.get("granted_by"),
         "grant_id": grant.get("grant_id", ctx.grant_id),
-        "grant_version": grant.get("version"),
+        "grant_version": grant.get("version") or ctx.run_grant_version or 0,
         "expires_at": grant.get("expires_at"),
         "policy_set_version": policy_set_version,
     }
@@ -240,7 +260,7 @@ def build_decision(
         "checks": checks,
         "failed_check": failed_check,
         "grant_id": (grant or {}).get("grant_id", ctx.grant_id),
-        "grant_version": (grant or {}).get("version"),
+        "grant_version": (grant or {}).get("version") or ctx.run_grant_version or 0,
         "run_grant_version": ctx.run_grant_version,
         "policy_set_version": policy_set_version,
         "outcome": "blocked" if failed_check else "allowed",
@@ -359,32 +379,17 @@ async def get(decision_id: str, *, session: Any = None) -> dict[str, Any] | None
     return await deps.db()["decisions"].find_one({"_id": decision_id}, session=session)
 
 
-class Decision(dict):
-    """A ``decisions`` document with convenience accessors; the dict is the AD-14 shape."""
+def api_decision(doc: dict[str, Any]) -> Any:
+    """The stored decision as ``api.models.Decision`` (``_id`` mapped to ``id``)."""
+    from dxp.api.models import Decision
 
-    @property
-    def decision_id(self) -> str:
-        return self["_id"]
-
-    @property
-    def allowed(self) -> bool:
-        return self.get("outcome") == "allowed"
-
-    @property
-    def blocked(self) -> bool:
-        return self.get("outcome") == "blocked"
-
-    @property
-    def action_id(self) -> str | None:
-        return self.get("action_id")
-
-    @property
-    def failed_check(self) -> str | None:
-        return self.get("failed_check")
+    return Decision.model_validate(to_api(doc))
 
 
 __all__: list[str] = [
-    "Decision",
+    "api_decision",
+    "as_doc",
+    "to_api",
     "authorised_by",
     "build_action",
     "build_decision",

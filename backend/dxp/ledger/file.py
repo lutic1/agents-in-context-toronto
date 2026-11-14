@@ -18,6 +18,7 @@ import dataclasses
 from typing import Any, Iterable
 
 from dxp import gate
+from dxp.api.models import Decision, Mode, RunContext
 from dxp.gate.checks import GateAction
 from dxp.gate.decisions import deps, insert_if_absent
 from dxp.ledger.types import EVIDENCE_COLLECTION, Change, Filed, LedgerCtx
@@ -145,7 +146,7 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
         return Filed(status="not_filed", diagnostic_id=dx_id, reason=reason)
 
     proposal_id = deps.derive("p_", finding_id, change.field, change.value)
-    report_id = ctx.report_id
+    report_id = change.report_id or ctx.report_id
     target: dict[str, Any] = {
         "diagnostic_id": dx_id,
         "proposal_id": proposal_id,
@@ -180,8 +181,8 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
         mention=change.mention,
         creates_diagnostic=bool(alias) and diagnostic is None,
     )
-    decision = await gate.evaluate(ctx, action)
-    if not decision.allowed:
+    decision = await gate.evaluate(ctx, action)  # ctx carries the session
+    if decision.outcome != "allowed":
         return Filed(status="blocked", proposal_id=None, diagnostic_id=dx_id, decision=decision,
                      reason=decision.failed_check)
 
@@ -216,7 +217,7 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
             "run_id": ctx.run_id,
             "report_id": report_id,
             "action_id": action_id,
-            "decision_id": decision.decision_id,
+            "decision_id": decision.id,
             "stamp": ctx.stamp,
             "decided_by": None,
             "decided_at": None,
@@ -233,7 +234,7 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
                     "mode": mode,
                     "run_id": ctx.run_id,
                     "stamp": ctx.stamp,
-                    "decision_id": decision.decision_id,
+                    "decision_id": decision.id,
                     "action_id": action_id,
                     "diagnostic_id": dx_id,
                     "proposal_id": proposal_id,
@@ -244,12 +245,12 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
             )
             status = "filed"
         else:
-            from dxp.ledger.apply import apply
+            from dxp.ledger.apply import apply_raw
 
-            applied = await apply(proposal_id, review="unreviewed", session=s)
-            if applied and applied.get("value_id"):
+            applied = await apply_raw(proposal_id, review="unreviewed", session=s) or {}
+            if applied.get("value_id"):
                 value_ids.append(applied["value_id"])
-            status = "applied" if (applied or {}).get("status") == "applied" else (applied or {}).get("status", "filed")
+            status = "applied" if applied.get("status") == "applied" else applied.get("status", "filed")
         await gate.mark_action(
             action_id, "done", {"proposal_ids": [proposal_id], "value_ids": value_ids, "report_id": report_id},
             session=s,
@@ -260,17 +261,12 @@ async def _file_one(finding_id: str, change: Change, mode: str, ctx: LedgerCtx) 
     return Filed(status=status, proposal_id=proposal_id, diagnostic_id=dx_id, decision=decision)
 
 
-async def file(finding_id: str, changes: Any, mode: str, ctx: Any) -> list[Filed]:
-    """File each change of one Finding, gating each one first (AD-1, D46).
-
-    ``changes`` is one change or a list; each is judged on its own and gets
-    its own Decision. ``ctx`` is the run context (``live``) or the seed
-    context (``baseline``); ``ctx.report_id`` links each proposal to its
-    research report (AD-27).
-    """
+async def file_detailed(finding_id: str, changes: Any, mode: str, ctx: Any, *, session: Any = None) -> list[Filed]:
+    """``file`` with the outcome of every change, including those not filed (equal to a
+    current value, or a stage that is not later), which are never gated."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}")
-    base = LedgerCtx.coerce(ctx)
+    base = LedgerCtx.coerce(ctx, session=session)
     if mode == "live" and base.kind != "run":
         raise ValueError("live filing is an agent write and needs a run context (AD-17)")
     if mode == "baseline" and base.kind != "seed":
@@ -282,3 +278,12 @@ async def file(finding_id: str, changes: Any, mode: str, ctx: Any) -> list[Filed
         change = Change.coerce(raw)
         out.append(await _file_one(finding_id, change, mode, _ctx_for(base, change, mode)))
     return out
+
+
+async def file(finding_id: str, changes: list[dict[str, Any]], mode: Mode, ctx: RunContext) -> list[Decision]:
+    """Gate each change once, then file it (AD-1, D46): ``live`` files a pending proposal,
+    ``baseline`` applies at once. Returns one Decision per gated change, allowed or
+    blocked; a change equal to a current value (or a stage that is not later) is not
+    filed and not gated, so it has no Decision. ``ctx.report_id``, or a change's own
+    ``report_id``, links each proposal to its research report (AD-27)."""
+    return [f.decision for f in await file_detailed(finding_id, changes, mode, ctx) if f.decision is not None]

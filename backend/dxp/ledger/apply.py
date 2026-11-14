@@ -27,7 +27,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from dxp.gate.decisions import deps
+from dxp.api.models import Proposal
+from dxp.gate.decisions import deps, to_api
 from dxp.ledger.types import EDGE_NODE_TYPES, FACET_FIELDS
 
 MAX_RETRIES = 20
@@ -280,7 +281,28 @@ async def _complete(p: dict[str, Any], review: str | None, session: Any) -> dict
     return await db["proposals"].find_one({"_id": p["_id"]}, session=session)
 
 
-async def apply(
+async def apply(proposal_id: str) -> Proposal:
+    """Apply one pending proposal exactly once (AD-1, D13, D27); returns it as
+    ``api.models.Proposal``. The value entry is ``unreviewed`` for a ``baseline``
+    proposal and ``accepted`` otherwise. ``apply_with`` also records the Reviewer."""
+    return await apply_with(proposal_id)
+
+
+async def apply_with(
+    proposal_id: str,
+    *,
+    review: str | None = None,
+    decided_by: str | None = None,
+    session: Any = None,
+) -> Proposal:
+    """``apply`` with the review state, the deciding Reviewer and a session."""
+    doc = await apply_raw(proposal_id, review=review, decided_by=decided_by, session=session)
+    if doc is None:
+        raise LookupError(f"proposal {proposal_id} not found")
+    return Proposal.model_validate(to_api(doc))
+
+
+async def apply_raw(
     proposal_id: str,
     *,
     review: str | None = None,
@@ -313,8 +335,14 @@ async def apply(
     return await _complete(proposal, review, session)
 
 
-async def recover_applying(*, session: Any = None) -> list[str]:
-    """Finish every proposal stuck in ``applying`` (D26, D27). Returns their IDs."""
+async def recover_applying() -> None:
+    """Finish every proposal stuck in ``applying`` (D26, D27). Runs at API start, at the
+    start of every run and on every decision call."""
+    await recover_applying_ids()
+
+
+async def recover_applying_ids(*, session: Any = None) -> list[str]:
+    """``recover_applying`` returning the IDs it finished."""
     db = deps.db()
     # Reverse proposals (op: remove) are finished by A26's ledger.recover_reverting (AD-31).
     stuck = [

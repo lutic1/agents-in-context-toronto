@@ -71,6 +71,7 @@ class Change:
     mention: dict[str, Any] | None = None
     trigger: str | None = None
     admission_id: str | None = None
+    report_id: str | None = None
 
     @classmethod
     def coerce(cls, change: Any) -> "Change":
@@ -103,12 +104,12 @@ class Filed:
     status: str
     proposal_id: str | None = None
     diagnostic_id: str | None = None
-    decision: dict[str, Any] | None = None
+    decision: Any = None  # api.models.Decision
     reason: str | None = None
 
     @property
     def decision_id(self) -> str | None:
-        return (self.decision or {}).get("_id")
+        return self.decision.id if self.decision is not None else None
 
 
 __all__ = ["Change", "EDGE_NODE_TYPES", "EVIDENCE_COLLECTION", "FACET_FIELDS", "Filed", "LedgerCtx"]

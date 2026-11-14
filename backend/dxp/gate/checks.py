@@ -68,7 +68,6 @@ REPORT_DERIVED_KINDS = frozenset({"notify_slack", "generate_briefing", "generate
 
 PASSED = True
 NA = "n/a"
-NOT_RUN = "not_run"
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -108,22 +107,47 @@ class GateCtx:
     session: Any = None
 
     @classmethod
-    def coerce(cls, ctx: Any) -> "GateCtx":
+    def coerce(cls, ctx: Any, *, session: Any = None) -> "GateCtx":
+        """Accept a ``GateCtx``, an ``api.models.RunContext`` or a mapping with these fields."""
         if isinstance(ctx, cls):
+            if session is not None:
+                ctx.session = session
             return ctx
-        names = cls.__dataclass_fields__.keys()
-        values = {n: _get(ctx, n) for n in names if _get(ctx, n) is not None}
-        stamp = values.get("stamp") or {}
+        if hasattr(ctx, "model_dump"):
+            raw = ctx.model_dump()
+        else:
+            raw = {n: _get(ctx, n) for n in cls.__dataclass_fields__ if _get(ctx, n) is not None}
+            for extra in ("grant_version",):
+                if _get(ctx, extra) is not None:
+                    raw[extra] = _get(ctx, extra)
+        stamp = raw.get("stamp") or {}
+        if hasattr(stamp, "model_dump"):
+            stamp = stamp.model_dump()
+        principal = raw.get("principal")
+        if isinstance(principal, Mapping):
+            principal = principal.get("id")
+        values: dict[str, Any] = {
+            n: raw[n] for n in cls.__dataclass_fields__ if n in raw and raw[n] is not None
+        }
+        values["stamp"] = stamp
+        if principal:
+            values["principal"] = principal
+        if isinstance(values.get("cause"), Mapping):
+            values["cause"] = dict(values["cause"])
         # A run stamp names the run, the agent and who started it (AD-17).
         for key in ("run_id", "agent", "initiated_by", "grant_id", "policy_set_version"):
             if key not in values and stamp.get(key) is not None:
                 values[key] = stamp[key]
-        if "run_grant_version" not in values and stamp.get("grant_version") is not None and stamp.get("kind") == "run":
-            values["run_grant_version"] = stamp["grant_version"]
         if "kind" not in values:
             values["kind"] = stamp.get("kind") or ("run" if values.get("run_id") else "reviewer")
+        if values["kind"] == "run" and "run_grant_version" not in values:
+            pinned = raw.get("grant_version") or stamp.get("grant_version")
+            if pinned is not None:
+                values["run_grant_version"] = pinned
         if "principal" not in values:
             values["principal"] = stamp.get("principal") or values.get("agent") or values.get("initiated_by")
+        if session is not None:
+            values["session"] = session
         return cls(**values)
 
     def validate(self) -> None:
@@ -137,6 +161,13 @@ class GateCtx:
             raise ValueError("a Reviewer decision needs a server-generated request_id (D20)")
         if not self.grant_id:
             raise ValueError("the context names no grant")
+
+
+TARGET_EXTRAS = ("draft", "action_id", "source_ref", "memory_version", "cursor", "diagnostic_ids", "field", "value")
+INPUT_EXTRAS = (
+    "checks", "source_fields", "checked_quotes", "mention", "creates_diagnostic", "query",
+    "requested_count", "filed_count", "item_scope_ids", "script_hash", "team_id", "decision_id", "id_target",
+)
 
 
 @dataclass
@@ -184,10 +215,40 @@ class GateAction:
 
     @classmethod
     def coerce(cls, action: Any) -> "GateAction":
+        """Accept a ``GateAction``, an ``api.models.ProposedAction`` or a mapping.
+
+        ``ProposedAction`` carries only the Decision's own fields, so the gate's other
+        inputs travel in ``inputs`` under the same names (``checks``, ``source_fields``,
+        ``checked_quotes``, ``mention``, ``creates_diagnostic``, ``query``,
+        ``requested_count``, ``filed_count``, ``item_scope_ids``, ``script_hash``,
+        ``team_id``, ``decision_id``), and the target parts ``Target`` lacks (``draft``,
+        ``action_id``, ``source_ref``, ``memory_version``, ``cursor``, ``diagnostic_ids``,
+        ``field``, ``value``) are read from ``inputs`` too.
+        """
         if isinstance(action, cls):
             return action
-        names = cls.__dataclass_fields__.keys()
-        return cls(**{n: _get(action, n) for n in names if _get(action, n) is not None})
+        if hasattr(action, "model_dump"):
+            raw = action.model_dump()
+        else:
+            raw = {n: _get(action, n) for n in cls.__dataclass_fields__ if _get(action, n) is not None}
+        inputs = dict(raw.get("inputs") or {})
+        target = {k: v for k, v in dict(raw.get("target") or {}).items() if v is not None}
+        for key in TARGET_EXTRAS:
+            if key in inputs and key not in target:
+                target[key] = inputs[key]
+        values: dict[str, Any] = {n: raw[n] for n in cls.__dataclass_fields__ if raw.get(n) is not None}
+        values["target"] = target
+        values["inputs"] = inputs
+        for key in INPUT_EXTRAS:
+            if key not in values and inputs.get(key) is not None:
+                values[key] = inputs[key]
+        if not values.get("claims") and inputs.get("claims"):
+            values["claims"] = inputs["claims"]
+        values["claims"] = [
+            {k: c.get(k) for k in ("claim_kind", "text", "quote") if c.get(k) is not None}
+            for c in (dict(x) if not hasattr(x, "model_dump") else x.model_dump() for x in values.get("claims") or [])
+        ]
+        return cls(**values)
 
     @property
     def is_report_level(self) -> bool:
@@ -482,8 +543,9 @@ def check_run_authorised(ctx: GateCtx, action: GateAction, loaded: Loaded) -> di
 def run_checks(ctx: GateCtx, action: GateAction, loaded: Loaded) -> tuple[list[dict[str, Any]], str | None, list[dict[str, Any]]]:
     """Run the five checks in order, stopping at the first failure.
 
-    Returns ``(checks, failed_check, claims)``. Checks after a failure are
-    recorded ``not_run`` so the Decision always lists all five.
+    Returns ``(checks, failed_check, claims)``. The list ends at the failed
+    check: the checks after it were not run (``CheckResult.passed`` is a bool
+    or ``n/a``, AD-14).
     """
     results: list[dict[str, Any]] = []
     claims: list[dict[str, Any]] = []
@@ -497,8 +559,7 @@ def run_checks(ctx: GateCtx, action: GateAction, loaded: Loaded) -> tuple[list[d
     )
     for name, step in zip(CHECK_ORDER, steps):
         if failed is not None:
-            results.append(_result(name, NOT_RUN, f"not run: {failed} failed"))
-            continue
+            break
         out = step(ctx, action, loaded)
         if isinstance(out, tuple):
             out, claims = out
