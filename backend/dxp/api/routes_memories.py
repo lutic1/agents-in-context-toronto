@@ -1,35 +1,127 @@
-"""Reviewer memory (Stories 10.5, 10.6). Stub from A01 (contract); finished by A21+A22.
+"""Reviewer memory (Stories 10.5, 10.6). A21+A22.
 
-Paths, methods, parameters and response models are frozen (AD-14): only the bodies change.
-Every route here returns 501 in the error shape until A21+A22 finishes it.
+Paths, methods, parameters and response models are frozen by A01 (AD-14): only the bodies
+change. Reads need a known key that is not the seed key (V67); changes are for a Reviewer. Every
+route stays inside the Team of the caller's own grant.
+Correct and revoke are gated in `memory.store`; a blocked change answers 200 with its
+Decision and the unchanged memory (D5). No route here writes a grant or a policy.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query  # noqa: F401
+import secrets
+from typing import get_args
 
+from fastapi import APIRouter, Query, Request
+
+from dxp import store as database
+from dxp.api import auth
 from dxp.api import models as m
-from dxp.api.errors import not_implemented
+from dxp.api.errors import ApiError
+from dxp.gate import policy_sets
+from dxp.memory import store as memories
 
 router = APIRouter()
 OWNER = "A21+A22"
+KEY_HEADER = "X-DxP-Key"
+
+
+async def _caller(request: Request) -> tuple[m.Principal, m.Grant]:
+    """The principal the key resolves to, with the latest version of the key's own grant.
+
+    401 for a missing or unknown key and 403 for the seed key (V67). The principal and the
+    Team come from the key only (AD-18): no name in a body or a query is read.
+    """
+    caller = await auth.require_principal(request)
+    stored = await auth.grant_for_key(request.headers.get(KEY_HEADER))
+    if stored is None or not stored.get("team_id"):
+        raise ApiError(403, "forbidden", "This key has no grant for a Team.")
+    return caller, policy_sets.grant_model(stored)
+
+
+async def _reviewer(request: Request) -> tuple[m.Principal, m.Grant]:
+    """A change is for a Reviewer only; the gate then judges the Reviewer's grant."""
+    caller, grant = await _caller(request)
+    if caller.kind != "person":
+        raise ApiError(403, "forbidden", "Only a Reviewer can change a memory.")
+    return caller, grant
+
+
+async def _own(memory_id: str, grant: m.Grant, version: int | None = None) -> m.Memory:
+    """The memory, if it belongs to the Reviewer's Team; another Team's memory is not found."""
+    try:
+        memory = await memories.get(memory_id, version)
+    except memories.MemoryNotFound as exc:
+        raise ApiError(404, "not_found", "Memory not found.") from exc
+    if memory.team_id != grant.team_id:
+        raise ApiError(404, "not_found", "Memory not found.")
+    return memory
+
+
+async def _context(reviewer: m.Principal, grant: m.Grant, memory: m.Memory) -> m.RunContext:
+    """A Reviewer decision's context: no run, a Reviewer stamp, a new request ID, and the
+    memory with the run of its source report as the cause (AD-17, D19, D20)."""
+    origin_run_id = None
+    if memory.source.report_id:
+        report = await database.collection("reports").find_one({"_id": memory.source.report_id}, {"run_id": 1})
+        origin_run_id = (report or {}).get("run_id")
+    stamp = m.Stamp(kind="reviewer", run_id=None, agent=None, initiated_by=reviewer.id, principal=reviewer.id,
+                    acting_for=grant.acting_for, grant_id=grant.grant_id, grant_version=grant.version)
+    return m.RunContext(
+        run_id=None,
+        principal=reviewer,
+        stamp=stamp,
+        grant_id=grant.grant_id,
+        grant_version=grant.version,
+        request_id=secrets.token_hex(8),
+        cause=m.DecisionCause(memory_id=memory.id, origin_run_id=origin_run_id),
+    )
+
+
+def _required(value: str, name: str) -> str:
+    if not value or not value.strip():
+        raise ApiError(422, "invalid_request", f"{name}: required.")
+    return value.strip()
 
 
 @router.get("/memories", response_model=m.MemoryList, tags=["memories"])
-async def list_memories(team_id: str | None = Query(default=None), status: str | None = Query(default=None)) -> m.MemoryList:
-    raise not_implemented("GET /memories", OWNER)
+async def list_memories(request: Request, team_id: str | None = Query(default=None), status: str | None = Query(default=None)) -> m.MemoryList:
+    """The latest version of each of the Team's memories, with author, source and status."""
+    _, grant = await _caller(request)
+    if team_id is not None and team_id != grant.team_id:
+        raise ApiError(403, "forbidden", "Another Team's memories cannot be read.")
+    if status is not None and status not in get_args(m.MemoryStatus):
+        raise ApiError(422, "invalid_request", "status: one of active, corrected, revoked.")
+    return m.MemoryList(items=await memories.list_latest(grant.team_id, status), next=None)
 
 
 @router.get("/memories/{memory_id}", response_model=m.Memory, tags=["memories"])
-async def get_memory(memory_id: str, version: int | None = Query(default=None)) -> m.Memory:
-    raise not_implemented("GET /memories/<memory_id>", OWNER)
+async def get_memory(request: Request, memory_id: str, version: int | None = Query(default=None)) -> m.Memory:
+    _, grant = await _caller(request)
+    return await _own(memory_id, grant, version)
 
 
 @router.post("/memories/{memory_id}/correct", response_model=m.MemoryChangeResponse, tags=["memories"])
-async def correct_memory(memory_id: str, body: m.MemoryCorrectRequest) -> m.MemoryChangeResponse:
-    raise not_implemented("POST /memories/<memory_id>/correct", OWNER)
+async def correct_memory(request: Request, memory_id: str, body: m.MemoryCorrectRequest) -> m.MemoryChangeResponse:
+    reviewer, grant = await _reviewer(request)  # 401/403 before any 422
+    text, note = _required(body.text, "text"), _required(body.note, "note")
+    memory = await _own(memory_id, grant)
+    ctx = await _context(reviewer, grant, memory)
+    try:
+        changed, decision = await memories.correct(memory_id, text, note, ctx)
+    except memories.MemoryStateError as exc:
+        raise ApiError(409, "conflict", str(exc)) from exc
+    return m.MemoryChangeResponse(memory=changed, decision=decision)
 
 
 @router.post("/memories/{memory_id}/revoke", response_model=m.MemoryChangeResponse, tags=["memories"])
-async def revoke_memory(memory_id: str, body: m.MemoryRevokeRequest) -> m.MemoryChangeResponse:
-    raise not_implemented("POST /memories/<memory_id>/revoke", OWNER)
+async def revoke_memory(request: Request, memory_id: str, body: m.MemoryRevokeRequest) -> m.MemoryChangeResponse:
+    reviewer, grant = await _reviewer(request)  # 401/403 before any 422
+    note = _required(body.note, "note")
+    memory = await _own(memory_id, grant)
+    ctx = await _context(reviewer, grant, memory)
+    try:
+        changed, decision = await memories.revoke(memory_id, note, ctx)
+    except memories.MemoryStateError as exc:
+        raise ApiError(409, "conflict", str(exc)) from exc
+    return m.MemoryChangeResponse(memory=changed, decision=decision)
