@@ -21,8 +21,6 @@ import { features } from "@/lib/features";
 import { POLL_MS, useApi } from "@/lib/use-api";
 import AvatarPlayer from "@/app/reports/[report_id]/avatar/player";
 import BriefingPlayer from "@/app/reports/[report_id]/briefing/player";
-import { VOICE_LABEL } from "@/app/reports/[report_id]/interview/interview-api";
-import { InterviewWorkspace } from "@/app/reports/[report_id]/interview/interview-view";
 
 /** Quiet polling while a report is pending or accepted; fast while a decision is being applied. */
 const IDLE_POLL_MS = 5000;
@@ -116,23 +114,6 @@ export function ReportView({ reportId }: { reportId: string }) {
         <ProposedUpdates report={report} />
         <RecommendedTask report={report} />
         <ScriptPanel script={report.script} />
-
-        {features.interview ? (
-          <section aria-labelledby="report-interview-heading" className="flex min-w-0 flex-col gap-4">
-            <h2 id="report-interview-heading" className="text-heading">
-              Interview this evidence
-            </h2>
-            {report.status === "accepted" ? (
-              <>
-                <p className="max-w-prose rounded-md border border-dashed border-border bg-card px-3 py-2 text-caption">{VOICE_LABEL}</p>
-                {/* The same interview as /reports/<id>/interview: one workspace, so one avatar session on this page. */}
-                <InterviewWorkspace reportId={report.id} stacked />
-              </>
-            ) : (
-              <p className="text-caption text-muted-foreground">The interview opens after this report is approved.</p>
-            )}
-          </section>
-        ) : null}
 
         <DecisionBar reportId={report.id} />
       </div>
