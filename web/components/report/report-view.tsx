@@ -117,10 +117,10 @@ export function ReportView({ reportId }: { reportId: string }) {
 
         <DecisionBar reportId={report.id} />
 
-        {features.interview && report.status === "accepted" ? (
+        {features.interview && (report.status === "pending" || report.status === "accepted") ? (
           // A plain <a>, not a Next <Link>: the interview page must load fully so the browser applies its own
-          // Permissions-Policy (V73 allows the microphone only on the interview route).
-          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          // Permissions-Policy (V73 allows the microphone only on the interview route). V74: a pending or accepted
+          // report can be interviewed, so the Slack alert's report page leads straight to it.
           <a href={`/reports/${encodeURIComponent(report.id)}/interview`} className={buttonVariants({ variant: "default" }) + " self-start"}>
             Interview this evidence
           </a>

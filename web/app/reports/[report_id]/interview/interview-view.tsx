@@ -84,7 +84,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
     // The Ask button is disabled once the box is empty, so a keyboard user who pressed it would lose focus to the
     // page. Focus goes back to the ask box; the answer is announced by the status region, not by moving focus.
     fieldRef.current?.focus();
-    setAnnounce("Looking through the accepted record.");
+    setAnnounce("Looking through the report's record.");
     setTurns((current) => [{ id, question: text, outcome: null }, ...current]);
     const outcome = await askQuestion(reportId, text);
     setTurns((current) => current.map((t) => (t.id === id ? { ...t, outcome } : t)));
@@ -120,7 +120,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
               }}
             >
               <Label htmlFor={fieldId} className="text-table font-semibold">
-                Ask a question about this accepted report
+                Ask a question about this report
               </Label>
               <Textarea
                 ref={fieldRef}
@@ -184,7 +184,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
   );
 }
 
-/** The page states that come before the ask box: flag off, loading, unreachable, not found, not accepted. */
+/** The page states that come before the ask box: flag off, loading, unreachable, not found, not interviewable (V74). */
 function Body({
   interviewOn,
   loading,
@@ -222,10 +222,10 @@ function Body({
       </Notice>
     );
   }
-  if (status !== "accepted") {
+  if (status !== "pending" && status !== "accepted") {
     return (
-      <Notice icon={FileClock} title="This report is not accepted">
-        Only an accepted report can be interviewed. This one is {status ?? "not available"}. Accept it on the report page first.
+      <Notice icon={FileClock} title="This report can't be interviewed">
+        Only a pending or accepted report can be interviewed. This one is {status ?? "not available"}.
       </Notice>
     );
   }

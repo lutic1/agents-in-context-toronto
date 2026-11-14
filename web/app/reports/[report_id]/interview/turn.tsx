@@ -45,7 +45,7 @@ function textOrFallback(text: string | null | undefined): string {
 function Loading() {
   return (
     <div role="status" className="flex flex-col gap-2">
-      <p className="text-caption text-muted-foreground">Reading the accepted record for quotes that answer this.</p>
+      <p className="text-caption text-muted-foreground">Reading the report&apos;s record for quotes that answer this.</p>
       <Skeleton className="h-5 w-full max-w-prose" />
       <Skeleton className="h-5 w-4/5 max-w-prose" />
     </div>
