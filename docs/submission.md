@@ -27,8 +27,8 @@ Diagnostics teams follow public clinical evidence by hand. A trial gets updated,
 
 DxP is that agent, built around those answers. Its agent, `dxp-curator`, works for one research scope, "Plasma ctDNA genotyping assays in NSCLC", under a scoped grant. [[VERIFY: I1]] In one governed loop it:
 
-- **discovers** trials in the scope that were updated since the last scan, and looks only at what changed [[VERIFY: I1]];
-- **relates** each one to the evidence the team already holds, using [[PENDING: Atlas Vector Search or text search (OD1)]], and labels each relationship only when it can back it with a checked quote from both sides [[VERIFY: I1]];
+- **discovers** trials in the scope that were updated since the last scan, and looks only at what changed [[VERIFY: I1]]. The scan leaves out treatment trials, because the scope is diagnostic evidence and treatment trials are about drugs; the exclusion is visible in the recorded query and in the audit [[VERIFY: I1]];
+- **relates** each one to the evidence the team already holds, using [[PENDING: Atlas Vector Search, Automated Embedding or text search, whichever ran (OD1, not confirmed yet; Gregorio confirms after I1 step 1)]], and labels each relationship only when it can back it with a checked quote from both sides [[VERIFY: I1]];
 - **remembers** the team's reviewer corrections and shows exactly which memory changed its wording [[VERIFY: I1]];
 - **checks** every claim and every action against versioned policies before it takes effect; a blocked action changes nothing and is still recorded [[VERIFY: I1]];
 - **files one pending report** that names one evidence gap, and sends **one Slack alert** that links back to it [[VERIFY: I1]];
@@ -53,7 +53,7 @@ Only capabilities proven on the sandbox may stay in this list. Each bullet carri
 
 - schema validation, so a malformed grant, policy, decision or task cannot be saved [[VERIFY: I1]];
 - conditional updates and transactions, so one Slack alert is claimed once, a stop settles once, and an approval and its task authorisation are saved together [[VERIFY: I1 | I3]];
-- [[PENDING: Atlas Vector Search or Atlas text search, whichever ran (OD1)]] for related evidence and for the team's memories, with scores shown and never used as evidence [[VERIFY: I1]];
+- [[PENDING: Atlas Vector Search, Automated Embedding or Atlas text search, whichever ran (OD1, not confirmed yet)]] for related evidence and for the team's memories, with scores shown and never used as evidence [[VERIFY: I1]];
 - versioned documents, so grants, policy sets, memories and source versions are never edited in place and every audit answer can be replayed [[VERIFY: I1 | I3]];
 - the decisions and actions collections as the audit history [[VERIFY: I3]];
 - change streams for live run updates [[VERIFY: S5 | OD5]]. If the check did not pass, delete this bullet: the screens polled.
@@ -64,17 +64,17 @@ The scope's scan cursor and the team's memories are kept over time, so the next 
 
 ### Optional extras
 
-Each of these is optional, on demand and planned. None gates the loop. Keep a sentence only if its check passed, and say nothing about the rest. [[PENDING: which supporting features passed their checks: briefing (B06), LiveAvatar (avatar sandbox test, OD7, proposed V70), Interview this evidence (interview checks), revert (S4), live stream (S5), follow-up task run (I3b)]]
+Each of these is optional, on demand and behind its feature flag. None gates the loop. Keep a sentence only if its check passed (the V39 rule), and say nothing about the rest; an extra whose check did not pass stays off and is not mentioned. [[PENDING: which supporting features passed their checks: briefing (B06), LiveAvatar (avatar sandbox test, OD7, V70), Interview this evidence (interview checks), revert (S4), live stream (S5), follow-up task run (I3b)]]
 
-- A ten-second ElevenLabs briefing is planned to be made on demand from the report's own text script. [[VERIFY: B06]]
-- LiveAvatar (HeyGen), proposed V70 (approved by Luis together with the interview page, replacing the earlier pre-rendered video), is a live, interactive avatar planned to speak only the text the backend returned, in FULL mode with `repeat(text)` only, with listening and the microphone off. If it fails, the text still shows. It is optional, behind its flag and the first supporting cut, and the sentence stays only if its sandbox test passed. [[VERIFY: avatar sandbox test | OD7]]
-- "Interview this evidence" is a planned page on an accepted report only, behind the `interview` flag. A question goes in, and the answer is built only from verbatim quotes stored on that report, with a citations panel. Each question is a gated, logged decision. Questions that ask for medical advice get one fixed refusal, and questions the report cannot answer get "The accepted record doesn't answer that". It is optional, never on the critical path, shown only if its own checks pass, and cut if not merged by 15:00. [[VERIFY: interview checks]]
+- A ten-second ElevenLabs briefing is planned to be made on demand from the report's own text script, in the ElevenLabs voice "Jessica". [[VERIFY: B06]]
+- LiveAvatar (HeyGen), V70 (approved by Luis, replacing the earlier pre-rendered video), is a live, interactive avatar planned to speak only the text the backend returned, in FULL mode with `repeat(text)` only. The avatar is LiveAvatar's public "Lily (Friendly)" and the voice is "Jessica" (an ElevenLabs voice). The microphone is blocked on every page of the app, so it never listens, and its session token is minted on the server. If it fails, the text still shows. It is optional, behind its `avatar` flag and the first supporting cut, and the sentence stays only if its sandbox test passed. [[VERIFY: avatar sandbox test | OD7]]
+- "Interview this evidence" (V70, approved by Luis) is a page on an accepted report only, behind the `interview` flag, which is off until its check passes. It takes typed questions only. The answer is built only from verbatim quotes stored on that report, with a citations panel, and any framing sentence comes from a fixed allowlist. The persona is "DxP's evidence guide". Each question is a gated, logged decision. Questions that ask for medical advice get one fixed refusal, and questions the report cannot answer get "The accepted record doesn't answer that". It is optional, never on the critical path, and shown only if its own checks pass. [[VERIFY: interview checks]]
 - The script is always shown as text. [[VERIFY: I1]]
 - Running the authorised follow-up task is a stretch goal. If it did not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ### Built on the day, and what was prepared
 
-The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), proposed V70, accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
+The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), V70, accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
 
 ### Limits
 
