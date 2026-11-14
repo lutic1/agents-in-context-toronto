@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# ============================================================================
-# UNVERIFIED DRAFT: two independent checkers are still reviewing this file.
-# Do NOT run it against dxp. It will be replaced on this branch by the
-# verified copy (this banner removed) once the checks pass.
-# ============================================================================
-echo "UNVERIFIED DRAFT: do not run against dxp" >&2; exit 1
 # I1 runbook (DxP): Modal redeploy, data on the Atlas Sandbox, M1 + snapshot, then the discovery loop.
 #
 # Luis runs this on his laptop from the repo root (this container cannot reach Atlas):
@@ -149,8 +143,9 @@ if at 1; then
 # whole .env (that would carry DXP_SEED_KEY and DXP_API_KEY). --force replaces the whole secret.
 # FLAGS: DXP_FEATURES is deliberately NOT in the secret: task_run, revert, live_stream and interview stay off
 #        (dxp/__init__.py:16-23: a flag is on only if named). DXP_DB is not in it either (modal_app.py:74 passes it).
-# Left out while their flags are off: ELEVENLABS_API_KEY (OD3), LIVEAVATAR_API_KEY (+_AVATAR_ID, _VOICE_ID; briefing/
-# avatar.py:62; never HEYGEN_API_KEY), VOYAGE_API_KEY. To add one, add its name to `keys`: --force replaces everything.
+# --force replaces the WHOLE secret, so the optional media keys are carried over whenever they are set in .env:
+# ELEVENLABS_API_KEY (OD3), LIVEAVATAR_API_KEY, LIVEAVATAR_AVATAR_ID, LIVEAVATAR_VOICE_ID (briefing/avatar.py:62;
+# never HEYGEN_API_KEY). Their flags stay off; holding the key does not turn anything on. VOYAGE_API_KEY stays out (OD1).
 SECRET_JSON="$(umask 077; mktemp "${TMPDIR:-/tmp}/dxp-secret.XXXXXX")"
 trap 'rm -f "$SECRET_JSON"' EXIT
 (umask 077; python3 - "$SECRET_JSON" <<'EOF'
@@ -162,12 +157,14 @@ if missing:
     sys.exit(f"empty: {missing}")
 if os.environ["DXP_EMBEDDING"] != "none":
     sys.exit("DXP_EMBEDDING must be none until OD1 passes")
+optional = ["ELEVENLABS_API_KEY", "LIVEAVATAR_API_KEY", "LIVEAVATAR_AVATAR_ID", "LIVEAVATAR_VOICE_ID"]
+kept = [k for k in optional if os.environ.get(k, "").strip()]
 with open(sys.argv[1], "w", encoding="utf-8") as f:
-    json.dump({k: os.environ[k] for k in keys}, f)
-print(f"{len(keys)} keys, DXP_EMBEDDING=none, no DXP_FEATURES")
+    json.dump({k: os.environ[k] for k in keys + kept}, f)
+print(f"{len(keys)} required keys + optional kept: {', '.join(kept) or 'none'}; DXP_EMBEDDING=none, no DXP_FEATURES")
 EOF
 )
-# expect: 7 keys, DXP_EMBEDDING=none, no DXP_FEATURES
+# expect: 7 required keys + optional kept: <the media keys set in .env, names only>; DXP_EMBEDDING=none, no DXP_FEATURES
 (cd backend && uv run modal secret create dxp --force --from-json "$SECRET_JSON" >/dev/null)   # modal 1.6.4 cli/secret.py:92-139
 rm -f "$SECRET_JSON"; trap - EXIT
 echo "secret dxp written"   # expect: secret dxp written
@@ -226,13 +223,17 @@ fi
 # 3. A13: FDA list, then the ledger seed | owner: Luis | PR: A13 #26
 # ============================================================================
 if at 3; then
-dxpdb python -m dxp.sources.fda_cdx --dry-run
-# expect: FDA list (current as of <date>): 76 lung rows, <T> trade names, then the names   (fda_cdx.py:437-440; writes nothing)
-dxpdb python -m dxp.sources.fda_cdx
-# expect: source_items: 76 inserted, 0 already present   (fda_cdx.py:450; a rerun: 0 inserted, 76 already present)
+O3="$(dxpdb python -m dxp.sources.fda_cdx --dry-run)" || { printf '%s\n' "$O3"; fail "fda_cdx --dry-run exited non-zero"; }; printf '%s\n' "$O3"
+# expect: FDA list (current as of 2026-11-03): 76 lung rows, 21 trade names, then the 21 names (as on dxp_seedcheck)
+grep -q "76 lung rows, 21 trade names" <<<"$O3" || fail "fda_cdx dry run: expected 76 lung rows, 21 trade names"
+O3="$(dxpdb python -m dxp.sources.fda_cdx)" || { printf '%s\n' "$O3"; fail "fda_cdx exited non-zero"; }; printf '%s\n' "$O3"
+# expect: source_items: 76 inserted, 0 already present   (a rerun: 0 inserted, 76 already present)
+grep -Eq "source_items: (76 inserted, 0 already present|0 inserted, 76 already present)" <<<"$O3" || fail "fda_cdx: unexpected source_items counts"
 # fail: a fetch or parse error -> fallback: --html <page saved by hand, NOT under data/> (fda_cdx.py:416-420)
-dxpdb python -m dxp.ledger.seed
-# expect (exit 0): FDA seed: 76 rows, <T> Diagnostics, <V> values filed, 0 already filed, 0 blocked; Teams: 3 inserted, 0 already present
+O3="$(dxpdb python -m dxp.ledger.seed)" || { printf '%s\n' "$O3"; fail "ledger.seed exited non-zero (exit 2 = seed refused; exit 1 = blocked lines above)"; }; printf '%s\n' "$O3"
+# expect (exit 0): FDA seed: 76 rows, 21 Diagnostics, 237 values filed, 0 already filed, 0 blocked; Teams: 3 inserted, 0 already present
+#                  (a rerun: 0 values filed, 237 already filed ...; Teams: 0 inserted, 3 already present)
+grep -Eq "FDA seed: 76 rows, 21 Diagnostics, (237 values filed, 0 already filed|0 values filed, 237 already filed), 0 blocked; Teams: (3 inserted, 0 already present|0 inserted, 3 already present)" <<<"$O3" || fail "ledger.seed: counts differ from dxp_seedcheck"
 # fail: exit 2 "seed refused: ..." (ledger/seed.py:420; seed key); exit 1 with "  blocked: <name>: field=value" lines (:429-430)
 S3="$(dbstate)"; echo "$S3"
 [ "$(printf '%s' "$S3" | jget teams)" = 3 ] || fail "teams != 3"
@@ -448,7 +449,7 @@ vid = rep.get("version_id")
 print("report", REP, "draft", rep.get("draft"))
 
 # 1 anchor found first (priority_refs), update date after the cursor, status and results as in the live response
-ok((scope.get("priority_refs") or [None])[0] == ANCHOR, "1 scope.priority_refs[0] is the anchor")
+ok(str((scope.get("priority_refs") or [""])[0]).split(":")[-1] == ANCHOR_NCT, "1 scope.priority_refs[0] is the anchor (bare NCT ID, prefix stripped)")
 ok(((run.get("scan") or {}).get("source_refs") or [None])[0] == ANCHOR, "1 scan.source_refs[0] is the anchor (found first)")
 ok((run.get("scan") or {}).get("cursor_from") == CURSOR, "1 scan.cursor_from = 2026-11-11")
 ok((scope.get("cursor") or {}).get("set_by_run_id") == RUN, "1 scope cursor now set_by_run_id = discover run")
