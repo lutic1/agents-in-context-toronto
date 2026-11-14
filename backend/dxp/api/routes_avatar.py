@@ -6,8 +6,7 @@ session token for the interview page and returns it only in `AvatarResponse.sess
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Request, Response
 
 from dxp import feature_enabled
 from dxp.api import models as m
@@ -25,7 +24,7 @@ def _require_flag() -> None:
 
 
 @router.post("/reports/{report_id}/avatar", response_model=m.AvatarResponse, tags=["media"])
-async def render_avatar(report_id: str, request: Request) -> JSONResponse:
+async def render_avatar(report_id: str, request: Request, response: Response) -> m.AvatarResponse:
     """Reviewer only, with the `avatar` flag on (else 404). Gated as `generate_avatar_video` under
     `sam@v1`; mints one token after an allowed Decision, only for an accepted report (else 409). A blocked
     request is a 200 with the blocked Decision (D5), never an error."""
@@ -36,14 +35,14 @@ async def render_avatar(report_id: str, request: Request) -> JSONResponse:
         raise ApiError(404, "not_found", "Report not found.")
     ctx = await avatar_module.reviewer_context(principal, request.headers.get(KEY_HEADER) or "", report)
     outcome = await avatar_module.start_avatar_session(report_id, ctx)
-    body = m.AvatarResponse(
+    # The token is secret: never cached by the browser or a proxy.
+    response.headers["Cache-Control"] = "no-store"
+    return m.AvatarResponse(
         media=outcome.media,
         decision=outcome.decision,
         session_token=outcome.session_token,
         session_expires_at=outcome.session_expires_at,
     )
-    # The token is secret: never cached by the browser or a proxy.
-    return JSONResponse(body.model_dump(mode="json"), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/reports/{report_id}/avatar", response_model=m.Media, tags=["media"])
