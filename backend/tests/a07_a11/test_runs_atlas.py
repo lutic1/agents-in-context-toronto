@@ -105,7 +105,8 @@ async def test_concurrent_discover_starts_leave_one_run(clean, authority) -> Non
 # --- V38: the task's derived run ------------------------------------------------------------------
 
 
-async def test_task_run_is_insert_if_absent_on_its_derived_id(clean, authority) -> None:
+async def test_task_run_is_insert_if_absent_on_its_derived_id(clean, authority, features) -> None:
+    features("task_run")
     await add_task(clean)
     results = await asyncio.gather(*(
         runs.start_if_absent(SAM, TASK_GRANT_ID, f"task:{TASK_ID}", run_id=TASK_RUN_ID) for _ in range(5)
@@ -121,7 +122,8 @@ async def test_task_run_is_insert_if_absent_on_its_derived_id(clean, authority) 
     assert again.id == TASK_RUN_ID
 
 
-async def test_task_set_under_the_agent_grant_is_403(clean, authority) -> None:
+async def test_task_set_under_the_agent_grant_is_403(clean, authority, features) -> None:
+    features("task_run")
     await add_task(clean)
     with pytest.raises(ApiError) as caught:
         await runs.start(SAM, "lbdx", f"task:{TASK_ID}", run_id=TASK_RUN_ID)

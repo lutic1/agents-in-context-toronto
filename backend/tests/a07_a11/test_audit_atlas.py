@@ -81,7 +81,8 @@ def action(dec, status, result=None, *, kind=None, destination=None, **extra) ->
 
 
 @pytest.fixture
-async def story(clean, authority):
+async def story(clean, authority, features):
+    features("task_run")  # the fixture includes a task run (V66: never started while the flag is off)
     db = clean
     await db["policy_sets"].insert_one({"_id": PS_VERSION, "members": ["claim_planned@v1", "evidence_quote@v1"], "created_at": T0})
     await db["policies"].insert_many([

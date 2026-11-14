@@ -120,3 +120,10 @@ def test_record_scan_writes_date_cursors_as_text() -> None:
 
     assert runs._cursor_text(datetime(2026, 9, 1, tzinfo=UTC)) == "2026-09-01"
     assert runs._cursor_text("2026-09-01") == "2026-09-01" and runs._cursor_text(None) is None
+
+
+async def test_no_task_run_while_task_run_is_off() -> None:
+    # DXP_FEATURES is empty in tests: refused before any read or write (V66).
+    with pytest.raises(ApiError) as caught:
+        await runs.start(SAM, "task-x", f"task:{TASK_ID}", run_id=derive("run_", TASK_ID))
+    assert caught.value.status_code == 403 and caught.value.code == "task_run_off"

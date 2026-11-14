@@ -24,7 +24,7 @@ from typing import Any
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from dxp import identity, store
+from dxp import feature_enabled, identity, store
 from dxp.api import auth
 from dxp.api.errors import ApiError
 from dxp.api.models import Grant, Principal, Run, RunContext, RunCounts, Stamp
@@ -148,6 +148,9 @@ async def start_if_absent(caller: Principal, grant_id: str, set: str, run_id: st
             raise ApiError(403, "task_set_refused", "A task's run starts only through tasks.dispatch_next() (V38).")
         if run_id != identity.derive("run_", task_id):
             raise ApiError(403, "task_run_id_mismatch", "A task's run ID is derive(\"run_\", task_id).")
+        if not feature_enabled("task_run"):
+            # V66: a task: run is never started while task_run is off; the task stays authorised.
+            raise ApiError(403, "task_run_off", "task_run is off: no task run is started (V66).")
         existing = await runs_collection().find_one({"_id": run_id})
         if existing is not None:
             return run_model(existing), False
