@@ -212,3 +212,14 @@ async def test_atlas_seed_is_idempotent_and_revocation_blocks(db, tmp_path, keys
     finally:
         for name in SEED_COLLECTIONS:
             await db[name].delete_many({})
+
+
+def test_sam_v2_adds_only_answer_question_and_sam_v1_is_unchanged():
+    """V70 (Luis, 14 Nov): answer_question reaches Sam through a new grant version, never in place."""
+    grants = {g["_id"]: g for g in json.loads((seed.SEED_DATA / "grants.json").read_text(encoding="utf-8"))["grants"]}
+    v1, v2 = grants["sam@v1"], grants["sam@v2"]
+    assert "answer_question" not in v1["actions"]
+    assert v2["version"] == 2 and v2["grant_id"] == "sam" and v2["status"] == "active"
+    assert set(v2["actions"]) - set(v1["actions"]) == {"answer_question"}
+    assert set(v1["actions"]) <= set(v2["actions"])
+    assert {k for k in set(v1) | set(v2) if v1.get(k) != v2.get(k)} == {"_id", "version", "actions"}

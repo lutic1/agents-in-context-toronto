@@ -107,13 +107,15 @@ async def test_reviewer_decisions_carry_reviewer_stamp_and_a_retry_gets_a_new_de
     w = world
     action = {"kind": "decide_report", "destination": "ledger",
               "target": {"report_id": w.rep("1"), "scope_id": SCOPE_ID}}
-    await w.new_grant_version("sam", "revoked")
+    revoked = await w.new_grant_version("sam", "revoked")
     d1 = await w.evaluate(w.reviewer_ctx(), action)
     assert d1.blocked and d1["run_id"] is None and d1["agent"] is None and d1["initiated_by"] == "sam"
     assert d1["request_id"] and d1["cause"]["report_id"] == w.rep("cause")
     assert [c["passed"] for c in d1["checks"]] == [False, "n/a", "n/a", "n/a", "n/a"]
-    v3 = {**w.grants["sam"], "_id": "sam@v3", "version": 3, "status": "active"}
-    await w.db["grants"].insert_one(v3)
+    # The next version after the revocation (sam@v2 is seeded since V70, so this is no longer v3).
+    nxt = int(revoked["version"]) + 1
+    reactivated = {**w.grants["sam"], "_id": f"sam@v{nxt}", "version": nxt, "status": "active"}
+    await w.db["grants"].insert_one(reactivated)
     d2 = await w.evaluate(w.reviewer_ctx(), action)
     assert d2.allowed and d2.decision_id != d1.decision_id, (d2["checks"], d2["claims"])
     assert d2["checks"][3]["passed"] == "n/a" and d2["checks"][4]["passed"] == "n/a"
