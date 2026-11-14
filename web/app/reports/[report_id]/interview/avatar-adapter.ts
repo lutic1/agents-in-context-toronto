@@ -4,8 +4,10 @@
  * What it does, and the sandbox test that fixed each rule (CONDITIONAL PASS):
  * - `repeat(text)` is the only way anything is spoken. It sends "speak exactly this text". The SDK's other
  *   speaking call hands the words to the avatar's own language model, so nothing here ever calls it.
- * - Listening stays off: `startListening()` is never called, and if a `user.*` event ever arrives the session
- *   is stopped at once.
+ * - Listening stays off: the SDK's listening call is never made, and if a `user.*` event (speech or a
+ *   transcription chunk) ever arrives the session is stopped at once.
+ * - Speech is only ever the reply to a `repeat`. If the avatar starts speaking with no `repeat` pending, the
+ *   session is stopped at once. Each `repeat` first interrupts whatever is still being spoken.
  * - SDK 0.0.20 ALWAYS asks the browser for the microphone when a session starts, even muted. So the claim is
  *   "the microphone is never granted", not "never requested". Three layers: (1) the server sends
  *   `Permissions-Policy: microphone=()` for this page (next.config.ts, owned by B01; see the report), (2) this
@@ -17,11 +19,13 @@
 
 import type { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
 
+export type CloseReason = "stopped" | "ended" | "mic_activity" | "unsolicited_speech";
+
 export type AvatarHandlers = {
   onSpeakStarted: () => void;
   onSpeakEnded: () => void;
   /** The session is over (stopped, the duration cap, a network failure or the server). Fires once. */
-  onClosed: (why: "stopped" | "ended" | "mic_activity") => void;
+  onClosed: (why: CloseReason) => void;
   /** `repeat` threw (for example the session was not connected). The text answer is unaffected. */
   onSpeakFailed: () => void;
 };
@@ -110,7 +114,7 @@ export async function startAvatar(token: string, video: HTMLVideoElement, handle
   });
 
   let closed = false;
-  const close = (why: "stopped" | "ended" | "mic_activity") => {
+  const close = (why: CloseReason) => {
     if (closed) return;
     closed = true;
     guard.restore();
@@ -120,15 +124,29 @@ export async function startAvatar(token: string, video: HTMLVideoElement, handle
   session.on(sdk.SessionEvent.SESSION_STREAM_READY, () => session.attach(video));
   session.on(sdk.SessionEvent.SESSION_DISCONNECTED, () => close("ended"));
   session.on(sdk.AgentEventsEnum.SESSION_STOPPED, () => close("ended"));
-  session.on(sdk.AgentEventsEnum.AVATAR_SPEAK_STARTED, () => handlers.onSpeakStarted());
+  // True from a `repeat` until the avatar starts speaking it. One `repeat` allows one start; any other start was
+  // not asked for. (Not cleared on speak-ended: an interrupt can end the old speech after the next `repeat`.)
+  let repeatPending = false;
+  const shutDown = (why: CloseReason) => {
+    repeatPending = false;
+    void session.stop().catch(() => {});
+    close(why);
+  };
+  session.on(sdk.AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
+    if (closed) return;
+    if (!repeatPending) {
+      shutDown("unsolicited_speech");
+      return;
+    }
+    repeatPending = false;
+    handlers.onSpeakStarted();
+  });
   session.on(sdk.AgentEventsEnum.AVATAR_SPEAK_ENDED, () => handlers.onSpeakEnded());
   // Listening is off. If the platform ever reports the user speaking, end the session rather than carry on.
-  const heard = () => {
-    void session.stop().catch(() => {});
-    close("mic_activity");
-  };
+  const heard = () => shutDown("mic_activity");
   session.on(sdk.AgentEventsEnum.USER_SPEAK_STARTED, heard);
   session.on(sdk.AgentEventsEnum.USER_TRANSCRIPTION, heard);
+  session.on(sdk.AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, heard);
 
   try {
     await session.start();
@@ -142,8 +160,12 @@ export async function startAvatar(token: string, video: HTMLVideoElement, handle
     speak(text: string) {
       if (closed || text.trim().length === 0) return;
       try {
+        // Cut off anything still being spoken so two answers never overlap.
+        session.interrupt();
+        repeatPending = true;
         session.repeat(text);
       } catch {
+        repeatPending = false;
         handlers.onSpeakFailed();
       }
     },

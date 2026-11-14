@@ -32,6 +32,16 @@ export function TurnView({ turn, speak }: { turn: Turn; speak: ((text: string) =
   );
 }
 
+const EMPTY_ANSWER = "The service returned no answer text for this question. Nothing is shown as an answer.";
+
+function hasText(text: string | null | undefined): boolean {
+  return typeof text === "string" && text.trim().length > 0;
+}
+
+function textOrFallback(text: string | null | undefined): string {
+  return hasText(text) ? (text as string) : EMPTY_ANSWER;
+}
+
 function Loading() {
   return (
     <div role="status" className="flex flex-col gap-2">
@@ -47,29 +57,35 @@ function Outcome({ id, outcome, speak }: { id: string; outcome: TurnOutcome; spe
     case "answered":
       return (
         <>
-          <Answer id={id} response={outcome.response} />
-          <CitationsPanel turnId={id} citations={outcome.response.citations} />
+          {hasText(outcome.response.answer) ? (
+            <>
+              <Answer id={id} response={outcome.response} />
+              <CitationsPanel turnId={id} citations={outcome.response.citations} />
+            </>
+          ) : (
+            <Statement icon={SearchX} title="No answer text" text={EMPTY_ANSWER} />
+          )}
           <Footer response={outcome.response} speak={speak} />
         </>
       );
     case "not_in_record":
       return (
         <>
-          <Statement icon={SearchX} title="Not in the accepted record" text={outcome.response.answer} />
+          <Statement icon={SearchX} title="Not in the accepted record" text={textOrFallback(outcome.response.answer)} />
           <Footer response={outcome.response} speak={speak} />
         </>
       );
     case "refused_medical":
       return (
         <>
-          <Statement icon={ShieldX} title="Refused: medical advice" text={outcome.response.answer} />
+          <Statement icon={ShieldX} title="Refused: medical advice" text={textOrFallback(outcome.response.answer)} />
           <Footer response={outcome.response} speak={speak} />
         </>
       );
     case "blocked":
       return (
         <>
-          <Statement icon={ShieldX} title="Blocked by the policy gate" text={outcome.response.answer} />
+          <Statement icon={ShieldX} title="Blocked by the policy gate" text={textOrFallback(outcome.response.answer)} />
           <Footer response={outcome.response} speak={null} />
         </>
       );
@@ -124,6 +140,7 @@ function Statement({
 /** The answer, one block at a time: a fixed framing sentence in the sans, or the record's words in the serif with their citation link. */
 function Answer({ id, response }: { id: string; response: InterviewResponse }) {
   const parts = splitAnswer(response.answer);
+  const known = response.citations.length;
   return (
     <div className="flex flex-col gap-3">
       {parts.map((part, index) =>
@@ -131,6 +148,12 @@ function Answer({ id, response }: { id: string; response: InterviewResponse }) {
           <p key={index} className="text-body">
             {part.plain}
           </p>
+        ) : part.marker < 1 || part.marker > known ? (
+          // No citation to link to: show the marker as text rather than a dead anchor.
+          <div key={index}>
+            <blockquote className="evidence-quote my-1 break-words">{part.quote}</blockquote>
+            <span className="text-identifier text-foreground">[{part.marker}]</span>
+          </div>
         ) : (
           <div key={index}>
             <blockquote className="evidence-quote my-1 break-words">{part.quote}</blockquote>
@@ -150,7 +173,7 @@ function Footer({ response, speak }: { response: InterviewResponse; speak: ((tex
       <span>
         Logged as decision <span className="text-identifier text-foreground">{response.decision_id}</span>
       </span>
-      {speak ? (
+      {speak && hasText(response.answer) ? (
         <Button type="button" variant="outline" size="sm" onClick={() => speak(response.answer)}>
           <Volume2 aria-hidden="true" />
           Speak with avatar

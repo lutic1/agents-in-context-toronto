@@ -1,6 +1,13 @@
 import { Quote } from "lucide-react";
 
+import { nctIdOf, trialUrl } from "@/components/report/labels";
+
 import type { InterviewCitation } from "./interview-api";
+
+/** The record's own name for a source: the NCT ID, or the reference without the `clinicaltrials.gov:` prefix. */
+export function sourceLabel(sourceRef: string): string {
+  return nctIdOf(sourceRef) ?? sourceRef.replace(/^clinicaltrials\.gov:/i, "");
+}
 
 /**
  * The citations panel of one answer. Each citation keeps its quote, source, version and field together
@@ -22,7 +29,9 @@ export function CitationsPanel({ turnId, citations }: { turnId: string; citation
               <dt>Citation</dt>
               <dd className="text-identifier text-foreground">[{index + 1}]</dd>
               <dt>Source</dt>
-              <dd className="text-identifier break-all text-foreground">{citation.source_ref}</dd>
+              <dd className="text-identifier break-all text-foreground">
+                <SourceLink sourceRef={citation.source_ref} />
+              </dd>
               <dt>Version</dt>
               <dd className="text-identifier break-all text-foreground">{citation.version_id ?? "not recorded"}</dd>
               <dt>Field</dt>
@@ -32,6 +41,17 @@ export function CitationsPanel({ turnId, citations }: { turnId: string; citation
         ))}
       </ol>
     </div>
+  );
+}
+
+function SourceLink({ sourceRef }: { sourceRef: string }) {
+  const nct = nctIdOf(sourceRef);
+  if (!nct) return <>{sourceLabel(sourceRef)}</>;
+  return (
+    <a href={trialUrl(nct)} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+      {nct}
+      <span className="sr-only"> on ClinicalTrials.gov (opens in a new tab)</span>
+    </a>
   );
 }
 

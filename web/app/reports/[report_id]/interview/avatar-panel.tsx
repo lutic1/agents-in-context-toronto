@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { startAvatar, type AvatarAdapter } from "./avatar-adapter";
+import { startAvatar, type AvatarAdapter, type CloseReason } from "./avatar-adapter";
 import { AvatarTokenError, requestAvatarToken } from "./avatar-token";
 
 type Phase = "idle" | "starting" | "ready" | "ended" | "unavailable";
@@ -38,21 +38,25 @@ export function AvatarPanel({
   const [note, setNote] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const adapterRef = useRef<AvatarAdapter | null>(null);
+  // True once the page is gone. A start that is still in flight when this flips must end its own session.
+  const cancelledRef = useRef(false);
 
   const stop = useCallback(async () => {
     const adapter = adapterRef.current;
     adapterRef.current = null;
     onSpeaker(null);
-    setSpeaking(false);
+    if (!cancelledRef.current) setSpeaking(false);
     if (adapter) await adapter.stop();
   }, [onSpeaker]);
 
   useEffect(() => {
+    cancelledRef.current = false;
     const onPageHide = () => {
       void stop();
     };
     window.addEventListener("pagehide", onPageHide);
     return () => {
+      cancelledRef.current = true;
       window.removeEventListener("pagehide", onPageHide);
       void stop();
     };
@@ -65,26 +69,43 @@ export function AvatarPanel({
     setNote(null);
     try {
       const { token } = await requestAvatarToken(reportId);
+      if (cancelledRef.current) return;
       const adapter = await startAvatar(token, video, {
-        onSpeakStarted: () => setSpeaking(true),
-        onSpeakEnded: () => setSpeaking(false),
-        onSpeakFailed: () => setNote("The avatar could not speak that. The answer is shown as text."),
-        onClosed: (why) => {
+        onSpeakStarted: () => {
+          if (!cancelledRef.current) setSpeaking(true);
+        },
+        onSpeakEnded: () => {
+          if (!cancelledRef.current) setSpeaking(false);
+        },
+        onSpeakFailed: () => {
+          if (!cancelledRef.current) setNote("The avatar could not speak that. The answer is shown as text.");
+        },
+        onClosed: (why: CloseReason) => {
           adapterRef.current = null;
           onSpeaker(null);
+          if (cancelledRef.current) return;
           setSpeaking(false);
           if (why === "mic_activity") {
             setPhase("unavailable");
             setNote("The avatar was stopped because microphone activity was reported. The microphone is meant to stay off.");
+          } else if (why === "unsolicited_speech") {
+            setPhase("unavailable");
+            setNote("The avatar was stopped because it began speaking on its own. It speaks only the answer text shown here.");
           } else {
             setPhase("ended");
           }
         },
       });
+      if (cancelledRef.current) {
+        // The page was left while the session was starting. End it now: it would otherwise run to its time cap.
+        await adapter.stop();
+        return;
+      }
       adapterRef.current = adapter;
       onSpeaker((text) => adapter.speak(text));
       setPhase("ready");
     } catch (error) {
+      if (cancelledRef.current) return;
       const reason =
         error instanceof AvatarTokenError || (error instanceof Error && "reason" in error)
           ? String((error as { reason: unknown }).reason)

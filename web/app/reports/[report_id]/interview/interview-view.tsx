@@ -29,7 +29,8 @@ function announcement(outcome: TurnOutcome): string {
     case "blocked":
       return "Blocked by the policy gate.";
     case "error":
-      return outcome.message;
+      // The error block on the page is a role="alert"; announcing it here too would read it twice.
+      return "";
   }
 }
 
