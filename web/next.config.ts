@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 import { parseFeatures } from "./lib/features";
 
-// V73: read at build time, like the client bundle reads it. The microphone is opened up on the interview page
+// V73: read at build time, like the client bundle reads it. The microphone is opened up on the report page and the interview page
 // only when voice_input is in this build.
 const voiceInput = parseFeatures(process.env.NEXT_PUBLIC_DXP_FEATURES).voice_input;
 
@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
       },
     ];
     if (voiceInput) {
+      // Story 10.10: the report page hosts the same interview, so Speak needs the microphone there too.
+      // "/reports/:report_id" matches that one path only; the deeper paths (briefing, interview) are not matched by it.
+      rules.push({
+        source: "/reports/:report_id",
+        headers: [{ key: "Permissions-Policy", value: "microphone=(self), camera=()" }],
+      });
       rules.push({
         source: "/reports/:report_id/interview",
         headers: [{ key: "Permissions-Policy", value: "microphone=(self), camera=()" }],

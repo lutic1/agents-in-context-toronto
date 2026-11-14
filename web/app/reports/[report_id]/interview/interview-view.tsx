@@ -41,9 +41,41 @@ function announcement(outcome: TurnOutcome): string {
  */
 export function InterviewView({ reportId }: { reportId: string }) {
   const interviewOn = isEnabled("interview");
+  const report = useApi("/reports/{report_id}", { path: { report_id: reportId }, enabled: interviewOn });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <Link href={`/reports/${encodeURIComponent(reportId)}`} className="text-caption text-muted-foreground underline underline-offset-2">
+          Back to the report
+        </Link>
+        <h1 className="text-title">Interview this evidence</h1>
+        {report.data ? <p className="text-body text-muted-foreground">{report.data.headline}</p> : null}
+        <p className="max-w-prose rounded-md border border-dashed border-border bg-card px-3 py-2 text-caption">{VOICE_LABEL}</p>
+      </header>
+
+      <Body
+        reportId={reportId}
+        interviewOn={interviewOn}
+        loading={report.isLoading && !report.data}
+        error={report.error}
+        status={report.data?.status ?? null}
+      >
+        <InterviewWorkspace reportId={reportId} />
+      </Body>
+    </div>
+  );
+}
+
+/**
+ * The interview itself: the ask box, Speak (voice_input), the answers with their citations, and Lily
+ * (the avatar panel, avatar flag). Shared by the standalone interview page and the report page (Story 10.10),
+ * so both run the same code. The caller decides when it may be shown (interview flag on, report accepted).
+ * `stacked` puts Lily under the ask box instead of beside it, for the narrower report column.
+ */
+export function InterviewWorkspace({ reportId, stacked = false }: { reportId: string; stacked?: boolean }) {
   const avatarOn = isEnabled("avatar");
   const voiceOn = isEnabled("voice_input");
-  const report = useApi("/reports/{report_id}", { path: { report_id: reportId }, enabled: interviewOn });
 
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -93,24 +125,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <Link href={`/reports/${encodeURIComponent(reportId)}`} className="text-caption text-muted-foreground underline underline-offset-2">
-          Back to the report
-        </Link>
-        <h1 className="text-title">Interview this evidence</h1>
-        {report.data ? <p className="text-body text-muted-foreground">{report.data.headline}</p> : null}
-        <p className="max-w-prose rounded-md border border-dashed border-border bg-card px-3 py-2 text-caption">{VOICE_LABEL}</p>
-      </header>
-
-      <Body
-        reportId={reportId}
-        interviewOn={interviewOn}
-        loading={report.isLoading && !report.data}
-        error={report.error}
-        status={report.data?.status ?? null}
-      >
-        <div className={avatarOn ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
+        <div className={avatarOn && !stacked ? "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" : "grid grid-cols-1 gap-6"}>
           <div className="flex min-w-0 flex-col gap-6">
             <form
               className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5 shadow-sm"
@@ -179,11 +194,8 @@ export function InterviewView({ reportId }: { reportId: string }) {
           </div>
           {avatarOn ? <AvatarPanel reportId={reportId} onSpeaker={onSpeaker} onBusyChange={setAvatarBusy} /> : null}
         </div>
-      </Body>
-    </div>
   );
 }
-
 /** The page states that come before the ask box: flag off, loading, unreachable, not found, not accepted. */
 function Body({
   interviewOn,
