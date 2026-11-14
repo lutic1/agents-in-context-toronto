@@ -476,8 +476,8 @@ async def mark_task_step(
     if step == "done":
         update["task_id"] = task_id
     else:
-        update["approval.reason"] = reason
-        update["approval.message"] = f"Follow-up task not authorised: {reason}"
+        # ReportApproval.reason (A01): the whole sentence the report shows (V45).
+        update["approval.reason"] = f"Follow-up task not authorised: {reason}"
     res = await db()["reports"].update_one(
         {"_id": report_id, "status": "accepted", "approval.task_step": "pending"}, {"$set": update}, session=session
     )

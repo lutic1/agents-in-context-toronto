@@ -196,7 +196,7 @@ def test_crash_then_revoked_reviewer_grant_records_a_blocked_step(world, client,
     assert len(auth) == 1 and auth[0]["outcome"] == "blocked" and auth[0]["failed_check"] == "grant_active"
     assert world.db.all("tasks") == [] and report["approval"]["task_step"] == "blocked"
     assert report["status"] == "accepted"
-    assert report["approval"]["message"].startswith("Follow-up task not authorised")
+    assert report["approval"]["reason"].startswith("Follow-up task not authorised")
     assert spawned == []
     # a retried decision reports it and never reopens the step
     monkeypatch.setattr(routes, "fault_hook", None)

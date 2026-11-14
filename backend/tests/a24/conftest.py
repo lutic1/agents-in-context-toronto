@@ -230,17 +230,19 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     async def recover_applying() -> None:
         return None
 
-    async def reject_report_proposals(report_id: str, decision_id: str, note: str | None, session: Any = None) -> list[str]:
+    async def reject_report_proposals(report_id: str, decision_id: str, note: str, session: Any) -> int:
+        """A06's signature (head 42b68d0): pending -> rejected only; a retry returns 0."""
         from dxp.store import emit_event
 
         rejected = []
         for p in await db["proposals"].find({"report_id": report_id, "status": "pending"}).to_list():
             await db["proposals"].update_one({"_id": p["_id"], "status": "pending"},
-                                             {"$set": {"status": "rejected", "reason": note, "decision_id": decision_id}})
+                                             {"$set": {"status": "rejected", "reason": note,
+                                                       "rejected_by_decision_id": decision_id}})
             await emit_event({"type": "proposal_rejected", "dedupe_key": f"proposal_rejected|{p['_id']}"})
             rejected.append(p["_id"])
         w.rejected_by_ledger.extend(rejected)
-        return rejected
+        return len(rejected)
 
     monkeypatch.setattr(dxp.ledger, "reject_report_proposals", reject_report_proposals, raising=False)
     monkeypatch.setattr(dxp.ledger, "apply_with", apply_with, raising=False)

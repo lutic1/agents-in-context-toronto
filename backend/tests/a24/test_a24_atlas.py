@@ -165,7 +165,7 @@ async def test_atlas_crash_then_revoked_sam_blocks_the_task_step(atlas_world) ->
     await _restart()
     stored = await db["reports"].find_one({"_id": report_id})
     assert stored["status"] == "accepted" and stored["approval"]["task_step"] == "blocked"
-    assert stored["approval"]["message"].startswith("Follow-up task not authorised")
+    assert stored["approval"]["reason"].startswith("Follow-up task not authorised")
     auths = await db["decisions"].find({"kind": "authorise_task", "target.report_id": report_id}).to_list(None)
     assert len(auths) == 1 and auths[0]["outcome"] == "blocked"
     assert await db["tasks"].count_documents({"report_id": report_id}) == 0

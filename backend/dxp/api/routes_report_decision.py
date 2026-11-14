@@ -79,7 +79,7 @@ def approval_message(report: dict[str, Any], task: dict[str, Any] | None, accept
     if task is not None:
         tail = TASK_NOT_RUN if task.get("status") == "authorised" else TASK_PENDING_REVIEW
     elif approval.get("task_step") == "blocked":
-        tail = TASK_NOT_AUTHORISED.format(reason=(approval.get("reason") or "blocked").rstrip("."))
+        tail = (approval.get("reason") or TASK_NOT_AUTHORISED.format(reason="blocked")).rstrip(".") + "."
     else:
         tail = TASK_STEP_PENDING
     return f"{head} {tail}"

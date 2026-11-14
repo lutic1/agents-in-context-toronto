@@ -166,7 +166,7 @@ def test_blocked_authorisation_keeps_the_evidence_accepted(world, client) -> Non
     assert report["status"] == "accepted" and report["approval"]["task_step"] == "blocked"
     assert world.db.all("tasks") == [] and len(world.db.all("grants")) == 2
     assert body["message"].startswith("Approved: 1 update accepted. Follow-up task not authorised: destination_action")
-    assert report["approval"]["message"].startswith("Follow-up task not authorised")
+    assert report["approval"]["reason"].startswith("Follow-up task not authorised")
     # terminal: a retry never reopens it
     decide(client)
     assert len(decisions_of(world, "authorise_task")) == 1 and world.db.all("tasks") == []
@@ -260,3 +260,23 @@ def test_reports_decide_writes_no_proposal() -> None:
 
     source = (Path(__file__).resolve().parents[2] / "dxp/reports/decide.py").read_text()
     assert 'db()["proposals"].update' not in source and "reject_report_proposals" in source
+
+
+def test_claim_kind_in_the_request_tags_the_memory(world, client) -> None:
+    from dxp.api.models import ReportDecisionRequest
+
+    if "claim_kind" not in ReportDecisionRequest.model_fields:
+        pytest.skip("ReportDecisionRequest.claim_kind is not on this branch yet (A01, PR #32)")
+    decide(client, "reject", note="Terminated trial", claim_kind="claim_performed_or_results")
+    assert world.memories[0]["tags"]["claim_kind"] == "claim_performed_or_results"
+
+
+def test_blocked_reason_is_returned_with_the_report(world, client) -> None:
+    from dxp.api.models import ReportApproval
+
+    world.gate_fail_kinds["authorise_task"] = "destination_action"
+    body = decide(client).json()
+    stored = world.report()["approval"]["reason"]
+    assert stored.startswith("Follow-up task not authorised: destination_action")
+    if "reason" in ReportApproval.model_fields:
+        assert body["report"]["approval"]["reason"] == stored
