@@ -36,7 +36,7 @@ async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_run
     assert action.inputs["query"]["terms"][:4] == scope_doc()["assays"]
     # the query (V2)
     (req,) = ctgov_fake.searches
-    assert req.url.params["filter.advanced"] == "AREA[LastUpdatePostDate]RANGE[2026-11-11,MAX]"
+    assert req.url.params["filter.advanced"] == "AREA[LastUpdatePostDate]RANGE[2026-11-11,MAX] AND NOT AREA[DesignPrimaryPurpose]TREATMENT"
     assert req.url.params["query.cond"] == '"non-small cell lung cancer" OR "NSCLC"'
     assert req.url.params["query.term"].startswith('"FoundationOne Liquid CDx" OR "Guardant360 CDx"')
     assert '"ctDNA"' in req.url.params["query.term"]
@@ -248,3 +248,16 @@ async def test_unsettled_action_leaves_the_cursor(fakedb, events, fake_runs, fak
     outcome = await scan_mod.run_scan(SCOPE_ID, discover_run)
     assert not outcome.cursor_advanced
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
+
+
+
+def test_the_query_excludes_treatment_trials_but_keeps_observational_studies() -> None:
+    """Treatment trials are not diagnostics; the exclusion must not be a positive DIAGNOSTIC/SCREENING
+    filter, which would drop observational studies (no primary purpose), the anchor among them."""
+    from dxp.discovery.scan import EXCLUDE_TREATMENT, build_query
+    from dxp.gate import seed
+
+    scope = seed.load_seed_data()["research_scopes"][0]
+    adv = build_query(scope, "2026-11-11")["filter.advanced"]
+    assert adv == "AREA[LastUpdatePostDate]RANGE[2026-11-11,MAX] AND NOT AREA[DesignPrimaryPurpose]TREATMENT"
+    assert EXCLUDE_TREATMENT.startswith("NOT ") and "DIAGNOSTIC" not in adv and "SCREENING" not in adv

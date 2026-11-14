@@ -106,13 +106,20 @@ def condition_terms(scope: dict[str, Any]) -> list[str]:
     return out
 
 
+# Drug and other treatment trials are not diagnostics: exclude studies whose primary purpose is
+# TREATMENT. Not "only DIAGNOSTIC/SCREENING": observational studies (the anchor among them) have no
+# primary purpose, so a positive filter would drop them. The exclusion is in the recorded query, so the
+# audit shows that treatment trials were excluded.
+EXCLUDE_TREATMENT = "NOT AREA[DesignPrimaryPurpose]TREATMENT"
+
+
 def build_query(scope: dict[str, Any], cursor: str) -> dict[str, str]:
     conds = condition_terms(scope)
     cond = conds[0] if len(conds) == 1 else ctgov.or_terms(conds)
     return {
         "query.term": ctgov.or_terms(search_terms(scope)),
         "query.cond": cond,
-        "filter.advanced": ctgov.last_update_filter(cursor),
+        "filter.advanced": f"{ctgov.last_update_filter(cursor)} AND {EXCLUDE_TREATMENT}",
     }
 
 
@@ -232,7 +239,8 @@ async def run_scan(
 
         try:
             found = await ctgov.search(
-                query["query.term"], query["query.cond"], cursor, max_results=max_results
+                query["query.term"], query["query.cond"], cursor, max_results=max_results,
+                extra_filter=EXCLUDE_TREATMENT,
             )
             outcome.http_status = found.http_status
             outcome.complete = found.complete
