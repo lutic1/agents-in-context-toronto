@@ -121,7 +121,7 @@ function Statement({
   );
 }
 
-/** The answer, one cited sentence at a time: DxP's lead-in in the sans, the record's words in the serif, then the citation link. */
+/** The answer, one block at a time: a fixed framing sentence in the sans, or the record's words in the serif with their citation link. */
 function Answer({ id, response }: { id: string; response: InterviewResponse }) {
   const parts = splitAnswer(response.answer);
   return (
@@ -133,7 +133,6 @@ function Answer({ id, response }: { id: string; response: InterviewResponse }) {
           </p>
         ) : (
           <div key={index}>
-            <p className="text-body">{part.leadIn}</p>
             <blockquote className="evidence-quote my-1 break-words">{part.quote}</blockquote>
             <a href={`#${citationId(id, part.marker)}`} className="text-identifier text-foreground underline underline-offset-2">
               <span className="sr-only">Citation </span>[{part.marker}]

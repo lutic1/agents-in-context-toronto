@@ -39,8 +39,24 @@ export function citationId(turnId: string, number: number): string {
   return `${turnId}-cite-${number}`;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  status: "Status",
+  dates: "Dates",
+  conditions: "Conditions",
+  phase: "Phase",
+  design: "Design or sample",
+  interventions: "Names the record gives (interventions)",
+  sponsor: "Sponsor",
+  location: "Location",
+  enrollment: "Enrollment",
+  results: "Results posted",
+  summary: "Brief summary",
+  description: "Detailed description",
+  discovery: "Discovery quote",
+  related: "Related evidence quote",
+};
+
 function fieldLabel(field: string | null | undefined): string {
-  if (field === "discovery") return "Discovery quote";
-  if (field === "related") return "Related evidence quote";
-  return field ?? "not recorded";
+  if (!field) return "not recorded";
+  return FIELD_LABELS[field] ?? field;
 }

@@ -2,13 +2,14 @@
 
 Every check fails closed. The answer is returned only if all of these hold:
 
-1. every sentence cites exactly one card that is on the report;
-2. the cited quote is found in the raw text of the exact source version it names (V40);
-3. a number appears only inside its cited quote (the lead-in has none of its own);
-4. the lead-in is one of the fixed ones, and says nothing like "uses", "studies" or "showed":
-   a name is "named in the record" (V37);
-5. the answer text holds nothing but lead-ins, verbatim quotes and citation markers;
-6. all three claim kinds are sent to the gate for every cited quote, tagged where the wording matches; the gate decides (AD-19).
+1. the answer is exactly the rendering of its cited cards: allowlisted framing, then one `"<quote>" [n]` block
+   per card, then allowlisted framing (so nothing else, in any form, is in it);
+2. every framing block is on the allowlist AND passes the mechanical no-facts check;
+3. each cited quote is found in the raw text of the exact source version it names (V40), compared on the
+   whitespace-normalised form;
+4. no card is claim-like and no card is of the "other" field (a second net under the cards' own rules);
+5. no digit appears outside a cited quote;
+6. every claim kind is sent to the gate for every cited quote; the gate decides (AD-19).
 """
 
 from __future__ import annotations
@@ -17,56 +18,18 @@ import inspect
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 from dxp.api.models import ClaimCheck
-from dxp.interview.cards import Card
-from dxp.interview.compose import MARKER, Sentence, lead_in_for, render
+from dxp.interview import framing
+from dxp.interview.cards import FIELD_OTHER, Card, claim_like, normalise_text
+from dxp.interview.compose import render, split_blocks
 
-__all__ = ["CLAIM_KINDS", "Verification", "claim_guard_blocks", "claim_tags", "default_quote_check", "verify_answer"]
+__all__ = ["CLAIM_KINDS", "QuoteCheck", "Verification", "default_quote_check", "verify_answer"]
 
 CLAIM_KINDS = ("claim_performed_or_results", "claim_planned", "claim_preclinical")
 QuoteCheck = Callable[[str, str], "bool | Awaitable[bool]"]
-
-# What a lead-in may never say about a name or a trial (V33, V37) or about a result.
-_FORBIDDEN_WORDING = re.compile(
-    r"\b(?:use[sd]?|using|usage|stud(?:y|ies|ied|ying)|investigat\w*|test(?:s|ed|ing)?|evaluat\w*|show(?:s|ed|n)?|demonstrat\w*|"
-    r"prov(?:e|es|ed|en)|confirm\w*|validat\w*|perform(?:s|ed|ance)?|detect\w*|measur\w*|outperform\w*)\b",
-    re.IGNORECASE,
-)
-_DIGITS = re.compile(r"\d+")
-
-# Claim wording in a quote. The gate's claim checks decide; these only tag what to send.
-_NEGATED_RESULTS = re.compile(r"\b(?:no|not|without|none|yet\s+to|awaiting|pending)\b[^.;:]{0,40}\b(?:results?|data)\b", re.IGNORECASE)
-_PERFORMED = re.compile(
-    r"\b(?:performed|perform\w*|detected|detects?|detection|showed|shows?|shown|demonstrat\w+|results?|sensitiv\w*|specific\w*|concordance|"
-    r"accura\w*|agreement|outperform\w*|yielded|positive\s+percent|negative\s+percent|limit\s+of\s+detection|"
-    r"identif\w*|classif\w*|achiev\w*|auc|ppv|npv|predict\w*|valid\w*|recover\w*|observed|response|responses|survival|improv\w*|"
-    r"caught|found|genotyp\w*\s+(?:the|a|all)|was\s+used|were\s+used|uses?|stud(?:y|ies)\s+(?:the|a|an)|evaluated|measured|reliab\w*|"
-    r"correctly|missed|false\s+(?:positive|negative)s?|true\s+(?:positive|negative)s?|prevalence|reduc\w*|increas\w*|outcomes?\s+(?:was|were)|"
-    # Wording that says what was done with a product or what it did (red-team round: "ran", "captured", "helped find").
-    r"calls?|called|calling|captur\w*|catch(?:es)?|work(?:s|ed)\s+well|agree[ds]?|help(?:s|ed)|finds?|reveal(?:s|ed)|ran|run|"
-    r"appl(?:y|ies|ied)|employ(?:s|ed)|utili[sz]\w*|monitor\w*|undergo\w*|undergone|underwent|receiv(?:e|es|ed)|compar\w*|sequenc\w*|assayed|"
-    r"flag(?:s|ged)|inform(?:s|ed)(?!\s+consent))\b"
-    # A percentage or a ratio ("12 of 14") is a figure from a result, whatever verb is around it.
-    r"|\d+(?:\.\d+)?\s*(?:%|percent\b)|\b\d+\s+of\s+(?:the\s+)?\d+\b",
-    re.IGNORECASE,
-)
-# A record name with a verb that says what was done with it: "used", "studied", "tested" (V37).
-_NAME_VERB = re.compile(
-    r"\b(?:use[sd]?|using|stud(?:y|ies|ied|ying)|evaluat\w*|test(?:s|ed|ing)?|measur\w*|assess\w*|analy[sz]\w*|profil\w*|"
-    r"call(?:s|ed)?|captur\w*|catch(?:es)?|caught|work(?:s|ed)?|agree[ds]?|help(?:s|ed)?|find|finds|found|reveal(?:s|ed)?|ran|run|"
-    r"appl(?:y|ies|ied)|employ(?:s|ed)?|utili[sz]\w*|monitor\w*|undergo\w*|receiv\w*|compar\w*|sequenc\w*|assay(?:s|ed)?|flag(?:s|ged)?|inform(?:s|ed)?)\b",
-    re.IGNORECASE,
-)
-_PLANNED = re.compile(
-    r"\b(?:planned|plans?|will|anticipated|expected|estimated|not\s+yet\s+recruiting|recruit\w*|enrol\w*|ongoing|completed|terminated|withdrawn)\b",
-    re.IGNORECASE,
-)
-_PRECLINICAL = re.compile(
-    r"\b(?:cell[\s-]lines?|xenografts?|mouse|mice|murine|rats?|animals?|in\s+vitro|in\s+vivo|preclinical|zebrafish|organoids?|pdx)\b",
-    re.IGNORECASE,
-)
+_DIGITS = re.compile(r"\d")
+_QUOTE_BLOCK = re.compile(r'^"[^\n]*" \[\d+\]$')
 
 
 @dataclass
@@ -74,10 +37,6 @@ class Verification:
     ok: bool
     problems: list[str] = field(default_factory=list)
     claims: list[ClaimCheck] = field(default_factory=list)
-
-
-def _normalise(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().lower()
 
 
 def default_quote_check(quote: str, raw_text: str) -> bool | Awaitable[bool]:
@@ -89,87 +48,12 @@ def default_quote_check(quote: str, raw_text: str) -> bool | Awaitable[bool]:
     real = getattr(evidence, "quote_in_source", None)
     if callable(real):
         return real(quote, raw_text)
-    return _normalise(quote) in _normalise(raw_text)
-
-
-def claim_tags(text: str, names: list[str] | None = None) -> list[str]:
-    """Which claim kinds a quote's wording touches. It fails closed: any performance or result wording,
-    any figure that is a percentage or a ratio, and any record name next to a verb that says what was
-    done with it is tagged claim_performed_or_results. A negated "no results" is not a claim."""
-    kinds: list[str] = []
-    performed = _PERFORMED.search(_NEGATED_RESULTS.sub(" ", text)) is not None
-    if not performed and names:
-        performed = any(
-            name.lower() in text.lower() and _NAME_VERB.search(re.sub(re.escape(name), " ", text, flags=re.IGNORECASE)) for name in names
-        )
-    if performed:
-        kinds.append("claim_performed_or_results")
-    if _PLANNED.search(text):
-        kinds.append("claim_planned")
-    if _PRECLINICAL.search(text):
-        kinds.append("claim_preclinical")
-    return kinds
-
-
-# A plain status field line of the record ("Overall status: RECRUITING. No results posted."). Planned or preclinical
-# wording is only let through when the quote is one of these; any other quote that tags it is not used.
-_PLAIN_STATUS_LINE = re.compile(
-    r"^\s*(?:overall\s+status|status|estimated\s+enrollment|enrollment|enrollment\s+type|start\s+date|completion\s+date|"
-    r"primary\s+completion\s+date|study\s+type|phase|study\s+first\s+posted|last\s+update\s+posted)\s*:",
-    re.IGNORECASE,
-)
-
-
-def claim_guard_blocks(card: Card, report: dict[str, Any]) -> bool:
-    """A local floor under the gate's claim check (V7, AD-19), and for now the only enforcer (the real gate does
-    not yet run claim checks for answer_question; see the lane report). Fails closed:
-
-    - a quote that states a performance or a result is not used unless the report's discovery has posted
-      results (`has_results` true); a related record's own results are not on the report, so a related quote with
-      that wording is never used here;
-    - a quote that tags planned or preclinical wording is not used unless it is a plain status field line.
-
-    The gate still decides everything that passes."""
-    from dxp.interview.cards import mention_names
-
-    tags = claim_tags(card.text, mention_names(report))
-    if ("claim_planned" in tags or "claim_preclinical" in tags) and not _PLAIN_STATUS_LINE.match(card.text):
-        return True
-    if "claim_performed_or_results" not in tags:
-        return False
-    if card.field != "discovery":
-        return True
-    return (report.get("discovery") or {}).get("has_results") is not True
-
-
-def _lead_in_ok(sentence: Sentence, names: list[str]) -> str | None:
-    """The lead-in must be exactly the fixed one for this quote, and say nothing a name is not (V37)."""
-    if sentence.lead_in != lead_in_for(sentence.card, names):
-        return "lead-in is not the fixed lead-in for this quote"
-    if not _only_inside_name(sentence.lead_in, names):
-        return "lead-in has forbidden wording"
-    return None
-
-
-def _only_inside_name(lead: str, names: list[str]) -> bool:
-    """A record name may itself contain a word like "Test" (a product name); that is the record's, not DxP's."""
-    stripped = lead
-    for name in names:
-        stripped = re.sub(re.escape(name), " ", stripped, flags=re.IGNORECASE)
-    return _FORBIDDEN_WORDING.search(stripped) is None
-
-
-def _residue(answer: str, sentences: list[Sentence]) -> str:
-    rest = MARKER.sub("", answer)
-    for sentence in sentences:
-        rest = rest.replace(sentence.card.text, "", 1).replace(sentence.lead_in, "", 1)
-    return re.sub(r'[\s"]+', "", rest)
+    return normalise_text(quote).lower() in normalise_text(raw_text).lower()
 
 
 async def verify_answer(
     answer: str,
-    sentences: list[Sentence],
-    names: list[str],
+    cards: list[Card],
     raw_texts: dict[str, str | None],
     quote_check: QuoteCheck | None = None,
 ) -> Verification:
@@ -177,12 +61,11 @@ async def verify_answer(
     check = quote_check or default_quote_check
     problems: list[str] = []
     claims: list[ClaimCheck] = []
-    if not sentences:
-        return Verification(False, ["no sentences"])
+    if not cards:
+        return Verification(False, ["no cards"])
 
-    for number, sentence in enumerate(sentences, start=1):
-        card = sentence.card
-        label = f"sentence {number}"
+    for number, card in enumerate(cards, start=1):
+        label = f"quote {number}"
         raw = raw_texts.get(card.version_id)
         if raw is None:
             problems.append(f"{label}: source version {card.version_id} is not available")
@@ -192,23 +75,32 @@ async def verify_answer(
                 found = await found
             if found is not True:
                 problems.append(f"{label}: quote not found in version {card.version_id}")
-        extra = set(_DIGITS.findall(sentence.lead_in)) - set(_DIGITS.findall(card.text))
-        if extra:
-            problems.append(f"{label}: number {sorted(extra)[0]} is not inside its cited quote")
-        problem = _lead_in_ok(sentence, names)
-        if problem:
-            problems.append(f"{label}: {problem}")
-        tagged = set(claim_tags(card.text, names))
+        if card.field == FIELD_OTHER:
+            problems.append(f"{label}: no known field")
+        if claim_like(card.text):
+            problems.append(f"{label}: claim-like wording")
+        if "\n" in card.text or card.text != normalise_text(card.text):
+            problems.append(f"{label}: quote is not whitespace-normalised")
         for kind in CLAIM_KINDS:
-            how = "tagged by the interview lane" if kind in tagged else "not tagged by the lane's patterns"
-            claims.append(ClaimCheck(claim_kind=kind, text=card.text[:300], passed=False, detail=f"{label}, {card.quote_id}: {how}; the gate decides"))
+            claims.append(
+                ClaimCheck(
+                    claim_kind=kind,
+                    text=card.text[:300],
+                    passed=False,
+                    detail=f"{label}, {card.quote_id}, field {card.field}: sent to the gate; the lane's field and claim rules already applied",
+                )
+            )
 
-    if answer != render(sentences):
-        problems.append("answer text is not the rendering of its cited sentences")
-    if _residue(answer, sentences):
-        problems.append("answer holds text that is not a fixed lead-in, a cited quote or a citation marker")
-    cited_numbers = {n for s in sentences for n in _DIGITS.findall(s.card.text)}
-    stray = set(_DIGITS.findall(MARKER.sub("", answer))) - cited_numbers
-    if stray:
-        problems.append(f"number {sorted(stray)[0]} appears outside every cited quote")
+    if answer != render(cards):
+        problems.append("answer text is not the rendering of its cited quotes")
+    quote_blocks = {f'"{card.text}" [{n}]' for n, card in enumerate(cards, start=1)}
+    outside_quotes: list[str] = []
+    for block in split_blocks(answer):
+        if block in quote_blocks and _QUOTE_BLOCK.match(block):
+            continue
+        outside_quotes.append(block)
+        if not framing.allowed_framing([block]):
+            problems.append("a block is neither an allowlisted framing sentence nor a cited quote")
+    if _DIGITS.search(" ".join(outside_quotes)):
+        problems.append("a number appears outside every cited quote")
     return Verification(not problems, problems, claims)

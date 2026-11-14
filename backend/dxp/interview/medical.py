@@ -1,21 +1,22 @@
-"""Deterministic medical-advice detector (V70). It runs first, before any model call.
+"""Deterministic medical gate (V70, step A.i). It runs first, before any model call.
 
-A banned category: a question that asks for a diagnosis, a treatment, a dose, a prognosis, a choice
-of test or drug, or "should I or my patient ...", gets one fixed refusal and no model call. The
-detector is a list of named patterns over a normalised question. It errs toward refusing: a
-refusal costs a rephrase, a missed medical question costs far more. Questions about what the record
-says (status, names, quotes, sources, related evidence) must still pass; the tests hold both lists.
+The rule is one sentence: a question that mentions a PERSON or a CLINICAL DECISION is refused, with the one
+fixed refusal and no model call. When in doubt it refuses, because a refusal costs a rephrase and a missed
+medical question costs far more.
 
-A deny-list can never be complete, so two fail-closed layers sit under it (red-team round):
+This is not a list of phrasings. There are two small vocabularies and nothing else:
 
-- clinical vocabulary with no record-lookup vocabulary (status, sponsor, quote, record, ...) is refused (rule
-  "clinical_no_lookup"): a question about the record names the record; one that only talks medicine is asking medicine;
-- clinical vocabulary with a first-person or third-party marker (I, my, my cousin, someone, the heroine) is refused
-  (rule "clinical_personal").
+- person words: I, me, my, we, our, mum, mom, dad, family, friend, a patient, a doctor, an oncologist, someone, he,
+  she, "a 60 year old" ...
+- decision and clinical words: should, would you, what would, recommend, advise, treat*, therapy, drug, dose,
+  diagnose, prognosis, biopsy, surgery, ...
 
-Other languages: only text that is mostly known English words (function words plus the record's own vocabulary)
-is read by these patterns. Anything else, any Latin-script language, ROT13 or gibberish, gets the same fixed
-refusal and no model call (rule "non_english"). Typos and look-alike letters are repaired before matching.
+plus a few frames that make any question hypothetical ("if a patient", "what if", "suppose", "imagine").
+A question is read after Unicode folding, look-alike letters, spacing tricks and common typos are repaired, so
+"sh0uld i", "s h o u l d" and "shoud i" are read as "should i". The same two vocabularies exist in French, Spanish,
+German, Italian, Portuguese and Dutch (accents folded) and as a few words in Chinese, Japanese, Korean, Russian
+and Arabic. A language that is not detected gets no answer either: the intent gate and the vocabulary guard
+(`question.py`) refuse to answer anything they cannot map to the record, still without a model call.
 """
 
 from __future__ import annotations
@@ -23,12 +24,10 @@ from __future__ import annotations
 import re
 import unicodedata
 
-__all__ = ["medical_advice_rule", "is_medical_advice", "normalise_question", "NON_ENGLISH_RULE"]
-
-NON_ENGLISH_RULE = "non_english"
+__all__ = ["medical_advice_rule", "is_medical_advice", "normalise_question"]
 
 _ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿­"), None)
-_LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
+_DELEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
 # Cyrillic and Greek letters that look like Latin ones. NFKC folds full-width letters, not these.
 _CONFUSABLES = str.maketrans(
     {
@@ -42,32 +41,42 @@ _SPACED_RUN = re.compile(r"(?<![a-z0-9])(?:[a-z0-9][\s.\-_*]){3,}[a-z0-9](?![a-z
 
 
 def normalise_question(question: str) -> str:
-    """Lowercase, NFKC, no zero-width characters, quotes and dashes flattened, spacing collapsed."""
+    """Lowercase, NFKC, no zero-width characters, look-alike letters mapped, quotes and dashes flattened, spacing collapsed."""
     text = unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH).lower().translate(_CONFUSABLES)
     text = text.replace("’", "'").replace("‘", "'").replace("‐", "-").replace("‑", "-")
     text = re.sub(r"[–—]", " ", text)
-    # "s h o u l d  i" and "s.h.o.u.l.d" collapse into one word, so spacing tricks do not hide a pattern.
+    # "s h o u l d  i" and "s.h.o.u.l.d" collapse into one word, so spacing tricks do not hide a word.
     text = _SPACED_RUN.sub(lambda m: re.sub(r"[\s.\-_*]", "", m.group(0)), text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-# Misspellings of short words the patterns hinge on ("shud i", "shld i", "wat").
+def _fold(question: str) -> str:
+    """NFKC, lowercase, accents removed ("médecin" -> "medecin"). Look-alike letters are NOT mapped: this is the
+    view in which another language is read as itself."""
+    text = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH).lower())
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
+# --- typo repair --------------------------------------------------------------------------------------------
+
 _TYPO_WORDS = {
     "shud": "should", "shld": "should", "shoud": "should", "shold": "should", "shuld": "should", "shuold": "should",
     "shoudl": "should", "shouldd": "should", "sould": "should", "shoul": "should", "shopuld": "should", "shoulld": "should",
-    "wat": "what", "whta": "what", "wht": "what", "whihc": "which", "wich": "which", "whch": "which", "whcih": "which",
-    "tke": "take", "taek": "take", "drgu": "drug", "durg": "drug", "pateint": "patient", "pateints": "patients",
+    "wat": "what", "whta": "what", "wht": "what", "tke": "take", "taek": "take", "drgu": "drug", "durg": "drug",
+    "pateint": "patient", "pateints": "patients", "dr": "doctor", "doc": "doctor", "docs": "doctor", "mom": "mum",
 }
-# Longer words the patterns hinge on. A token within one edit (two for words of ten letters or more) of one of these is
-# read as that word, unless it is itself an ordinary word of the record's questions.
+# Words the markers hinge on. A token within one edit (two for ten letters or more) is read as the word, unless it
+# is itself an ordinary word of the record's questions.
 _CANONICAL = (
     "should", "patient", "patients", "treatment", "treatments", "therapy", "medication", "medications", "prescribe",
-    "diagnose", "diagnosis", "dosage", "oncologist", "oncologists", "chemotherapy", "immunotherapy", "recommend",
-    "physician", "physicians", "surgery", "biopsy",
+    "diagnose", "diagnosis", "prognosis", "dosage", "oncologist", "oncologists", "chemotherapy", "immunotherapy",
+    "recommend", "physician", "physicians", "surgery", "biopsy", "doctor", "doctors", "advise", "clinician",
 )
 _PROTECTED = frozenset(
-    "would could describe described describes subscribe patent patents therapy treat treated shoulder shoulders hold holds model models modal records record "
-    "mention mentions entry entries diagnostic diagnostics diagnoses surgeon surgeons surgical dosage".split()
+    "would could describe described describes subscribe patent patents treat treated shoulder shoulders hold holds model models "
+    "modal records record mention mentions entry entries diagnostic diagnostics diagnoses surgeon surgeons surgical dosage "
+    "location locations design designed status statuses sponsor sponsors phase phases date dates condition conditions "
+    "enrollment enrolment enrolled intervention interventions".split()
 ) | frozenset(_CANONICAL)
 
 
@@ -93,276 +102,156 @@ def _repair_token(token: str) -> str:
     if len(token) < 5 or token in _PROTECTED:
         return token
     for word in _CANONICAL:
-        limit = 1 if len(word) < 10 else 2
+        limit = 1
         if abs(len(token) - len(word)) <= limit and _distance(token, word) <= limit:
             return word
     return token
 
 
-def _repair_typos(text: str) -> str:
-    return " ".join(_repair_token(token) for token in text.split())
+def _deleet(text: str) -> str:
+    """Read "sh0uld", "m3" and "$hould" as letters. A token with no letter ("phase 1", "2021") is left alone."""
+    out = []
+    for token in text.split(" "):
+        if any(ch.isalpha() for ch in token) and any(ch in "0134 57@$!".replace(" ", "") for ch in token):
+            token = token.translate(_DELEET)
+        out.append(token)
+    return " ".join(out)
 
 
-def _variants(question: str) -> list[str]:
+_TOKEN = re.compile(r"[a-z]+|[0-9]+")
+
+
+def _tokens(text: str) -> list[str]:
+    return _TOKEN.findall(text)
+
+
+def _views(question: str) -> list[list[str]]:
     plain = normalise_question(question)
-    no_apostrophes = plain.replace("'", "")
-    leet = no_apostrophes.translate(_LEET)
-    punctuation_free = re.sub(r"[^a-z0-9' ]+", " ", plain)
-    punctuation_free = re.sub(r"\s+", " ", punctuation_free).strip()
-    leet_free = re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", leet)).strip()
-    seen: list[str] = []
-    for text in (plain, no_apostrophes, punctuation_free, leet_free, leet, _repair_typos(punctuation_free), _repair_typos(leet_free)):
-        if text and text not in seen:
-            seen.append(text)
+    views = [_tokens(plain), _tokens(_deleet(plain))]
+    views += [[_repair_token(t) for t in tokens] for tokens in list(views)]
+    seen: list[list[str]] = []
+    for tokens in views:
+        if tokens and tokens not in seen:
+            seen.append(tokens)
     return seen
 
 
-# Function words that mark Latin-script text as French, Spanish, German, Italian, Portuguese or Dutch.
-# One strong word is enough; the weak ones are also English-looking and need two.
-_FOREIGN_STRONG = frozenset(
-    "ik ich je moet soll sollte devo dois debo debe deberia debería mijn mein meine meinen est sont les des une pour dans "
-    "una unos unas por este esta estos estas cette ces dieses diese dieser dit niet nicht und ist kann kunnen puedo posso "
-    "voglio quiero tengo ho hai suis sont avec sans medicamento farmaco medikament medicijn paciente paziente patiente "
-    "arzt medico medecin docteur dokter".split()
-)
-_FOREIGN_WEAK = frozenset(
-    "el la le lo los las de du un en con che di della del der die das ein eine het een wat que qui pas vous il sus uma".split()
-)
+# --- the two vocabularies ----------------------------------------------------------------------------------
 
-
-_ENGLISH = frozenset(
+# A person: the asker, the asker's people, a patient, a clinician, anyone.
+_PERSON_WORDS = frozenset(
     """
-    the and for are was were what which who whom whose when where why how does did doing this that these those with without from about
-    there here any all been being have has had having will would could should can may might must shall you your yours not its our ours
-    per but their they them then than into onto also such each other others more most some only own same very too just still yet
-    already ever never again between among over under after before during while because since until upon within across through
-    does don doesn didn isn aren wasn weren won wouldn couldn shouldn can cannot let lets say says said tell tells told ask asked
-    give gives given show shows shown list lists listed name names named quote quotes quoted source sources cite cites cited citation
-    citations related relate relates relationship relationships record records report reports accepted version versions field fields
-    status state states stated overall recruiting recruitment recruit enrolled enrolling enrollment enroll estimated expected planned
-    sponsor sponsors sponsored funded funds fund funding collaborator collaborators investigator investigators principal official title
-    summary summarise summarize summarized brief detailed description describe describes described mention mentions mentioned mentioning
-    trial trials study studies design designed phase type types arm arms group groups cohort cohorts intervention interventions
-    outcome outcomes primary secondary measure measures endpoint endpoints condition conditions eligibility criteria inclusion exclusion
-    location locations site sites country countries city start started date dates completion complete completed update updated updates
-    posted results result data first last latest recent new newest old oldest early earlier late later current currently open closed
-    active ongoing terminated withdrawn suspended unknown headline gap gaps question questions answer answers cites support supports
-    supported extend extends extended contradict contradicts evidence quote proof claim claims number numbers many much long often
-    one two three four five six seven eight nine ten first second third next previous another others else anything everything something
-    nothing anyone everyone someone nobody name called identify identifies identified find found see look looks looking read says
-    explain explains explained clarify mean means meant meaning stand stands standing include includes included including contain
-    contains contained involve involves involved involving use used uses using blood plasma tissue tumor tumour sample samples draw draws
-    ctdna cfdna dna rna gene genes genetic genomic genomics molecular profiling profile assay assays panel panels test tests testing
-    tested diagnostic diagnostics lung cancer cancers nsclc stage staged disease diseases patient patients participant participants people
-    person adult adults age ages year years month months week weeks day days time times duration length period lasts last
-    foundationone liquid cdx foundation medicine guardant tempus signatera natera sensitivity specificity detection detect detected
-    mutation mutations variant variants biomarker biomarkers genotyping genotype sequencing sequence next generation ngs liquid biopsy
-    related extends supports advanced metastatic early recurrent resectable localized resection surgery treatment therapy drug drugs
-    approved approval regulatory fda company manufacturer maker vendor product products device devices kit kits platform
-    yes true false whether either neither both between versus than like unlike same different similar difference differences
-    higher lower greater fewer less least best good better bad worse big small large high low full partial total whole part parts
-    key main major minor main other common specific general particular certain possible likely unlikely available unavailable
-    public private clinical clinicaltrials gov registry register registered registration identifier identifiers reference references
-    link links page pages text word words sentence sentences line lines paragraph table section sections content contents
-    ordered order orders sort sorted rank ranked ranking compare compared comparison contrast against along alongside beside beyond
-    which whichever whatever whoever whenever wherever however therefore thus hence moreover furthermore otherwise instead meanwhile
-    summarising summarizing overview overviews outline outlined highlight highlights highlighted point points pointed noted note notes
-    uncertainty uncertainties limitation limitations caveat caveats open remains remain remaining unresolved unanswered missing
-    count counts counted total totals amount amounts size sizes percent percentage
-    world cup country city capital president king queen war won win wins game games team teams price prices stock stocks market markets
-    cost costs pay paid money company companies health hospital hospitals university research researcher researchers scientist scientists
-    work works worked working make makes made making take takes took taking get gets got getting go goes went going come comes came coming
-    know knows knew think thinks thought want wants need needs needed help helps helped try tries tried keep keeps kept put puts turn turns
-    move moves run runs ran how way ways thing things man men woman women child children family home house water food life living live
-    lives die died death born birth work job jobs school class book books story stories news report weather time today tomorrow yesterday
-    right left back front top bottom side inside outside above below near far close away together apart alone every always sometimes
-    usually often rarely once twice few several enough half double single multiple various own whole entire based using via per
-    works explain explained discuss discusses discussed define defines defined definition example examples case cases reason reasons
-    cause causes caused effect effects impact impacts model models method methods process processes system systems step steps result
-    pcr protein proteins cell cells mouse mice animal animals human humans science technology tech software computer internet website
-    language languages english french spanish german chinese japanese science history math maths physics chemistry biology
-    ceo founder founded founders owner owners leader leaders director directors employee employees staff boss
-    recipe recipes poem poems joke jokes song songs movie movies music sport sports
+    i im ive me my mine myself we us our ours ourselves
+    mum mummy mom mommy mama dad daddy papa parent parents family families friend friends relative relatives cousin cousins
+    aunt auntie uncle grandma grandmother grandpa grandfather son daughter child children kid kids baby wife husband partner
+    spouse boyfriend girlfriend brother sister sibling siblings mother father neighbour neighbor colleague coworker boss
+    he she him his her hers himself herself someone somebody anyone anybody person persons man men woman women lady guy girl boy
+    elderly senior smoker smokers survivor survivors
+    patient patients doctor doctors physician physicians oncologist oncologists clinician clinicians nurse nurses surgeon
+    surgeons specialist specialists pharmacist pharmacists gp practitioner practitioners
     """.split()
 )
-
-
-def _not_plain_english(question: str) -> bool:
-    """True when the question is not mostly known English words. Fails closed: any other Latin-script language,
-    ROT13 and gibberish all read as unknown words, so they are refused without listing them."""
-    text = unicodedata.normalize("NFKC", question).translate(_ZERO_WIDTH)
-    if any(ch.isalpha() and ord(ch) > 127 for ch in text):
-        return True
-    tokens = re.findall(r"[a-z]+", text.lower())
-    if any(t in _FOREIGN_STRONG for t in tokens):
-        return True
-    if sum(1 for t in tokens if t in _FOREIGN_WEAK) >= 2:
-        return True
-    words = [t for t in tokens if len(t) >= 3]
-    if not words:
-        return False
-    known = sum(1 for t in words if t in _ENGLISH)
-    return known * 2 < len(words)
-
-
-_RELATIVE = r"(?:mother|mom|mum|father|dad|wife|husband|partner|spouse|son|daughter|child|children|brother|sister|friend|grandmother|grandfather|grandma|grandpa|aunt|uncle|relative|family member|loved one|boyfriend|girlfriend|neighbou?r|colleague|client)"
-_CLINICIAN = r"(?:clinicians?|doctors?|oncologists?|physicians?|surgeons?|nurses?|pathologists?|radiologists?|gps?|practitioners?)"
-_MED_VERB = (
-    r"(?:take|start|stop|begin|use|get|order|try|choose|pick|switch|change|receive|undergo|have|treat|test|screen|biopsy|"
-    r"prescribe|give|avoid|skip|continue|discontinue|enrol|enroll|join|worry|see|go|combine|add|drop|rely|adopt|"
-    r"be\s+(?:treated|tested|given|put|started|switched|screened|offered|cured|operated))"
+# A decision or a clinical matter, as whole words and as prefixes.
+_DECISION_WORDS = frozenset(
+    """
+    should shouldnt ought would suppose imagine pretend hypothetical hypothetically scenario theoretically
+    advice advise advised advisable recommend recommended recommendation recommendations suggest suggested suggestion
+    opinion opinions choose choice choices pick prefer preferred decide decision decisions
+    dose doses dosage dosing drug drugs medicine medicines medication medications medic medical pill pills tablet tablets
+    treat treated treating treatment treatments therapy therapies therapeutic chemo chemotherapy radiotherapy radiation
+    immunotherapy surgery surgical operation regimen prescribe prescribed prescription
+    diagnose diagnosed diagnosis diagnoses prognosis prognostic survive survival mortality cure cured curable
+    biopsy biopsies symptom symptoms risk risks safe safely unsafe dangerous eligible eligibility qualify candidate
+    """.split()
 )
-_THING = r"(?:treatment|therapy|therapies|drug|drugs|medication|medications|medicine|medicines|regimen|chemo|chemotherapy|immunotherapy|radiotherapy|radiation|surgery|operation|pill|pills|tablet|tablets|inhibitor|inhibitors)"
+_PERSON_PREFIX = re.compile(r"^(?:patient|doctor|physician|oncolog|clinician|nurse|surgeon|pharmac)\w*$")
+_DECISION_PREFIX = re.compile(
+    r"^(?:recommend|advis|advice|suggest|prescri|treat|therap|diagnos(?:e|es|ed|ing|is)\b|prognos|biops|medic|surg|chemo|radiother|immunother|"
+    r"symptom|surviv|cure|curab|dosag|dosing|decision|decid|should|eligib)\w*$"
+)
 
-# (name, pattern). The first match wins; the name is only for the Decision's inputs.
-_RULES: list[tuple[str, re.Pattern[str]]] = [
+# Frames that make a question hypothetical or personal, matched on the token string.
+_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(pattern))
-    for name, pattern in [
-        # Indirect, third-party, hypothetical and misspelled ways of asking the same things.
-        ("modal_typo", r"\bsh(?:ou|uo|o|u)?l?d\s+(?:i|we)\b"),
-        ("should_filler_patient", r"\bshould\s+(?:\w+\s+){0,6}(?:patients?|women|woman|men|man|people|persons?|adults?|smokers?|children|child|kids?|someone|girl|boy|lady)\b"),
-        ("advice_near_person", r"\b(?:suggest\w*|advis\w*|recommend\w*|appropriate|advisable|worth|indicated|warranted)\b(?:\s+\w+){0,6}\s+(?:i|me|my|we|us|our|patients?|friend|her|him|she|he|someone|them|persons?)\b|\b(?:i|me|my|we|us|our|patients?|friend|her|him|someone|them)\b(?:\s+\w+){0,6}\s+(?:suggest\w*|advis\w*|recommend\w*|appropriate|advisable|indicated|warranted)\b"),
-        ("need_treatment", r"\bneed\w*\s+(?:a\s+|an\s+|any\s+|some\s+)?(?:\w+\s+){0,2}(?:chemo\w*|treatments?|surgery|therapy|medications?|drugs?|radiation|operation|immunotherapy|biopsy|biopsies)\b"),
-        ("right_call", r"\b(?:right|good|best|better|wise|correct|safe|sensible|smart)\s+(?:call|choice|option|approach|move|decision|idea|course|step)\b|\bgood\s+options?\b"),
-        ("clinician_would", rf"\b(?:would|will|does|do|did|should|could|can)\s+(?:the\s+|a\s+|my\s+)?(?:\w+\s+)?{_CLINICIAN}\s+(?:\w+\s+){{0,2}}(?:advis|recommend|suggest|prescrib|order|treat|perform|choose|pick|offer|give|start|stop|do)\w*"),
-        ("advisable", r"\badvisable\b|\b(?:appropriate|recommended|indicated)\s+(?:for|to)\b|\bworth\s+(?:getting|taking|doing|having|trying)\b"),
-        ("next_step", r"\bnext\s+steps?\b(?:\s+\w+){0,8}\s+(?:patients?|symptoms?|me|my|i|someone|person|him|her)\b|\b(?:patients?|symptoms?|my|someone|person|him|her)\b(?:\s+\w+){0,8}\s+next\s+steps?\b|\bwhat\s+(?:now|next)\b"),
-        ("dose_word", r"\b(?:dose|doses|dosage|dosages|dosing)\b"),
-        ("how_much", r"\bhow\s+much\s+(?:\w+\s+)?(?:should|to\s+(?:give|take|use|administer)|can\s+(?:i|we|a|the)|do\s+(?:i|we))\b|\bshould\s+(?:\w+\s+){0,2}(?:be\s+)?(?:given|administered|taken|prescribed|started|stopped)\b"),
-        ("what_to_do", r"\bwhat\s+to\s+(?:do|take|give|use|choose|pick|order|prescribe|start|stop)\b|\bwhat\s+(?:do|can|could|should)\s+(?:i|we)\s+do\b"),
-        ("how_do_i_enrol", r"\bhow\s+(?:do|can|could|would|should)\s+(?:i|we)\s+(?:enrol|enroll|join|sign|apply|participate|qualify|take|start|stop|treat)\b"),
-        ("third_party", rf"\b(?:a|my|our|his|her|their)\s+(?:\w+\s+)?(?:mother|mom|mum|father|dad|wife|husband|spouse|son|daughter|child|children|brother|sister|friend|grandmother|grandfather|grandma|grandpa|aunt|uncle|relative|family member|loved one|boyfriend|girlfriend|neighbou?r)\b|\bapplies?\s+to\s+(?:her|him|them|me|my)\b|\b(?:he|she)\s+(?:has|have|was\s+told|was\s+diagnosed|is\s+(?:sick|ill|dying))\b|\bsomeone\s+(?:had|has|have|got)\b"),
-        ("hypothetical_frame", r"(?=.*\b(?:hypothetical\w*|educational\s+purposes?|for\s+(?:a|my)\s+friend|asking\s+for|just\s+curious|theoretically|in\s+theory|research\s+purposes?|academic\w*|roleplay|role\s+play|pretend|imagine|suppose)\b)(?=.*\b(?:diagnos\w*|treat\w*|cure\w*|recommend\w*|advis\w*|should|therapy|drug|dose|prescrib\w*|patients?|cancer|nsclc|tumou?r|surgery|chemo\w*)\b)"),
-        ("how_treated", r"\bhow\s+(?:do|does|would|should|can|could|is|are|did|will)\s+(?:\w+\s+){0,4}(?:treat|treated|treating|managed|manage|diagnosed|diagnose|cured|cure|handled|handle)\b"),
-        ("clinicians_do", rf"\bwhat\s+(?:do|does|would|should|can|could|will)\s+(?:the\s+)?(?:{_CLINICIAN}|patients?|people|persons?)\s+(?:\w+\s+){{0,2}}(?:do|take|give|order|prescribe|use|advise|recommend|start|offer|suggest|tell)\b"),
-        ("treatment_for_disease", r"\b(?:treatments?|therapy|therapies|cure|medications?|drugs?)\s+(?:for|of|against)\s+(?:\w+\s+){0,3}(?:cancer|nsclc|sclc|disease|tumou?rs?|carcinoma|lung|malignan\w*|adenocarcinoma|mutation)\b"),
-        ("prognosis_word", r"\bprognos\w*\b|\bsurvival\s+(?:rates?|chances?|odds|times?|probabilit\w*|likelihood)\b|(?<!overall\s)(?<!free\s)\bsurvival\b|\bmortality\b"),
-        ("will_survive", r"\bwill\s+(?:the\s+|this\s+|a\s+|my\s+)?(?:\w+\s+){0,2}(?:patient|person|he|she|they)\s+(?:survive|live|die|relapse|recover)\b|\bwill\s+(?:it|he|she|they)\s+(?:come\s+back|spread|relapse)\b"),
-        ("benefit", r"\b(?:would|will|could|can|does|do)\s+(?:\w+\s+){0,3}(?:patients?|persons?|people|someone|i|we)\s+(?:\w+\s+){0,2}(?:benefit|respond|qualify|survive|live|die|relapse|recover|improve|get\s+better)\b"),
-        ("tell_whether", r"\btell\s+(?:me|us)\s+(?:whether|if)\s+(?:to|i|we|he|she|they|a\s+patient|the\s+patient)\b|\btell\s+(?:the\s+patient|them|him|her)\s+(?:what|whether|which|how|if)\b|\bwhether\s+to\s+(?:get|take|start|stop|have|do|use|order|undergo|treat|test|biopsy|operate|screen|skip|continue|switch)\b"),
-        ("ok_to_ignore", r"\b(?:ok|okay|safe|fine|alright)\s+to\s+(?:ignore|skip|stop|delay|wait|defer|postpone)\b"),
-        ("skip_treatment", r"\b(?:skip|ignore|delay|avoid|refuse|forgo|postpone|defer|decline)\s+(?:a\s+|an\s+|the\s+|any\s+)?(?:\w+\s+){0,3}(?:surgery|treatments?|chemo\w*|therapy|medications?|biops(?:y|ies)|results?|tests?|testing|screening|follow\s*up)\b|\bstop\s+(?:a\s+|an\s+|the\s+)?(?:\w+\s+){0,2}(?:treatments?|chemo\w*|therapy|medications?)\b"),
-        ("diagnose_word", r"\bdiagnose\b|\bdiagnosing\b"),
-        ("cure_word", r"\bcures?\b|\bcurable\b|\bcured\b"),
-        ("do_they_have", r"\b(?:do|does|did|will|would)\s+(?:they|he|she|you|we)\s+(?:have|get)\s+(?:\w+\s+){0,2}(?:cancer|disease|tumou?rs?|nsclc|carcinoma|lung|infection|condition|illness|mutation)\b"),
-        ("my_situation", r"\bmy\s+(?:\w+\s+)?(?:situation|case|family|history|nodules?|lumps?|masses|lesions?|growths?|cysts?|polyps?)\b"),
-        # Asking what to do ("should I or my patient ...").
-        ("should_i", r"\bshould\s+(?:i|we)\s+(?:or|and)\s+(?:my|our|the|a)\b"),
-        ("should_i_any", r"\bshould\s*i\b"),
-        ("should_we_medical", rf"\bshould\s+(?:we|you|he|she|they|one|someone)\s+(?:\w+\s+){{0,2}}{_MED_VERB}\b"),
-        ("should_patient", rf"\bshould\s+(?:\w+\s+){{0,2}}(?:patients?|{_CLINICIAN}|{_RELATIVE})\b"),
-        ("should_my", rf"\bshould\s+(?:my|our)\s+(?:\w+\s+){{0,2}}{_MED_VERB}\b"),
-        ("who_should", rf"\bwho\s+should\s+(?:\w+\s+){{0,2}}{_MED_VERB}\b"),
-        ("what_should_do", rf"\bwhat\s+(?:\w+\s+)?should\s+(?:i|we|you|they|he|she|a\s+patient|the\s+patient|patients|{_CLINICIAN})\s+(?:\w+\s+)?(?:do|take|ask|order|choose|pick|use|prescribe|give|try|start|stop|get|test|treat|expect|know)\b"),
-        ("what_would_you_do", r"\b(?:what\s+would\s+you\s+do|if\s+you\s+were\s+(?:me|him|her|in\s+my)|what\s+would\s+you\s+(?:take|choose|pick|recommend))\b"),
-        ("would_you_recommend", r"\b(?:would|do|can|could|will)\s+you\s+(?:recommend|advise|suggest|prescribe|give|choose|pick|order|start|stop|treat|test|tell\s+me\s+(?:what|which|whether))\b"),
-        ("advise_on", r"\badvise\s+(?:on|me|us|my|the|him|her|them|about)\b|\btell\s+(?:me|my\s+\w+|us)\s+what\s+to\s+(?:do|take|give|use|choose)\b"),
-        ("i_should", r"\bi\s+should\b|\bshould\s+(?:he|she|they)\b"),
-        ("patient_decision", rf"\b(?:a|the|this|that|one|each|every|my|our|per)\s+(?:\w+\s+){{0,2}}patient\b.*\b(?:right|best|better|need|needs|recommend\w*|should|give|take|treat\w*|diagnos\w*|cure\w*|eligible|candidate|safe|effective|suitable|worry|advice|advise|options|next|drug|therapy|dose|dosage|biopsy|surgery|chemo\w*|immunotherapy|prescri\w*)\b|\b(?:right|best|better|recommend\w*|should|give|take|treat\w*|diagnos\w*|cure\w*|safe|effective|suitable|prescri\w*|need|needs)\b.*\b(?:a|the|this|that|one|each|every|my|our)\s+(?:\w+\s+){{0,2}}patient\b"),
-        ("patients_need", r"\bpatients\s+(?:\w+\s+){0,2}(?:need|needs|must|should)\b|\b(?:do|does|should|must)\s+patients\b"),
-        ("like_me", r"\b(?:like\s+me|someone\s+(?:with|who|newly|recently|like)|a\s+person\s+with|people\s+like|patients\s+like|for\s+(?:a|an)\s+(?:\d+|\w+)[\s-]year[\s-]old)\b"),
-        ("what_do_i_take", r"\b(?:what|which)\s+(?:\w+\s+){0,3}(?:do|can|could|would|will)\s+(?:i|we|he|she|they)\s+(?:take|use|get|try|give|need|do)\b|\bif\s+i\s+(?:skip|stop|miss|delay|refuse|don'?t|do\s+not)\b|\bwhat\s+happens\s+if\s+(?:i|he|she|they)\b"),
-        ("recommend_me", r"\b(?:recommend|advise|suggest|prescribe)\s+(?:me|us|him|her|them|my|a\s+(?:treatment|therapy|drug|test|dose|medication)|what|which|something)\b"),
-        ("advice_words", r"\b(?:medical|clinical|treatment|health|diagnostic)\s+(?:advice|recommendations?|guidance|opinions?)\b|\bsecond\s+opinion\b|\bgive\s+me\s+(?:some\s+)?advice\b|\bneed\s+advice\b"),
-        # Personal medical context: me, my patient, my relatives.
-        ("my_patient", rf"\bmy\s+(?:\w+\s+)?(?:patients?|{_RELATIVE}|doctors?|oncologists?|physicians?|clinicians?|nurses?)\b"),
-        ("my_medical_noun", r"\bmy\s+(?:\w+\s+)?(?:tumou?rs?|cancers?|diagnos\w+|biops(?:y|ies)|scans?|symptoms?|treatments?|therapy|medications?|prescriptions?|blood\s?work|mutations?|conditions?|illness|disease|lab\s+results?|test\s+results?|results?|ctdna|cfdna|genes?|lung|lungs|chest|cough|pain|options|chances|risk|odds|health|prognosis|stage)\b"),
-        ("first_person_clinical", r"\bi\s+(?:was\s+diagnosed|was\s+told\s+i|think\s+i\s+have|might\s+have|may\s+have|am\s+(?:sick|ill|dying|diagnosed|pregnant|worried\s+about|scared|a\s+patient)|feel\s+(?:sick|ill|pain|dizzy|tired|weak)|have\s+(?:a\s+)?(?:cough|pain|fever|symptoms?|cancer|tumou?r|nodule|mass|lump|shortness|diagnos\w+|stage\s+\w+|nsclc|sclc|egfr|alk|kras|mutation|lung))\b"),
-        ("do_i_have", r"\b(?:do|did|will|would|could|might|may)\s+i\s+(?:have|need|get|die|survive|live|qualify|be\s+(?:cured|ok|okay|fine|sick|ill))\b"),
-        ("am_i", r"\bam\s+i\s+(?:sick|ill|dying|cured|at\s+risk|eligible|a\s+candidate|suitable|a\s+good\s+fit|safe|ok|okay|healthy|going\s+to)\b"),
-        ("can_i_medical", rf"\b(?:can|could|may|might)\s+i\s+(?:safely\s+)?(?:take|stop|start|get|have|receive|skip|combine|mix|drink|eat|drive|exercise|travel|enrol|enroll|join|qualify|participate|undergo|order|try|switch|be\s+(?:treated|tested|cured))\b"),
-        ("eligibility", rf"\bis\s+(?:he|she|they|my\s+\w+|the\s+patient|this\s+patient|a\s+patient|{_RELATIVE})\s+(?:eligible|a\s+candidate|suitable|a\s+good\s+fit)\b"),
-        # Diagnosis, treatment, dose, prognosis.
-        ("diagnose_someone", r"\bdiagnos(?:e|ing)\s+(?:me|him|her|them|my|a|the|this|that|someone|myself)\b|\bwhat(?:'?s|\s+is)\s+(?:wrong|the\s+matter)\s+with\b|\bwhat\s+(?:disease|condition|illness|cancer)\s+(?:do|does|have|has)\s+(?:i|he|she|they)\b"),
-        ("treat_someone", rf"\b(?:treat(?:ing)?|cure|curing|medicat(?:e|ing)|operate\s+on|heal)\s+(?:\w+\s+){{0,2}}(?:me|him|her|them|my|his|their|myself|someone|a\s+patient|the\s+patient|this\s+patient|a\s+person)\b"),
-        ("how_to_treat", r"\bhow\s+(?:to|do\s+(?:i|we|you)|can\s+(?:i|we|you)|should\s+(?:i|we|you))\s+(?:treat|cure|manage|prevent|diagnose|heal|fix|get\s+rid\s+of|beat|survive)\b"),
-        ("can_be_cured", r"\b(?:can|could|will)\s+(?:it|this|that|[\w\-]+(?:\s+[\w\-]+)?)\s+be\s+(?:cured|treated|healed|prevented|reversed)\b|\bis\s+(?:it|this|that|[\w\-]+(?:\s+[\w\-]+)?)\s+(?:curable|treatable|survivable)\b"),
-        ("prescribe", r"\bprescri(?:be|bes|bed|bing|ption|ptions)\b"),
-        ("dose", rf"\b(?:dose|doses|dosage|dosing)\b.*\b(?:should|take|give|recommend|safe|right|best|use|per\s+day|daily)\b|\bhow\s+(?:much|many)\s+(?:\w+\s+)?(?:mg|milligrams?|pills?|tablets?|doses?|{_THING})\b|\bwhat\s+(?:dose|dosage)\b"),
-        ("best_treatment", rf"\b(?:best|better|safest|safer|right|optimal|ideal|recommended|appropriate|suitable|preferred|most\s+effective|first[\s-]line|second[\s-]line)\s+(?:\w+\s+){{0,2}}{_THING}\b"),
-        ("what_to_give", rf"\b(?:what|which)\s+(?:\w+\s+){{0,2}}(?:{_THING}|test|assay)\s+to\s+(?:give|take|use|prescribe|choose|pick|try|order|offer|start)\b"),
-        ("treatment_options", rf"\b(?:treatment|therapy)\s+(?:options|plan|choices|regimen|approach|pathway)\b|\brecommended\s+(?:workup|work-up|screening|approach|course|protocol|management|pathway|schedule|guidelines?)\b|\bstandard\s+of\s+care\b"),
-        ("is_thing_recommended", rf"\bis\s+(?:\w+\s+){{0,2}}(?:{_THING}|biopsy|biopsies)\s+(?:recommended|advised|necessary|needed|required|appropriate|indicated|warranted|better|worth)\b"),
-        ("best_way", r"\b(?:best|right|safest|proper|correct)\s+way\s+to\s+(?:treat|cure|manage|diagnose|detect|test|screen|prevent)\b"),
-        ("comparison", rf"\b(?:better|best|safer|safest|more\s+effective|preferable|superior)\b.*\b{_THING}\b|\b{_THING}\b.*\b(?:better|best|safer|safest|more\s+effective|preferable|superior)\b"),
-        ("rule_out", r"\b(?:rule|rules|ruled)\s+out\s+(?:\w+\s+){0,2}(?:cancer|disease|tumou?r|malignancy|lung)\b"),
-        ("dosage_chart", r"\b(?:dosage|dosing)\s+(?:chart|guide|table|schedule|recommendations?|instructions?)\b|\b(?:give|tell)\s+me\s+(?:a\s+|the\s+)?(?:dose|dosage)\b"),
-        ("which_treatment", rf"\b(?:what|which)\s+(?:\w+\s+){{0,2}}{_THING}\b.*\b(?:should|recommend\w*|best|better|right|choose|pick|prescribe|safest|safer|preferred|appropriate|suitable)\b"),
-        ("best_test", r"\b(?:best|better|right|recommended|appropriate|suitable|preferred)\s+(?:\w+\s+){0,2}(?:test|assay|biomarker|panel|scan)\s+(?:for|to)\s+(?:diagnos|detect|screen|identify|choose|guide|decide|treat|monitor)\w*"),
-        ("which_test_to_order", rf"\bwhich\s+(?:\w+\s+){{0,2}}(?:test|assay|panel|scan)s?\s+(?:should|to|do\s+i|would\s+you)\b"),
-        ("order_test", rf"\b(?:should|do)\s+(?:\w+\s+){{0,3}}(?:order|run|request|get)\s+(?:a\s+|an\s+|the\s+)?(?:\w+\s+){{0,3}}(?:test|assay|panel|scan|biopsy)\b"),
-        ("safe_for", r"\b(?:safe|unsafe|dangerous|harmful)\s+(?:for|to)\s+(?:me|us|him|her|them|my\s+\w+|a\s+patient|the\s+patient|someone|pregnant|children|kids|the\s+elderly|take|use|give|combine|mix|drink|eat)\b"),
-        ("is_it_ok_to", r"\bis\s+it\s+(?:ok|okay|fine|wise|advisable|a\s+good\s+idea|worth(?:\s+it)?|recommended|necessary)\s+(?:for\s+\w+\s+)?to\s+(?:take|use|stop|start|skip|get|order|test|treat|switch)\b"),
-        ("side_effects_for_me", r"\b(?:side\s+effects?|risks?|interactions?)\b.*\b(?:for\s+me|for\s+my|for\s+him|for\s+her|if\s+i|when\s+i)\b"),
-        ("prognosis", r"\b(?:my|his|her|their|the\s+patient'?s?)\s+(?:prognosis|survival|life\s+expectancy|chances|odds)\b|\blife\s+expectancy\b|\bhow\s+long\s+(?:will|do|does|can|would)\s+(?:i|he|she|they|a\s+patient|the\s+patient|my\s+\w+)\s+(?:live|survive|have\s+left|last)\b|\bchances?\s+of\s+(?:survival|surviving|dying|recovery|recovering|cure|remission)\b"),
-        ("interpret_results", r"\binterpret\s+(?:my|his|her|their|these|this|the)\s+(?:\w+\s+){0,2}(?:results?|scan|biopsy|labs?|ctdna|mutation|genomic|blood)\b"),
-        ("clinical_decision", rf"\b(?:should|must|ought\s+to)\s+(?:\w+\s+){{0,3}}(?:{_CLINICIAN}|patients?)\s+(?:\w+\s+){{0,3}}{_MED_VERB}\b"),
-        # Red-team round: role-play, one-word asks, hedged and indirect questions.
-        ("roleplay_clinician", r"\b(?:pretend|role\s?play|act(?:ing)?\s+as|imagine\s+(?:you|that)|you\s+are\s+(?:now\s+)?an?)\b.*\b(?:oncolog\w*|doctors?|clinicians?|physicians?|nurses?|medic\w*|surgeons?)\b"),
-        ("self_identified_clinician", r"\b(?:as|i\s+am|im|i'?m)\s+an?\s+(?:\w+\s+)?(?:physicians?|nurses?|clinicians?|doctors?|oncologists?|surgeons?|pharmacists?|gps?)\b"),
-        ("ought_to", r"\b(?:ought|supposed)\s+(?:to|one)\b"),
-        ("one_word_ask", r"^\s*(?:treatments?|diagnos[ie]s|therapy|therapies|dose|dosage|recommendations?|advice|cure|prognosis|medication)(?:\s+please)?\W*$"),
-        ("is_it_cancer", r"\bis\s+(?:a\s+|an\s+|it\s+|this\s+|that\s+)?[\w\s]{0,12}(?:nodules?|lumps?|mass|cough|spots?|shadows?)\b.*\bcancer\b"),
-        ("likely_to_recur", r"\b(?:likely|chances?|risks?|probab\w*)\b.*\b(?:come\s+back|recur\w*|relaps\w*|spread)\b"),
-        ("side_effects", r"\bside\s+effects?\b|\badverse\s+(?:events?|effects?|reactions?)\b"),
-        ("safe_word", r"\b(?:un)?safe(?:ly|ty)?\b"),
-        ("therapy_follows", r"\b(?:what|which)\s+(?:\w+\s+){0,2}(?:therapy|therapies|treatments?|drugs?|medications?)\s+(?:\w+\s+){0,2}(?:follows?|suits?|fits?|applies|apply|works?|helps?)\b|\bwhat\s+follows\b"),
-        ("treatment_decisions", r"\b(?:treatment|therapy)\s+(?:decisions?|choices?|planning|selection)\b|\bdecid\w*\s+(?:\w+\s+){0,3}(?:treatment|therapy)\b"),
-        ("can_a_patient", r"\b(?:can|could|may|would|will|should)\s+(?:a|an|the|any|this|that)\s+(?:(?!records?|reports?|trials?|stud(?:y|ies)|quotes?|sources?)\w+\s+){0,3}patients?\b(?!\s+(?:population|cohort|group|arm|arms|data|characteristics|enrol\w*|eligib\w*|number|count))"),
-        ("how_do_i_know", r"\bhow\s+(?:do|can|would|will)\s+(?:i|we)\s+know\b"),
-        ("tell_the_plan", r"\b(?:tell|give|show)\s+(?:me|us)\s+(?:the\s+|a\s+|my\s+)?(?:plan|regimen|protocol|schedule)\b"),
-    ]
-]
+    for name, pattern in (
+        ("would_you", r"\b(?:would|do|could|will|can) you (?:recommend|advise|suggest|think|pick|choose|prefer|do|say|take|give|tell me what)\b"),
+        ("what_would", r"\bwhat (?:would|could|might|if)\b"),
+        ("if_you_were", r"\bif you (?:were|was|had)\b|\byou think\b|\byour (?:opinion|view|advice|recommendation)\b"),
+        ("what_to_do", r"\bwhat to (?:do|take|give|use|choose|pick|order|prescribe|start|stop)\b"),
+        ("if_frame", r"\bif (?:a|an|the|some\w*|one|any\w*|it|they|there|this|that|i|we|you|he|she)\b"),
+        ("with_stage", r"\b(?:with|has|had|have|having|diagnosed with|diagnosed|at) stage\b|\bstage [a-z0-9]{1,4} (?:patient|disease|cancer|case)\b"),
+        ("years_old", r"\b\d+ ?(?:year|yr|yrs|years) ?(?:old)?\b|\baged \d+\b|\b\d+ y o\b"),
+        ("in_my_case", r"\bin (?:my|our|his|her|their) (?:case|situation|family)\b"),
+        ("side_effects", r"\bside effects?\b|\badverse (?:events?|effects?|reactions?)\b|\btoxicit\w*\b"),
+        ("for_example", r"\bfor (?:a|an) (?:friend|relative|family|colleague|patient|person)\b"),
+    )
+)
+
+# A Roman numeral after "phase" or "stage" is not the first person.
+_NUMERAL_CONTEXT = frozenset({"phase", "phases", "stage", "stages", "type", "grade"})
 
 
-_CLINICAL = re.compile(
-    r"\b(?:cancers?|nsclc|sclc|carcinomas?|tumou?rs?|nodules?|lumps?|lesions?|scans?|therap\w+|treat\w*|chemo\w*|drugs?|doses?|dosing|dosage|"
-    r"symptoms?|patients?|doctors?|oncolog\w*|physicians?|clinicians?|nurses?|surgeons?|diagnos\w*|prognos\w*|risks?|recurr\w*|relaps\w*|"
-    r"side\s+effects?|safe|safely|regimens?|surgery|surgical|operation|biops\w*|cure[sd]?|medic\w*|prescri\w*|pills?|egfr|kras|mutations?|"
-    r"deletions?|metasta\w*|radiotherapy|radiation|immunotherapy|coughs?|coughing|moles?|pain|fevers?|screening|meds?|mri|x-?rays?|ct\s+scans?|"
-    r"life[\s-]?saving|serious|dangerous|malignan\w*|benign|contagious|worr(?:y|ied|ies)|"
-    r"stage\s+(?:i{1,3}v?|iv|[1-4])[abc]?\d?|osimertinib|erlotinib|gefitinib|afatinib|dacomitinib|pembrolizumab|nivolumab|atezolizumab|"
-    r"durvalumab|cisplatin|carboplatin|pemetrexed|alectinib|lorlatinib|crizotinib|brigatinib|sotorasib|adagrasib|amivantamab|lazertinib|"
-    r"capmatinib|tepotinib|selpercatinib|paclitaxel|docetaxel|tagrisso|keytruda|opdivo)\b"
+def _rule_for_tokens(tokens: list[str]) -> str | None:
+    for index, token in enumerate(tokens):
+        if token == "i" and index > 0 and tokens[index - 1] in _NUMERAL_CONTEXT:
+            continue
+        if token in _PERSON_WORDS or _PERSON_PREFIX.match(token):
+            return f"person:{token}"
+        if token in _DECISION_WORDS or _DECISION_PREFIX.match(token):
+            return f"decision:{token}"
+    joined = " ".join(tokens)
+    for name, pattern in _PHRASES:
+        if pattern.search(joined):
+            return f"frame:{name}"
+    return None
+
+
+# --- other languages (accents folded) ---------------------------------------------------------------------
+
+_FOREIGN_WORDS = frozenset(
+    """
+    paciente pacientes medico medica doctora tratamiento tratamientos tratar medicamento medicamentos medicina farmaco farmacos
+    dosis diagnostico pronostico cirugia yo mi mis mio mia nosotros nuestro nuestra madre padre mama familia amigo amiga hermano hermana
+    debo deberia debe puedo recomienda recomiendas recomendar aconseja consejo sintomas biopsia enfermo enferma hijo hija esposa esposo
+    medecin docteur traitement traitements traiter medicament medicaments posologie pronostic chirurgie je moi mon ma mes nous notre nos
+    ami amie mere pere maman famille dois devrais devrait puis recommande recommandez conseille conseillez symptomes biopsie malade
+    arzt arztin aerztin behandlung behandeln medikament medikamente diagnose prognose operation ich mich mir mein meine meinen meiner
+    wir unser unsere mutter vater familie freund freundin sollte soll empfehlen empfehlung empfiehlst symptome krank therapie
+    dottore dottoressa cura curare trattamento farmaci diagnosi prognosi chirurgia io mia miei noi nostro nostra mamma famiglia amico
+    devo dovrei posso consiglia raccomanda sintomi malato
+    tratamento remedio cirurgia meu minha nos nosso nossa mae pai deveria recomenda sintomas doente
+    dokter behandeling medicijn medicijnen operatie ik mij mijn wij ons onze moeder vader vriend vriendin moet zou aanbevelen symptomen ziek
+    """.split()
 )
-# What a question about the record itself names. A question with clinical words and none of these is asking medicine.
-_LOOKUP = re.compile(
-    r"\b(?:status|recruit\w*|enrol\w*|sponsors?|names?|named|quotes?|quoted|sources?|related|results?\s+posted|purpose|versions?|citations?|"
-    r"cited|cites?|mention\w*|records?|reports?|headline|accepted|trial|trials|study|studies|listed|lists?|fields?|summar\w*|title|nct\w*|"
-    r"relationship|extends?|supports?|evidence|criteria|phase|completion|interventions?|arms?|locations?|stated|says?|describ\w*)\b"
-)
-# A first-person or third-party marker: the question is about someone, not about the record.
-_PERSONAL = re.compile(
-    r"\b(?:i|im|ive|id|me|my|mine|myself|we|our|ours|mum|mom|dad|cousin|colleague|heroine|hero|someone|somebody|person|friend|aunt|uncle|"
-    r"wife|husband|sister|brother|mother|father|neighbou?r|boss|coworker|character|protagonist)\b"
+# Scripts with no word spacing or a different alphabet: a substring is enough.
+_FOREIGN_SUBSTRINGS = (
+    "患者", "病人", "医生", "醫生", "医师", "治疗", "治療", "药", "藥", "我的", "我应该", "我該", "诊断", "診断", "处方", "手术", "手術",
+    "医師", "薬", "患者さん", "私の", "私は", "환자", "의사", "치료", "약", "진단", "내가", "제가",
+    "пациент", "врач", "лечени", "лекарств", "диагноз", "мой", "моя", "мне", "я ",
+    "مريض", "طبيب", "علاج", "دواء", "أنا", "انا",
 )
 
 
-def _layer_rule(text: str) -> str | None:
-    text = text.replace("foundation medicine", " ")  # a company name in the record, not medicine
-    if not _CLINICAL.search(text):
-        return None
-    if _PERSONAL.search(text):
-        return "clinical_personal"
-    if not _LOOKUP.search(text):
-        return "clinical_no_lookup"
+def _foreign_rule(question: str) -> str | None:
+    folded = _fold(question)
+    for token in re.findall(r"[a-z]+", folded):
+        if token in _FOREIGN_WORDS:
+            return f"foreign:{token}"
+    padded = unicodedata.normalize("NFKC", question).lower() + " "
+    for fragment in _FOREIGN_SUBSTRINGS:
+        if fragment in padded:
+            return "foreign:script"
     return None
 
 
 def medical_advice_rule(question: str) -> str | None:
-    """The name of the first pattern the question trips, or None. Case, spacing and simple
-    character substitutions do not hide a pattern."""
-    for text in _variants(question):
-        for name, pattern in _RULES:
-            if pattern.search(text):
-                return name
-    for text in _variants(question):
-        layer = _layer_rule(text)
-        if layer is not None:
-            return layer
-    if _not_plain_english(question):
-        return NON_ENGLISH_RULE
-    return None
+    """The name of the rule that makes this a medical question, or None. Case, spacing and simple character
+    substitutions do not hide a word."""
+    for tokens in _views(question):
+        rule = _rule_for_tokens(tokens)
+        if rule is not None:
+            return rule
+    return _foreign_rule(question)
 
 
 def is_medical_advice(question: str) -> bool:

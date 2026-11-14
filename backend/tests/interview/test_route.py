@@ -9,6 +9,7 @@ from dxp.api import auth
 from dxp.api import models as m
 from dxp.api.errors import ApiError
 from dxp.gate import policy_sets
+from dxp.interview import framing
 
 from .conftest import Q_STATUS, REPORT_ID, FakeLlm, make_report, quote_id
 
@@ -56,12 +57,11 @@ def test_other_flags_do_not_turn_interview_on(api_client, features, store, fake_
 
 def test_answers_with_the_flag_on(api_client, features, store, fake_llm: FakeLlm, fake_gate, signed_in) -> None:
     features("interview")
-    fake_llm.ids = [quote_id(Q_STATUS)]
     response = api_client.post(URL, json={"question": "Is the trial recruiting?"}, headers=HEADERS)
     assert response.status_code == 200, response.text
     body = response.json()
     assert set(body) == {"answer", "citations", "refused", "refusal_reason", "decision_id"}
-    assert body["answer"] == f'The accepted record says: "{Q_STATUS}" [1]'
+    assert body["answer"] == f"{framing.FRAME_INTRO}\n\n\"{Q_STATUS}\" [1]\n\n{framing.FRAME_QUOTES}"
     assert body["citations"][0]["quote"] == Q_STATUS
     assert body["refused"] is False and body["refusal_reason"] is None
     assert body["decision_id"].startswith("dec_")
@@ -170,3 +170,12 @@ def test_the_route_matches_the_published_contract() -> None:
     spec = create_app().openapi()
     operation = spec["paths"]["/api/v1/reports/{report_id}/interview"]["post"]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("/InterviewResponse")
+
+
+def test_an_off_topic_question_over_http_makes_no_model_call(api_client, features, store, fake_llm, fake_gate, signed_in) -> None:
+    features("interview")
+    response = api_client.post(URL, json={"question": "What is the status of the Moon landing?"}, headers=HEADERS)
+    body = response.json()
+    assert response.status_code == 200 and body["answer"] == "The accepted record doesn't answer that."
+    assert body["refusal_reason"] == "not_in_record" and body["citations"] == []
+    assert fake_llm.calls == []

@@ -11,12 +11,14 @@ export type InterviewCitation = components["schemas"]["InterviewCitation"];
 
 export const QUESTION_LIMIT = 500;
 
-/** The permanent label (V70). Always on the page, in every state. */
-export const VOICE_LABEL =
-  "AI voice for DxP reading public records about this report. Not the manufacturer, not a clinician, not medical advice.";
+/** The persona (V70 amendment). It never says "I'm" plus a product, company, trial or person. */
+export const PERSONA = "DxP's evidence guide";
+
+/** The permanent label (V70). Always on the page, in every state. It names the persona. */
+export const VOICE_LABEL = `${PERSONA}: reads quotes from the public record about this report. Not the manufacturer, not a clinician, not medical advice.`;
 
 /** The exact reply the backend gives when the record has no answer. The page shows what the backend returned. */
-export const NOT_IN_RECORD_TEXT = "The accepted record doesn't answer that";
+export const NOT_IN_RECORD_TEXT = "The accepted record doesn't answer that.";
 
 /** What a turn can be once the request has finished. */
 export type TurnOutcome =
@@ -90,19 +92,23 @@ export async function askQuestion(reportId: string, question: string): Promise<T
   }
 }
 
-/** One sentence of an answer: `<lead-in> "<quote>" [n]`, as the backend builds them. */
-export type AnswerPart = { leadIn: string; quote: string; marker: number } | { plain: string };
+/**
+ * One block of an answer, as the backend builds them. A cited quote is `"<quote>" [n]` and nothing else; every other
+ * block is one of the backend's fixed framing sentences. A quote never holds a line break (the backend collapses
+ * blank lines), so a block is always one quote or one framing sentence.
+ */
+export type AnswerPart = { quote: string; marker: number } | { plain: string };
 
-const SENTENCE = /^([\s\S]*?) "([\s\S]*)" \[(\d+)\]$/;
+const CITED_QUOTE = /^"([\s\S]*)" \[(\d+)\]$/;
 
-/** Split an answer into its cited sentences so the quote is set as a quote. Anything else stays plain text. */
+/** Split an answer into its blocks so a quote is set as a quote. Anything else stays plain text. */
 export function splitAnswer(answer: string): AnswerPart[] {
   return answer
     .split(/\n\n+/)
     .filter((block) => block.trim().length > 0)
     .map((block): AnswerPart => {
-      const match = SENTENCE.exec(block.trim());
+      const match = CITED_QUOTE.exec(block.trim());
       if (!match) return { plain: block.trim() };
-      return { leadIn: match[1], quote: match[2], marker: Number(match[3]) };
+      return { quote: match[1], marker: Number(match[2]) };
     });
 }

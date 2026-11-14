@@ -21,14 +21,49 @@ SOURCE_REF = "clinicaltrials.gov:NCT04712877"
 RELATED_REF = "clinicaltrials.gov:NCT05715229"
 
 Q_PURPOSE = "This study investigates molecular profiling using blood (ctDNA) and tumor tissue in early-stage (IA2 to III) lung cancer."
-Q_NAMES = "Other names: FoundationOne CDx, FoundationOne Liquid"
+Q_CLAIM = "FoundationOne CDx is better than FoundationOne Liquid in sensitivity (92% vs 85%)."
+Q_BLANK = "Observational cohort of adults.\n\nSamples are collected at baseline."
+Q_BLANK_SHOWN = "Observational cohort of adults. Samples are collected at baseline."
+Q_CONDITIONS = "Conditions: Lung Cancer, Non-Small Cell Lung Cancer"
 Q_STATUS = "Overall status: RECRUITING. No results posted."
+Q_RESULTS = "Results posted: No."
+Q_PHASE = "Phase: Not Applicable"
+Q_DESIGN = "Study type: OBSERVATIONAL. Observational model: Cohort. Time perspective: Prospective."
+Q_DATES = "Start date: 2021-03-01. Primary completion date: 2026-06-30 (estimated)."
+Q_SPONSOR = "Lead sponsor: Example University Hospital. Collaborators: Open Network."
+Q_LOCATION = "Locations: Toronto, Canada; Boston, United States."
 Q_ENROL = "Estimated enrollment: 120 participants."
+Q_INTERVENTION = "Intervention (DEVICE): FoundationOne Liquid CDx, a comprehensive genomic profiling assay."
+Q_NAMES = "Other names: FoundationOne CDx, FoundationOne Liquid"
 Q_RELATED_NEW = "Plasma ctDNA genotyping in early-stage disease."
 Q_RELATED_OLD = "Plasma ctDNA genotyping in advanced NSCLC."
 Q_PENDING = "A pending relationship quote about circulating tumor DNA."
 
-RAW_TEXT = " ".join([Q_PURPOSE, Q_NAMES, Q_STATUS, Q_ENROL, Q_RELATED_NEW])
+DISCOVERY_QUOTES = [
+    Q_PURPOSE, Q_CLAIM, Q_BLANK, Q_CONDITIONS, Q_STATUS, Q_RESULTS, Q_PHASE, Q_DESIGN, Q_DATES, Q_SPONSOR, Q_LOCATION,
+    Q_ENROL, Q_INTERVENTION, Q_NAMES,
+]
+
+RAW_TEXT = "\n\n".join(
+    [
+        "Brief title: Plasma ctDNA genotyping in early-stage lung cancer",
+        f"Brief summary: {Q_PURPOSE}",
+        f"Detailed description: {Q_CLAIM}\n\n{Q_BLANK}",
+        Q_CONDITIONS,
+        Q_STATUS,
+        Q_RESULTS,
+        Q_PHASE,
+        Q_DESIGN,
+        Q_DATES,
+        Q_SPONSOR,
+        Q_LOCATION,
+        Q_ENROL,
+        Q_INTERVENTION,
+        Q_NAMES,
+        "Eligibility criteria: Adults with early-stage lung cancer.",
+        Q_RELATED_NEW,
+    ]
+)
 RELATED_RAW_TEXT = f"Brief summary. {Q_RELATED_OLD} Second line."
 PENDING_RAW_TEXT = Q_PENDING
 
@@ -48,13 +83,8 @@ def make_report(**overrides: Any) -> dict[str, Any]:
             "summary": "A trial record.",
             "trial_status": "RECRUITING",
             "has_results": False,
-            "quotes": [
-                {"text": Q_PURPOSE, "quote_found": True, "version_id": VERSION_ID},
-                {"text": Q_NAMES, "quote_found": True, "version_id": VERSION_ID},
-                {"text": Q_STATUS, "quote_found": True, "version_id": VERSION_ID},
-                {"text": Q_ENROL, "quote_found": True, "version_id": VERSION_ID},
-                {"text": "A quote that was never found.", "quote_found": False, "version_id": VERSION_ID},
-            ],
+            "quotes": [{"text": text, "quote_found": True, "version_id": VERSION_ID} for text in DISCOVERY_QUOTES]
+            + [{"text": "A quote that was never found.", "quote_found": False, "version_id": VERSION_ID}],
             "mentions": [
                 {"name": "FoundationOne CDx", "field": "otherNames", "resolved_diagnostic_id": None},
                 {"name": "FoundationOne Liquid", "field": "otherNames", "resolved_diagnostic_id": None},
@@ -110,10 +140,15 @@ class FakeLlm:
         return "\n".join(str(msg["content"]) for _, _, messages in self.calls for msg in messages)
 
 
-def quote_id(text: str, source_ref: str = SOURCE_REF, version_id: str = VERSION_ID, field_name: str = "discovery") -> str:
-    from dxp.interview.cards import quote_id_for
+def quote_id(text: str, report: dict[str, Any] | None = None) -> str:
+    """The quote ID of the card made from this quote (the fixture's pinned raw text decides its field)."""
+    from dxp.interview import cards
 
-    return quote_id_for(source_ref, version_id, field_name, text)
+    shown = cards.normalise_text(text)
+    for card in cards.load_cards(report or make_report(), {VERSION_ID: RAW_TEXT}):
+        if card.text == shown:
+            return card.quote_id
+    raise AssertionError(f"not a card: {text!r}")
 
 
 @dataclass

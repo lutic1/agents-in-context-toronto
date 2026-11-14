@@ -112,7 +112,7 @@ export function InterviewView({ reportId }: { reportId: string }) {
                 }}
               />
               <p id={`${fieldId}-help`} className="text-caption text-muted-foreground">
-                Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
+                Typed questions only. Ask about this record&apos;s status, dates, conditions, phase, design, interventions, sponsor, location, enrollment or posted results. Answers quote only this report&apos;s evidence. DxP does not give medical advice. Press Ctrl+Enter or Command+Enter to ask.
               </p>
               <div className="flex items-center justify-between gap-3">
                 <p id={`${fieldId}-count`} className="text-caption text-muted-foreground">

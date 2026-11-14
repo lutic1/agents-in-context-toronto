@@ -1,18 +1,21 @@
 """One interview question, start to finish (V70).
 
-Order, and why:
+Order, and why. Every step before the ranking is deterministic, and none of them calls a model:
 
 1. The report must exist and be `accepted` (404, 409). Nothing is read from anything but the report.
-2. A medical-advice question gets the one fixed refusal. No model call is made, here or later.
-3. Otherwise the model selects quote IDs from the report's own cards (`llm`, one call). DxP builds the
-   text from fixed lead-ins and the verbatim quotes, then verifies it. Any failure ends in the exact
-   reply "The accepted record doesn't answer that".
-4. One `gate.evaluate` call records the `answer_question` Decision (question truncated, cited quote IDs
-   with their version_id, outcome) and carries the claim tags for check 4. A blocked Decision means a
-   refused response with reason `blocked` and no answer. This lane writes nothing else.
+2. MEDICAL: a question that mentions a person or a clinical decision gets the one fixed refusal.
+3. INTENT: the question must map to exactly one answerable intent (status, dates, conditions, phase, design,
+   interventions, sponsor, location, enrollment, results). Otherwise: "The accepted record doesn't answer that."
+4. OFF-TOPIC: every content word of the question must be a word of the record. Otherwise the same reply.
+5. CARDS: the intent may use only cards of its own fields, with no claim-like wording. None: the same reply.
+6. RANKING: only now may a model be asked, and only to put those eligible cards in order (`select.py`). It never
+   writes text. DxP composes the answer from allowlisted framing and the verbatim quotes, then verifies it. Any
+   failure ends in the exact reply "The accepted record doesn't answer that."
+7. One `gate.evaluate` call records the `answer_question` Decision (question truncated, intent, cited quote IDs
+   with their version_id, outcome) and carries the claim checks. A blocked Decision means a refused response with
+   reason `blocked` and no answer. This lane writes nothing else.
 
-A caller without `answer_question` in its grant costs no model call: the gate still records the
-blocked attempt.
+A caller without `answer_question` in its grant costs no model call: the gate still records the blocked attempt.
 """
 
 from __future__ import annotations
@@ -25,9 +28,9 @@ from dxp.api import models as m
 from dxp.api.errors import ApiError
 from dxp.interview import cards as cards_module
 from dxp.interview import compose as compose_module
-from dxp.interview import medical, repo, texts
-from dxp.interview.select import LlmCall, select_cards
-from dxp.interview.verify import QuoteCheck, claim_guard_blocks, verify_answer
+from dxp.interview import intents, medical, question as question_gate, repo, texts
+from dxp.interview.select import LlmCall, rank_cards
+from dxp.interview.verify import QuoteCheck, verify_answer
 
 log = logging.getLogger("dxp.interview")
 
@@ -69,28 +72,33 @@ def _not_in_record(**detail: Any) -> _Draft:
 async def build_answer(
     report: dict[str, Any], question: str, *, llm_call: LlmCall | None = None, quote_check: QuoteCheck | None = None
 ) -> _Draft:
-    """Cards, selection, composition and verification. Never raises for a model or verification failure."""
-    all_cards = cards_module.load_cards(report)
+    """Intent, off-topic guard, eligible cards, ranking, composition and verification. Never raises for a model or
+    verification failure. The model is reached only after every deterministic step has passed."""
+    verdict = question_gate.classify_intent(question)
+    if verdict.intent is None:
+        return _not_in_record(reason=verdict.reason)
+    intent = verdict.intent
+
+    raw = await _raw_texts(cards_module.discovery_versions(report))
+    all_cards = cards_module.load_cards(report, raw)
     if not all_cards:
-        return _not_in_record(reason="no_quotes_on_report")
-    try:
-        selected = await select_cards(question, all_cards, llm_call)
-    except Exception as exc:  # noqa: BLE001 - llm's own errors vary; never echo them (AD-20)
-        log.warning("interview selection failed (%s)", type(exc).__name__)
-        return _not_in_record(reason="selection_failed")
-    usable = [c for c in selected if not claim_guard_blocks(c, report)]
-    if not usable:
-        return _not_in_record(reason="nothing_selected" if not selected else "claim_guard")
-    names = cards_module.mention_names(report)
-    sentences = compose_module.compose(usable, names)
-    answer = compose_module.render(sentences)
-    raw = await _raw_texts({s.card.version_id for s in sentences})
-    verdict = await verify_answer(answer, sentences, names, raw, quote_check)
-    if not verdict.ok:
-        return _not_in_record(reason="verification_failed", problems=verdict.problems[:5])
+        return _not_in_record(reason="no_quotes_on_report", intent=intent.name)
+    outside = question_gate.off_topic_words(question, question_gate.vocabulary(report, all_cards))
+    if outside:
+        return _not_in_record(reason=question_gate.REASON_OFF_TOPIC, intent=intent.name, outside_words=len(outside))
+    eligible = intents.eligible_cards(intent, all_cards, cards_module.mention_names(report))
+    if not eligible:
+        return _not_in_record(reason="no_eligible_cards", intent=intent.name)
+
+    ranked = await rank_cards(question, intent.name, eligible, llm_call)
+    answer = compose_module.render(ranked)
+    verdict_ok = await verify_answer(answer, ranked, raw, quote_check)
+    if not verdict_ok.ok:
+        return _not_in_record(reason="verification_failed", intent=intent.name, problems=verdict_ok.problems[:5])
     draft = _Draft(OUTCOME_ANSWERED, answer)
-    draft.cards = [s.card for s in sentences]
-    draft.claims = verdict.claims
+    draft.cards = ranked
+    draft.claims = verdict_ok.claims
+    draft.detail = {"intent": intent.name}
     return draft
 
 

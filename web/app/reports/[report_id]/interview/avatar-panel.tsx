@@ -98,7 +98,7 @@ export function AvatarPanel({
     <section aria-labelledby="avatar-heading" className="rounded-lg border border-border bg-card p-5 shadow-sm">
       <h2 id="avatar-heading" className="flex items-center gap-2 text-heading">
         <Video className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
-        Avatar
+        DxP&apos;s evidence guide
       </h2>
       <p className="mt-1 flex items-start gap-2 text-caption text-muted-foreground">
         <MicOff className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
