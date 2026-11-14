@@ -61,9 +61,12 @@ def scope_change(**kw):
 
 def outcome(ctx, action, ld):
     checks, failed, claims = run_checks(ctx, action, ld)
-    names = [c["check"] for c in checks]
-    assert names == list(CHECK_ORDER)[: len(names)]
-    assert (failed is None and len(names) == 5) or names[-1] == failed
+    assert [c["check"] for c in checks] == list(CHECK_ORDER)
+    if failed is not None:
+        n = CHECK_ORDER.index(failed)
+        assert checks[n]["passed"] is False
+        for c in checks[n + 1:]:
+            assert c["passed"] == "n/a" and c["detail"] == f"not evaluated: check {n + 1} ({failed}) blocked"
     return checks, failed, claims
 
 
@@ -80,7 +83,7 @@ def test_allowed_scope_collection_update_passes_all_five():
 def test_check1_blocks_on_its_own(grant, expect):
     checks, failed, _ = outcome(run_ctx(), scope_change(), loaded(grant=grant))
     assert failed == "grant_active" and expect in checks[0]["detail"]
-    assert len(checks) == 1
+    assert [c["passed"] for c in checks[1:]] == ["n/a"] * 4
 
 
 def test_check1_reads_the_latest_version_so_an_expired_task_grant_v2_blocks():

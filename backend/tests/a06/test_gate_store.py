@@ -113,7 +113,7 @@ async def test_reviewer_decisions_carry_reviewer_stamp_and_a_retry_gets_a_new_de
     d1 = await w.evaluate(w.reviewer_ctx(), action)
     assert d1.blocked and d1["run_id"] is None and d1["agent"] is None and d1["initiated_by"] == "sam"
     assert d1["request_id"] and d1["cause"]["report_id"] == "rep_x"
-    assert len(d1["checks"]) == 1
+    assert [c["passed"] for c in d1["checks"]] == [False, "n/a", "n/a", "n/a", "n/a"]
     await w.db["grants"].insert_one(grant_doc(
         "sam", 3, principal="sam", kind="person", scope={"scope_id": SCOPE_ID, "diagnostic_ids": w.dx_plasma},
         actions=["decide_report"], destinations=["ledger"]))
@@ -228,3 +228,32 @@ async def test_unknown_kinds_and_destinations_are_contract_errors(world):
     with pytest.raises(ValueError):
         await gate.evaluate(w.run_ctx(adm), scope_action(kind="launch_rocket"))
     assert await w.count("decisions") == 0
+
+
+async def test_a_blocked_decision_always_lists_five_checks_in_order(world):
+    """Blocked action (D5): every check with its result and detail, whichever check blocked."""
+    w = world
+    cases = [
+        ("team_scope", scope_action(target={"diagnostic_id": w.dx_tissue, "proposal_id": "p_5a"})),
+        ("destination_action", {"kind": "notify_slack", "destination": "ledger", "target": {"report_id": "rep_5"}}),
+        ("evidence_checks", scope_action(target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5c"},
+                                         checks=[{"quote_found": False}])),
+    ]
+    for expected, action in cases:
+        adm = await w.admit()
+        d = await gate.evaluate(w.run_ctx(adm), action)
+        assert isinstance(d, Decision) and d.outcome == "blocked" and d.failed_check == expected
+        assert [c.check for c in d.checks] == list(gate.CHECK_ORDER)
+        n = gate.CHECK_ORDER.index(expected)
+        assert all(c.passed is True for c in d.checks[:n]) and d.checks[n].passed is False
+        assert all(c.passed == "n/a" and c.detail.startswith(f"not evaluated: check {n + 1}") for c in d.checks[n + 1:])
+    released = await w.admit(status="released")
+    d = await gate.evaluate(w.run_ctx(released), scope_action(
+        target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5d"}))
+    assert d.failed_check == "run_authorised" and len(d.checks) == 5
+    await w.db["grants"].insert_one(grant_doc("lbdx", 2, status="revoked", principal="dxp-curator", kind="agent",
+                                              scope={}, actions=[], destinations=[]))
+    adm = await w.admit()
+    d = await gate.evaluate(w.run_ctx(adm), scope_action(
+        target={"diagnostic_id": None, "scope_id": SCOPE_ID, "proposal_id": "p_5e"}))
+    assert d.failed_check == "grant_active" and [c.passed for c in d.checks] == [False] + ["n/a"] * 4

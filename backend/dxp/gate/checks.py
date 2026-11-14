@@ -543,9 +543,9 @@ def check_run_authorised(ctx: GateCtx, action: GateAction, loaded: Loaded) -> di
 def run_checks(ctx: GateCtx, action: GateAction, loaded: Loaded) -> tuple[list[dict[str, Any]], str | None, list[dict[str, Any]]]:
     """Run the five checks in order, stopping at the first failure.
 
-    Returns ``(checks, failed_check, claims)``. The list ends at the failed
-    check: the checks after it were not run (``CheckResult.passed`` is a bool
-    or ``n/a``, AD-14).
+    Returns ``(checks, failed_check, claims)``. Every Decision lists all five
+    checks in order (D5): a check after the failed one is not evaluated and is
+    recorded ``n/a`` with "not evaluated: check <n> blocked".
     """
     results: list[dict[str, Any]] = []
     claims: list[dict[str, Any]] = []
@@ -559,7 +559,9 @@ def run_checks(ctx: GateCtx, action: GateAction, loaded: Loaded) -> tuple[list[d
     )
     for name, step in zip(CHECK_ORDER, steps):
         if failed is not None:
-            break
+            n = CHECK_ORDER.index(failed) + 1
+            results.append(_result(name, NA, f"not evaluated: check {n} ({failed}) blocked"))
+            continue
         out = step(ctx, action, loaded)
         if isinstance(out, tuple):
             out, claims = out
