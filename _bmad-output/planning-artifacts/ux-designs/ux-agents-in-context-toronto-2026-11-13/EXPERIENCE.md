@@ -1,120 +1,170 @@
 ---
 name: DxProvida (DxP)
 title: DxProvida (DxP) Experience
-status: final
+status: final  # revised for the pivot, 13 Nov (sprint-change-proposal-2026-11-13.md)
 created: 2026-11-13
 updated: 2026-11-13
 sources:
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
   - _bmad-output/planning-artifacts/epics.md
   - _bmad-output/planning-artifacts/prds/prd-agents-in-context-toronto-2026-11-12/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md
 ---
 
-# DxProvida (DxP) — Experience Spine
+# DxProvida (DxP): experience spine
 
-Key-screen mockups for every surface in the Information Architecture table are in [`mockups/`](mockups/index.html) (for example `mockups/review.html`, `mockups/graph.html`). The demo data they share is in `.working/shared-story.md`. This file and `DESIGN.md` win over any mockup where they disagree.
+**Revised for the pivot (13 November).** DxP is now pitched and built for Statement 1, "Agents You Can Audit". The approved source is `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md`. Where this file and the proposal disagree, the proposal wins; on API routes, shapes and status values the architecture spine (AD-14, AD-17 to AD-24) wins, and on page routes and PRs `development-plan.md` wins.
+
+## What to build from
+
+There are no mockups. The earlier key-screen mockups and design-round files were removed on 13 November with the pivot, because the hackathon rules allow only work built during the event to be shown. Every screen is built on Saturday, from 10:45, from this file and `DESIGN.md`:
+
+| Surface | Build from |
+|---|---|
+| Run console (Story 9.7) | This file's Run console sections, with `DESIGN.md` tokens |
+| Audit view (Story 9.8) | This file's Audit view sections, with `DESIGN.md` tokens |
+| Record and Review (Stories 1.3, 2.4 trimmed) | This file, trimmed scope |
+| Run impact view (Story 5.2) | This file: scoped by `run_id`, with GitHub issues as nodes |
 
 ## Foundation
 
-- One responsive web app, desktop first, built on Next.js 16 App Router with shadcn/ui and Tailwind. `DESIGN.md` is the visual identity; this file is the behaviour. Both win over any mock.
+- **The governed agent is the product.** The screens only inspect it: who the agent is, what it may do, what it did, what was blocked, and who authorised each action. The hackathon bans "a dashboard as the main feature", so no screen is pitched or demoed as the product.
+- **No medical advice.** DxP tracks evidence about diagnostic tests for pharma teams. It never tells anyone how to treat, test or manage a patient, and no copy reads as a recommendation for patient care.
+- One responsive web app, desktop first, built on Next.js 16 App Router with shadcn/ui and Tailwind. `DESIGN.md` is the visual identity; this file is the behaviour.
 - The web app reads and writes only through the API (AD-9, AD-14). It applies no display rule of its own: what the read model returns is what the screen shows (AD-6).
-- There is no login. The top bar holds a **Team picker** (which Team's view you are in) and a **"your name" picker** (sent as `actor` on every decision). Both are kept in the browser.
+- **Authority is never set in the browser.** The actor and grant are resolved server-side from the API key. There is no Team picker and no "your name" picker that confers anything. The top bar shows, read-only, who the API resolved the caller as, from `GET /whoami` (AD-14).
+- Everything is built and validated on the Atlas Sandbox. The demo shows only work built on 14 November.
 - Fonts load through `next/font/google`: Atkinson Hyperlegible Next, Atkinson Hyperlegible Mono, Source Serif 4. [ASSUMPTION: if a family is missing from `next/font/google`, fall back to Atkinson Hyperlegible.]
-- This file adds no stories of its own; the two pieces it needed (Story 1.12, the wider Story 6.4) were added to `epics.md` on 13 November. It is guidance for the WEB stories already in `epics.md`; the Story column below says which story builds each surface.
+- This file adds no stories of its own. The Story column below says which story builds each surface.
 
 ## Information Architecture
 
+### Kept surfaces
+
 | Surface | Route | Reached from | Purpose | Stories |
 |---|---|---|---|---|
-| Home | `/` | App open, logo | Hero: the Team's mini network with what changed glowing, and the welcome-back panel docked over it; below: latest Alerts and the Digest | 6.4, 3.3, reuses the Graph component from 5.2 |
-| Diagnostics | `/diagnostics` | Top bar | Every tracked Diagnostic with stage track and Early research badge | 1.3 |
-| Record | `/diagnostics/[id]` | Any Diagnostic name, graph node, Alert, table row | All fields with Evidence, value history, review of unreviewed values, add a value | 1.3, 2.5, 4.7 |
-| Find | `/find` | Top bar, welcome-back "Reopen" | Plain-language query, parsed-query chips, comparison table, Shortlist, export | 4.3, 4.4, 4.5 |
-| Categories | `/categories` | Top bar | One Category's full field set, thin and stale Records marked, add a value | 4.6, 4.7 |
-| Graph | `/graph` | Top bar | Connected view of Diagnostics, biomarkers, trials, drugs, tumour types, Providers; what changed | 5.2, 5.3 |
-| Review | `/review` | Top bar (with pending count), Digest | Pending Proposed changes; accept, edit, reject; Learned rule draft | 2.4, 2.7 |
-| Rules | `/rules` | Review, top bar overflow | Every Learned rule with on/off | 2.7 |
-| Alerts | `/alerts` | Top bar (with unread count), Home | The Team's Alerts with why it matters and audio | 3.2, 3.5 |
-| Jobs | `/jobs`, `/jobs/[id]` | Top bar | Start a job; live count; failures | 1.8 |
-| Terms | `/terms` | Rules page link | Unmatched terms | 4.8 |
+| Run console | `/runs`, `/runs/[run_id]` | Top bar, app open (`/` redirects to the latest run) | Start a run over the selected trial set; identity card; live action feed (allowed, blocked, in flight, unknown); stop control; links to the GitHub issues | 9.7, 9.9 |
+| Audit view | `/runs/[run_id]/audit` | Run console, any action row, top bar | One run reconstructed action by action, with "Who authorised this" on every action | 9.8, 9.6 |
+| Record and Review | `/diagnostics/[id]`, `/review` | Action row (record link), Audit entry, impact node, top bar (Review with pending count) | Record: fields with Evidence, unreviewed values marked. Review: pending Proposed changes, accept, edit, reject. Trimmed: no history disclosure, no Learned rules, no add-a-value | 1.3, 2.2, 2.3, 2.4 (trimmed) |
+| Run impact view | `/runs/[run_id]/impact` | Run console, Audit view, top bar | The graph fed by `run_id`: exactly what the run touched (Diagnostics, trials, the fields changed) with each GitHub issue as a node | 5.1, 5.2 |
 
-The top bar, design tokens, stage track and badges are built once in Story 1.12. Top bar, left to right: DxP logo, Home, Diagnostics, Find, Categories, Graph, Review (count), Alerts (count), Jobs; then the capture box (Story 7.1), Team picker, your-name picker. Footer: the credits line.
+These routes are the page files in `development-plan.md`: `web/app/runs/page.tsx` and `web/app/runs/[run_id]/page.tsx` (B02), `web/app/runs/[run_id]/audit/` (B03), `web/app/diagnostics/` and `web/app/review/` (B04), `web/app/runs/[run_id]/impact/` (B05).
 
-Dialogs stack one level deep. The right-hand panel (360px) opens Evidence, history and the rule draft without leaving the page.
+Top bar, left to right: DxP logo, Run console, Audit, Review (count), Impact; then the read-only "Signed in as" chip. Footer: the credits line. The top bar, tokens, stage track and badges are built once in the minimal shell (Stories 1.12 trimmed, PR B01).
+
+Dialogs stack one level deep. The right-hand panel (360px) opens Evidence and the "Who authorised this" answer without leaving the page.
+
+### Earlier surfaces
+
+| Surface | Route | Status |
+|---|---|---|
+| Home (dashboard and graph-led hero) | `/` | **Deferred (pivot, 13 Nov).** `/` redirects to the latest run |
+| Diagnostics list | `/diagnostics` | **Deferred (pivot, 13 Nov).** Records are reached from actions, audit entries and the impact view |
+| Find | `/find` | **Deferred (pivot, 13 Nov)** |
+| Categories | `/categories` | **Deferred (pivot, 13 Nov)** |
+| Graph | `/graph` | Becomes the Run impact view, scoped by `run_id` |
+| Rules | `/rules` | **Deferred (pivot, 13 Nov)** |
+| Alerts | `/alerts` | **Deferred (pivot, 13 Nov).** The audio returns as the stretch spoken audit briefing (Story 9.10) |
+| Jobs, as designed | `/jobs`, `/jobs/[id]` | **Deferred (pivot, 13 Nov).** Jobs becomes the Run console |
+| Terms | `/terms` | **Deferred (pivot, 13 Nov)** |
 
 ## Voice and Tone
 
-Microcopy. DxP speaks plainly to a scientist in a hurry. It names things the way the PRD Glossary does: Diagnostic, Record, Evidence, Proposed change, Learned rule, Alert, Team, Shortlist, Intended use, Lifecycle stage, Early research.
+Microcopy. DxP speaks plainly to a scientist or reviewer in a hurry. It names things the way the PRD Glossary does: Diagnostic, Record, Evidence, Proposed change, Team, Lifecycle stage, Early research; and for governance: run, agent, grant, policy set, action, audit.
 
 | Do | Don't |
 |---|---|
+| "Blocked before it ran: Diagnostic in team scope failed under policy v3" | "Action denied", "Permission error", "403" |
+| "Result unknown. GitHub didn't confirm. Search `dxp-review-sandbox` for action A-0142 to reconcile by hand" | "Something went wrong", "Retrying…" |
+| "Stopping: 2 actions in flight. No new actions will start." | "Please wait…" |
+| "Stopped at 15:12. 9 took effect, 1 blocked, 0 in flight." | "Run cancelled" |
+| "Who authorised this?" and the answer as one sentence: "Allowed by grant G-7 v2 (dxp-curator for Team Lung Dx, issues in `dxp-review-sandbox`) under policy set v3, in run R-0031, acting for Rowan." | "Authorization details", raw JSON |
+| "Took effect: issue #12 opened in `dxp-review-sandbox`" | "Success!" |
+| "Acting for Rowan (Team Lung Dx, Synthetic)" | "User: rowan" |
 | "No data for this indication" | "N/A", "—", "Unknown" |
 | "Stage not determined" | "Unstaged", "TBD" |
-| "5 changes since your last visit, 12 November" | "You have new updates!" |
 | "Accept", "Edit", "Reject"; toast "Accepted", "Edited", "Rejected" | "Submit", "Confirm action" |
-| "Reason for rejecting (DxP will suggest a rule from it)" | "Comment (optional)" |
-| "DxP suggests this rule: …" | "AI-generated rule" |
-| "A job is already running. Open it" | "Error 409" |
 | "Couldn't reach the API. Retrying in 5 seconds." | "Oops! Something went wrong." |
 | "Early research" on discovery and assay development | "Unvalidated", "Low quality" |
-| "Synthetic" on every made-up Team, rule, correction and memory | Leaving synthetic data unlabelled |
+| "Synthetic" on every made-up Team, grant holder and correction | Leaving synthetic data unlabelled |
+| Evidence about a test: "Moved to clinical utility, per NCT06422546" | Patient advice: "Recommended for patients with…", "Use this test to decide treatment" |
+
+The five checks always appear under these names: **Grant active**, **Diagnostic in team scope**, **Destination and action match the grant**, **Evidence checks passed**, **Run still authorised**. The failed check is named in the blocked line with the policy-set version that was in force.
 
 ## Component Patterns
 
 Behavioural. Visual specs live in `DESIGN.md` Components.
 
+### New for the governed agent
+
 | Component | Where | Behaviour |
 |---|---|---|
-| Stage track | Diagnostics list, Record header, comparison table, graph tooltip, Alerts | Read-only. Tooltip names all nine stages and the date each was reached. A just-advanced segment shows `{colors.eosin}` with the word "Changed" until the Team marks as seen, on Graph, the Home hero and Alerts only; elsewhere the segment is a plain fill. |
-| Evidence quote | Record, comparison table cell, Review row, Alert | Always shows source, identifier link and "data as of". Opens in the right-hand panel from a table cell (click or Enter). Never shows a value without it. |
-| Value with history | Record | Current value(s) first. "History" disclosure lists superseded and rejected values newest first with Evidence, who decided and when (Story 2.5). Unreviewed values show "Unreviewed" and, for a Reviewer, Accept / Edit / Reject inline. |
-| Proposal row | Review | Diagnostic, field, current → new written as a sentence ("Add trial NCT06422546 to Trials"), quote, confidence, rule flags. The focused row shows full Accept / Edit / Reject buttons; other rows show the same three as compact ghost buttons on one line, so every action stays reachable without hover. Edit opens an inline field plus a required reason. Reject opens a required reason. On save, the row collapses with its toast and the next row takes focus. |
-| Rule draft panel | Review, right-hand panel | Appears after an Edit or Reject that returns `rule_draft`. Text is editable. "Turn on rule" activates it and then lists the pending proposals it now flags; "Discard" closes it. If drafting failed, the panel does not appear. |
-| Rule switch | Rules | On/off per rule, immediate. Turning off removes its flags; the count of affected proposals is shown in the toast. |
-| Alert item | Alerts, Home | Kind (First seen / Update), trigger in words ("Moved to clinical utility"), the why line, stage track, Early research badge, link to Evidence, play button, dismiss. |
-| Parsed-query chips | Find | Each filter DxP read from the text becomes a chip (field: value). Remove a chip or add one from a field menu; any change re-runs the query with filters only (no model call). The original text stays above. |
-| Comparison table | Find, Categories | One row per Diagnostic, one column per criterion. Row checkbox for Shortlist. Each cell is focusable; Enter opens its Evidence. Empty cell: "No data for this indication". Sort by any column. |
-| Job counter | Jobs | Processed / failed / Early research counts and a progress bar, polled every 2 seconds while running. Failures listed with `source_ref` and error. |
-| Changed highlight | Graph, Home hero | Anything with `changed: true` or `seq` above the Team's `last_seen_seq` carries the changed mark. "Mark as seen" clears it for the Team. |
-| Welcome-back panel | Home | Resume summary (2–3 sentences), "Since your last visit" list with links, "Reopen" buttons for last Intended use and Shortlist, capability tag naming the memory backend. |
+| Identity card | Run console (top), Audit view (top) | Shows agent name and model, run ID, prompt version, acting for (person and Team), grant (ID, version, destination, allowed actions, expiry) and policy-set version, plus the run status (running, stopping, stopped, done, failed). Every value comes from the run record, resolved server-side; nothing is editable. Identifiers are copyable. A synthetic Team or person carries the Synthetic badge. |
+| Action row | Run console feed, Audit view | One row per action: kind ("Update record" or "Open review issue"), Diagnostic, field or destination, current state, time. A row appears when the gate decides (the `action_allowed` or `action_blocked` event), as either **blocked** (the failed check and policy version, nothing else happens) or **allowed** (`queued`), then **dispatching** (claimed), **in flight** (`sent`), and finally **took effect** (`done`, with the issue number linking to GitHub, or the record link), **unknown** (manual reconciliation) or **failed** (GitHub refused it, with the error). The row updates in place as its state changes; it never jumps position. Click or Enter opens the action in the Audit view. |
+| Stop control | Run console identity card | "Stop run" while the run is **running**. One press, no confirmation dialog: stopping is the safe direction. The button then disables and the card reads **stopping** with the live in-flight count ("2 in flight"). When in flight reaches zero the card reads **stopped** with the totals. A stopped run cannot be restarted from here; start a new run. |
+| Audit entry | Audit view | One entry per action, in order. Shows the four timestamps (proposed, decided, sent, observed), the inputs, the evidence reference (as an Evidence quote), grant version, policy-set version, the decision with the failed check if blocked, and the external result (issue number and URL, or "Result unknown"). "Who authorised this?" opens the answer in the right-hand panel. A blocked entry states that no record changed and no external call was made. |
+| Run feed status | Run console, above the feed | Says how the feed is live: "Live (change streams)" or "Live (polling every 2 seconds)". Carries the capability tag. |
+
+### Kept
+
+| Component | Where | Behaviour |
+|---|---|---|
+| Stage track | Record header, Review row, impact view tooltip | Read-only. Tooltip names all nine stages and the date each was reached. A segment advanced by the current run shows `{colors.eosin}` with the word "Changed" on the impact view only; elsewhere the segment is a plain fill. |
+| Evidence quote | Record, Review row, Audit entry | Always shows source, identifier link and "data as of". Never shows a value without it. |
+| Value | Record | Current value(s) with Evidence. Unreviewed values show "Unreviewed" and, for a Reviewer, Accept / Edit / Reject inline. The "History" disclosure (Story 2.5) is **Deferred (pivot, 13 Nov)**. |
+| Proposal row | Review | Diagnostic, field, current → new written as a sentence ("Add trial NCT06422546 to Trials"), quote, confidence, and the run ID that proposed it. The focused row shows full Accept / Edit / Reject buttons; other rows show compact ghost buttons on one line. Edit opens an inline field plus a required reason. Reject opens a required reason. On save, the row collapses with its toast and the next row takes focus. Rule flags are deferred. |
+| Changed highlight | Run impact view | Anything the run touched carries the changed mark. No "Mark as seen" (deferred with Teams' `last_seen_seq`). |
 | Capability tag | See the MongoDB section | Static. Hover or focus shows one sentence on what the capability does here. |
-| Capture box | Top bar | One line. Enter submits; result toast links to the new or matched Record. |
+
+### Deferred (pivot, 13 Nov)
+
+These serve only deferred surfaces. Do not build them on Saturday: Rule draft panel, Rule switch, Alert item, Parsed-query chips, Comparison table, Job counter (replaced by the identity card and the action feed), Welcome-back panel, Capture box.
 
 ## State Patterns
+
+### New for the governed agent
+
+| State | Surface | Treatment |
+|---|---|---|
+| Blocked | Action row, Audit entry | Blocked mark (icon and the word "Blocked", see `DESIGN.md`) and the line "Blocked before it ran: {check} failed under policy v{n}". No record link and no issue link, because neither exists. The Audit entry adds "No record changed. No external call made." |
+| Unknown | Action row, Audit entry, identity card totals | Unknown mark and "Result unknown. GitHub didn't confirm. Search `dxp-review-sandbox` for action {action_id} to reconcile by hand." The action ID is copyable. It counts as unresolved in the totals until the API reports it reconciled. Never shown as success or failure. |
+| Stopping | Identity card, feed header | "Stopping: {n} actions in flight. No new actions will start." Stop button disabled. In-flight rows keep updating until they settle. |
+| Stopped | Identity card, feed header | "Stopped at {time}. {a} took effect, {b} blocked, {c} unknown." No new rows arrive. |
+| Feed fallback | Run feed status | If change streams are unavailable on the Atlas Sandbox tier, or the stream drops, the feed polls `GET /changes` every 2 seconds. The status line and tag switch to "Live (polling every 2 seconds)". No error toast: this is a supported mode, not a failure. |
+| Empty run | Run console | "No actions yet. The agent is reading the selected trials." |
+| No runs | `/runs` | "No runs yet. Start one over the selected trial set." with the Start run button. |
+
+### Kept
 
 | State | Surface | Treatment |
 |---|---|---|
 | Loading | Any data surface | shadcn `Skeleton` rows shaped like the final layout. Never the "No data" text while loading. |
-| Field with no value | Record, tables | "No data for this indication" in `{colors.muted-foreground}`. |
+| Field with no value | Record | "No data for this indication" in `{colors.muted-foreground}`. |
 | No stage evidence | Anywhere a stage shows | Empty stage track and "Stage not determined". |
 | Value failed the check | Everywhere | Not shown at all (AD-6). Nothing to design. |
-| Low confidence | Record, Review | "Low confidence" marker; in Review these rows come first, then rows flagged by a Learned rule, then the rest. |
-| Empty review queue | Review | "Nothing waiting for review. New proposals arrive when a live job runs." Link to Jobs. |
-| No Alerts | Alerts, Home | "No Alerts for {Team} yet. You'll get one when a Diagnostic matching your profile appears." |
-| Empty Digest | Home | "Nothing new for {Team} since {date}." |
-| Query with no results | Find | Parsed chips stay. "No Diagnostics match these filters. Remove a filter to widen the search." |
-| Job running | Jobs | Counter live; Start disabled with "A job is running". |
-| Job stalled | Jobs | "No progress for 10 minutes. Start it again to resume." with a Start button. |
-| Memory unavailable | Home | Welcome-back panel shows what changed and last Intended use (from DxP collections) and "Memory unavailable right now" in place of the summary. |
-| Audio failed | Alert item | Inline: "Couldn't load the briefing." The why line stays readable. |
+| Low confidence | Record, Review | "Low confidence" marker; in Review these rows come first. |
+| Empty review queue | Review | "Nothing waiting for review. New proposals arrive when a run is going." Link to the Run console. |
+| Audio failed (stretch) | Audit view | Inline: "Couldn't load the briefing." The audit stays readable. |
 | API unreachable | Global | One toast: "Couldn't reach the API. Retrying in 5 seconds." Retries with backoff; no modal. |
-| Synthetic data | Teams, rules, corrections, recalled memory | Synthetic badge, always. |
+| Synthetic data | Teams, people acting for, corrections | Synthetic badge, always. |
+
+**Deferred (pivot, 13 Nov):** No Alerts, Empty Digest, Query with no results, Job running, Job stalled, Memory unavailable.
 
 ## Interaction Primitives
 
-- Mouse and keyboard equally. The Reviewer may work by keyboard: in Review, `j` / `k` move between rows, `a` accepts, `e` edits, `r` rejects, `Esc` cancels. Shortcuts are listed on the Review page.
-- Live data by polling, never by reload: Jobs every 2 seconds while running; Alerts, Review count and Graph from `GET /changes` (AD-10).
-- Long work is a job. No page waits on a request longer than 30 seconds (AD-9); the query shows a progress state and returns in under 10 seconds.
-- Banned: infinite scroll (paginate with `next`), hover-only actions, modal on modal, auto-playing audio, any celebratory animation.
-- Motion: one orchestrated moment only, the network pulse. On the Home hero and on the Graph page (the same component), changed nodes and links pulse once together when the view loads or when a live job files a change, then settle. Nothing else animates. Respect `prefers-reduced-motion` by skipping the pulse.
+- Mouse and keyboard equally. In Review, `j` / `k` move between rows, `a` accepts, `e` edits, `r` rejects, `Esc` cancels. In the Run console and Audit view, `j` / `k` move between action rows and Enter opens one. Shortcuts are listed on each page.
+- **Live data through change streams, never by reload.** The action feed, run status and Review count come from `GET /changes?after=<seq>&run_id=` (Story 9.9, PR A12), which long-polls and is woken by Atlas change streams. When change streams are unavailable, the same screens poll that route every 2 seconds (AD-10, AD-23). The screen behaves the same either way.
+- Long work is a run. No page waits on a request longer than 30 seconds (AD-9).
+- Banned: infinite scroll (paginate with `next`), hover-only actions, modal on modal, auto-playing audio, any celebratory animation, and spinners that suggest work the API has not reported.
+- **Motion: one moment only, on the action feed.** A new action row fades and slides 8px into place once (about 200ms) when it arrives. State changes within a row are instant. Nothing else animates; the network pulse on Home and Graph is **Deferred (pivot, 13 Nov)** with the Home hero. Respect `prefers-reduced-motion` by skipping the fade.
 
 ## Accessibility Floor
 
 - WCAG 2.2 AA. Colour contrast in `DESIGN.md` (eosin uses `{colors.eosin-text}` for text).
-- Every Reviewer action is a labelled button reachable by keyboard; tab order follows reading order.
-- The comparison table is the non-visual equivalent of the Graph view (architecture convention). The Graph page links to it: "View as table".
-- Colour is never the only signal: change has the word "New"/"Changed", confidence has "Low confidence", node types have shapes.
-- Live regions: job counts and the Review count announce politely (`aria-live="polite"`).
+- Every action, including Stop run and "Who authorised this?", is a labelled button reachable by keyboard; tab order follows reading order.
+- Colour is never the only signal: blocked has an icon and the word "Blocked"; unknown has an icon and "Result unknown"; change has "Changed"; confidence has "Low confidence"; node types have shapes.
+- The Run impact view links to "View as list": every touched item and issue in a plain list. The Audit view is also a full text equivalent of the run.
+- Live regions: run status (stopping, stopped) and the Review count announce politely (`aria-live="polite"`). The feed announces only blocked and unknown actions, so a busy run does not flood a screen reader.
 - Focus rings use shadcn's `ring`, visible on the slide background.
 
 ## Evidence Display Rules
@@ -123,72 +173,75 @@ Product-specific. These restate AD-6 for the screen so no WEB story invents its 
 
 - A value appears only with its Evidence. The quote, source name, identifier link and "data as of" date travel together.
 - PubMed abstract text never appears; only the quote (at most 300 characters) does.
-- Manually sourced values show the submitter, the note and "Manually sourced" instead of a quote.
 - Unreviewed values are visible to everyone and labelled "Unreviewed".
 - The Early research label is computed by the API (`early_research`); the screen only displays it.
+- Every value changed by an agent action links to that action's Audit entry.
 
 ## MongoDB Capability Tags
 
-Shown on screen because the video is judged on it (NFR10). One quiet tag per panel, never more.
+Shown on screen because the demo and video are judged on it (NFR10). One quiet tag per panel, never more.
 
 | Panel | Tag | Hover sentence |
 |---|---|---|
-| Find query box | Atlas Vector Search | "Finds Diagnostics by meaning, using embeddings MongoDB creates automatically. Synonyms mean ‘liquid biopsy’ also finds ctDNA tests." |
-| Welcome-back panel | Agent Memory (or "Memory in Atlas collections" on the fallback) | "Remembers what your team searched and opened between visits." |
-| Rules page | Agent Memory, procedural | "Each rule you turn on is also stored as procedural memory." |
-| Graph | `$graphLookup` | "Follows links between Diagnostics, biomarkers, trials and drugs in the database." |
-| Jobs and Alerts live updates | Change streams, shown only if the optional long-poll wake-up in Story 1.1 is built | "New results appear as the database changes." |
+| Run console action feed | Change streams (or "Polling" on the fallback) | "New actions appear as MongoDB records them, through Atlas change streams." |
+| Identity card (grant and policy set) | Schema validation | "Grants and policies are checked by `$jsonSchema` validation in Atlas, so a malformed grant can't be saved." |
+| Run impact view | `$graphLookup` | "Follows what this run touched, from each Diagnostic to its trials and review issues, in the database." |
 
-The memory tag text follows the agreed wording: "Agent Memory (public preview)" when `agent_engine` is in use, "Memory in Atlas collections" on the fallback. [NOTE FOR UX: no API field reports the live backend yet; until one exists, the web app reads it from a `NEXT_PUBLIC_MEMORY_BACKEND` variable set to match `DXP_MEMORY_BACKEND`.]
+**Deferred (pivot, 13 Nov):** Atlas Vector Search (Find), Agent Memory (welcome-back panel, Rules).
 
 ## Demo on Camera
 
-The video is judged, so the demo surfaces are tuned for a 1440 × 900 recording [ASSUMPTION]:
+Two judged moments: the 60-second video (recorded 16:30 to 16:50, submitted by 16:55) and the 3-minute live demo for judging from 17:15. Both show only work built on 14 November.
 
-- Browser zoom 100% for recording (the type is already sized for camera); nothing essential below the fold on Jobs, Review, Graph and Home. Find and Categories also work down to 1309px wide.
-- Before recording, choose the demo Team and set "your name"; the Team's `last_seen_seq` is set before the live run so the Graph and Home show changes.
-- The one motion moment (graph pulse) is the visual climax; nothing else animates.
+- Recorded at 1440 × 900 and shown live on the venue screen [ASSUMPTION: check the venue resolution at kick-off]. Browser zoom 100%; nothing essential below the fold on the Run console, Audit view or the identity card.
+- Before each take: run the reset procedure (PR A16), so the selected trials are unprocessed and no run is in progress. Open a second tab on `dxp-review-sandbox` issues, signed in, so the new issue can be shown in GitHub itself.
+- Check the feed status line. If it reads "Polling", the demo still works; say so rather than hide it.
+- The one motion moment (rows arriving in the feed) is the visual rhythm; the climax is the blocked row and the "Who authorised this?" answer, not an animation.
+- Keep the camera on the agent's behaviour: identity, gate, action, stop, audit. Record and impact screens are supporting shots.
 
 ## Inspiration & Anti-patterns
 
 - **From pathology:** the H&E palette and the idea that pink means "look here".
 - **From journal reading:** quotes in serif, with the source underneath, like a citation.
+- **From audit logs and flight recorders:** every action in order, with who, under what authority, and what happened.
 - **From shadcn:** the whole component vocabulary; DxP adds only the brand layer.
+- **Rejected: a dashboard as the main feature.** Banned by the hackathon, and it hides the agent.
 - **Rejected: dark "AI dashboard" look.** It reads as generic and fights the tables.
-- **Rejected: KPI cards on Home.** The home page answers "what changed for my team", not "how big is the database".
-- **Rejected: a chat box as the main interface.** Plain-language query lives in Find, with its parsed result shown and editable.
+- **Rejected: KPI cards.** The console answers "what is the agent doing and was it allowed", not "how big is the database".
+- **Rejected: a chat box as the main interface.**
 
 ## Key Flows
 
-Protagonists: Rowan, Director of Diagnostics at a pharmaceutical therapy-area team, and Sam, the data curator who reviews proposals. [ASSUMPTION: names invented for these flows; the PRD names roles only.]
+Protagonists: Rowan, Director of Diagnostics at a pharmaceutical therapy-area team, and Sam, the data curator who reviews proposals. [ASSUMPTION: names invented for these flows; the PRD names roles only.] The run acts for Rowan's Team; Sam operates it.
 
-### Flow 1 — The live run (the video)
+### Flow 1: the 3-minute live demo
 
-1. Sam opens Jobs and starts a live job over the held-back ClinicalTrials.gov set. The counter climbs; the Early research count ticks up.
-2. Sam opens Review. Proposed changes arrive: a trial adds MET to a Diagnostic's biomarkers, with the quote from the trial record.
-3. Sam rejects one change: "Cell-line study, not patients." DxP suggests a rule: "Flag findings from cell-line or animal studies." Sam turns it on; two other pending proposals now carry its flag.
-4. Rowan's Team gets an Alert: a ctDNA assay they follow moved to clinical utility. The why line names their interest in EGFR. Rowan presses play and hears the briefing.
-5. **Climax:** Rowan opens the Graph. The Diagnostic and its new trial link draw in with an eosin ring that pulses once; Rowan follows the link across from the plasma test to the tissue test that shares the biomarker.
+| Time | Step |
+|---|---|
+| 0:00 to 0:20 | Sam opens the Run console and presses "Start run" over the selected trials. The identity card fills: agent dxp-curator, run ID, acting for Rowan (Team Lung Dx, Synthetic), grant G-7 v2, policy set v3. |
+| 0:20 to 0:50 | Actions stream into the feed: allowed, dispatching, in flight. One takes effect: "Took effect: issue #12 opened in `dxp-review-sandbox`". Sam opens the issue in GitHub itself. |
+| 0:50 to 1:15 | One action arrives blocked: "Blocked before it ran: Diagnostic in team scope failed under policy v3." Sam opens its Audit entry: no record changed, no external call made. |
+| 1:15 to 1:40 | Sam opens Review and accepts a Proposed change, with its quote. |
+| 1:40 to 2:00 | Back on the Run console, Sam presses "Stop run" mid-flight. The card reads "Stopping: 2 actions in flight", then "Stopped". |
+| 2:00 to 2:35 | **Climax:** Rowan's question, "Who moved SuperARMS to clinical utility, and under what authority?" Sam opens the Audit view, finds the action and presses "Who authorised this?". The answer names the agent, run, person acted for, grant and policy-set version, with the quote and the issue. |
+| 2:35 to 3:00 | The Run impact view shows exactly what the run touched, the GitHub issues as nodes. Stretch: play the spoken audit briefing. |
 
-Failure: a job item fails. It appears in the failures list with its source; the job continues.
+Failure: GitHub times out. The row shows "Result unknown" with the action ID; Sam names it as the reconciliation path, and the demo continues.
 
-### Flow 2 — Back the day after the live run (UJ-1)
+### Flow 2: the 60-second video
 
-1. Rowan opens DxP. Home greets them with the welcome-back panel: "Last time you were looking at plasma EGFR and KRAS genotyping in advanced NSCLC. 5 changes since 12 November."
-2. Rowan presses "Reopen" on the last Intended use. Find opens with the original text and its parsed chips, including "Tumour stage or line: advanced or metastatic", which leaves only one Diagnostic.
-3. Rowan removes that chip. The table re-runs without a model call: "6 diagnostics, was 1", with Undo.
-4. **Climax:** the table fills: one row per Diagnostic, each cell a value with its quote one click away, "No data for this indication" where nothing is published. Rowan ticks three rows, saves the Shortlist under the Intended use "Plasma EGFR and KRAS genotyping in advanced NSCLC" and exports it with every reference.
+| Seconds | Shows | Screen |
+|---|---|---|
+| 0 to 10 | The problem and the agent's authorised scope | Identity card: agent, acting for, grant, policy set |
+| 10 to 30 | An allowed action across two systems | The Record updated with its quote, then the review issue open in GitHub itself |
+| 30 to 45 | An out-of-scope action blocked before execution | Blocked action row, then its Audit entry: no record change, no issue, one audit event |
+| 45 to 60 | Stop and inspect | "Stop run", stopping, then stopped; "Who authorised this?" on the completed action |
 
-Failure: memory is unavailable. The panel still shows what changed and the last Intended use, and says "Memory unavailable right now".
+### Earlier flows
 
-### Flow 3 — Clearing the Digest (UJ-3)
+All **Deferred (pivot, 13 Nov)**. The full text is in git history (commit `f4e943d`).
 
-1. Sam opens Home for the curation Team. The Digest lists 6 pending proposals and 2 Alerts.
-2. Sam works through Review by keyboard: `a`, `a`, `e` (corrects a drug name, reason "Brand name, use generic"), `r` with a reason.
-3. **Climax:** the queue empties to "Nothing waiting for review", and the Record pages show the accepted values with Sam's name and today's date in their history.
-
-### Flow 4 — Filling a Category's gaps (UJ-2)
-
-1. Rowan opens Categories and picks Liquid biopsy.
-2. Thin and stale Records are marked, with the filled count from the read model. The tumour-informed ctDNA MRD approach is Thin, 4 of 10, with no clinical use.
-3. **Climax:** Rowan adds "Disease monitoring" with a note; the value appears for everyone, marked "Manually sourced" with Rowan's name, and the row goes to 5 of 10 and loses its Thin mark.
+- Flow 1, the live run with Jobs, rule drafting, Alerts and the graph pulse: replaced by the two flows above.
+- Flow 2, back the day after (UJ-1, Home, welcome-back, Find): deferred.
+- Flow 3, clearing the Digest (UJ-3): deferred; keyboard review survives in Review.
+- Flow 4, filling a Category's gaps (UJ-2): deferred.

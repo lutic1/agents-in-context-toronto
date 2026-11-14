@@ -2,66 +2,102 @@
 title: DxP development plan, Saturday 14 November 2026
 status: final
 created: 2026-11-13
+updated: 2026-11-13
 sources:
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-11-13.md
   - _bmad-output/planning-artifacts/epics.md
   - _bmad-output/planning-artifacts/build-schedule.md
 ---
 
 # DxP development plan
 
-Who builds what on Saturday, one pull request at a time. Every PR below has an owner, a branch, what must be merged before it starts, what must be merged before it merges, the files it owns and a forecast. Each story in `epics.md` carries its owner and PR IDs, so an agent given a PR ID can find everything it needs. Timing, milestones and fallback cuts are in `build-schedule.md`. The forecasts come from a model, not from a validated run; the milestones in `build-schedule.md` are how the day checks them.
+Who builds what on Saturday, one pull request at a time, after the approved pivot to Statement 1, "Agents You Can Audit" (`sprint-change-proposal-2026-11-13.md`). The governed agent is the product: it cannot change a record or act in another system without a named identity, a scoped grant, a policy check before the action and an audit trail a reviewer can replay. Screens only inspect it.
+
+Every PR below has an owner, a story, a branch, what must be merged before it starts, what must be merged before it merges, the files it owns and a forecast. Timing, milestones and fallback cuts are in `build-schedule.md`. The forecasts come from a model, not from a validated run; the milestones in `build-schedule.md` are how the day checks them.
 
 ## The two lanes
 
 | | Luis | Vlad |
 |---|---|---|
-| Agents | Up to 44: builders, reviewer agents, the contract keeper and integrators | Sonnet 5.5 at high effort: one main agent and ten subagents |
-| Model budget | Claude plan; the product runs on Luis's API key | Claude Pro plus $300 of API credit |
-| Owns | The critical path and the Demo path back end: contracts, ingest pipeline, review loop APIs, Alerts API, graph, memory, Home, shell, Review, Alerts inbox, Diagnostics and Record, deploys, Baseline, the three integration checks, rehearsal, submission | Find and Categories (Epic 4), the Jobs page, Digest and Rules on screen, five isolated stories (1.10, 1.11, 3.4, 3.5, 7.1) and Value history (2.5) |
-| PRs | 39 (58.3 agent-hours) | 19 (about 38.6 agent-hours on Sonnet) |
+| Agents | Up to 44: builders, reviewer agents, the contract keeper and the integrator | Sonnet 5.5 at high effort: one main agent and ten subagents |
+| Model budget | Claude plan; the product runs on Luis's API key | Claude Pro plus $300 of API credit (forecast about $100) |
+| Owns | The critical path: contract, registry, grants and policies, deploy, ledger and gate, runs and stop, extraction, the GitHub action, the run, audit API, feed, seed, proposals API, graph API, both integrations, rehearsal, stretch policy draft | The web skeleton and shell, Run console, Audit view, Record and Review, Run impact view, stretch spoken briefing, submission package |
+| PRs | 19 (A01 to A17, I1, I2) | 7 (B01 to B07) |
 | Merge coordinator | Luis, for Luis's lane | Vlad, for Vlad's lane, after Luis's review agent passes each PR |
 
-PR counts are not workload: Luis's PRs include the critical path, all three integration checks and the production runs, so Luis's attention goes to ingest, integration and failures.
+PR counts are not workload: Luis's lane holds every core back-end behaviour and both integrations, so Luis's attention goes to the loop and its failures.
 
 ## Contracts come first, and they cover more than API shapes
 
-P01, P02 and P04 start at 9:39 together. Between them they freeze:
+A01 and A02 start at 10:45 and merge by 11:45. A03 drafts against A01 from 10:45 and merges after it. Between them they freeze:
 
-- every API route and response shape, including everything `epics.md` adds to AD-14 (shortlists, `Job.active`, Alert detail, graph `team_id` and `sample_type`, `last_seen_at`, `completeness`, `source_date`) and one error shape;
-- the registry and identity functions;
-- the Finding model and fixtures, drafted from the architecture spine from 9:39 and validated once P01 and P02 merge;
-- the function signatures, return types and error behaviour backend PRs code against: `llm.extract()`, `llm.check()`, `ledger.file()`, `ledger.decide()`, the job item, `memory`, `rules.evaluate()`, `alerts.react()` and `search.completeness()`.
+- **Every route and response shape** in the AD-14 table of the architecture spine, under `/api/v1`, returning 501 until built: identity (`GET /whoami`), runs (`POST /runs`, `GET /runs`, `GET /runs/<run_id>`, `POST /runs/<run_id>/stop`), actions (`GET /actions?run_id=&status=`, `GET /actions/<action_id>` with `authorised_by`, `POST /actions/<action_id>/reconcile`), audit (`GET /runs/<run_id>/audit`), grants and policies (`GET /grants`, `GET /grants/<grant_id>`, `GET /policies?status=`), the feed (`GET /changes?after=<seq>&run_id=`), diagnostics (`GET /diagnostics`, `GET /diagnostics/<dx_id>`), proposals (`GET /proposals`, `POST /proposals/<p_id>/decision`), teams (`GET /teams`) and graph (`GET /graph?run_id=`).
+- **One error shape** for every route: `{ error: { code, message } }`. A blocked action is not an error: it returns 200 with the `Decision`, and it is recorded as one `action_blocked` event, not as an `actions` document (AD-19).
+- **The shapes** in `models.py`, exactly as AD-14, and the generated `web/lib/types.ts`:
+  - `Run`: `id`, `agent`, `model`, `prompt_version`, `policy_set_version`, `acting_for`, `principal`, `grant_id`, `grant_version`, `team_id`, `mode`, `source`, `set`, `limit`, `status` (`running`, `stopping`, `stopped`, `done`, `failed`), `in_flight`, `counts`, `active`, `failures`, `started_at`, `stopping_at`, `stopped_at`, `finished_at`.
+  - `Principal`: `id`, `kind` (`agent`, `person`), `name`, `acting_for`, `grant_id`, `grant_version`.
+  - `Grant`: `grant_id`, `version`, `principal`, `kind`, `acting_for`, `granted_by`, `team_id`, `scope.diagnostic_ids`, `destinations`, `actions`, `expires_at`, `status` (`active`, `revoked`).
+  - `Policy`: `policy_id`, `version`, `status` (`draft`, `active`, `retired`), `applies_to`, `requires` (only `quote_found`, `supported`, `min_confidence`), `text`, `author`, `approved_by`, `created_at`.
+  - `Action`: `id`, `run_id`, `kind` (`file_proposal`, `apply_value`, `decide_proposal`, `create_review_issue`), `destination` (`ledger`, `github:dxp-review-sandbox`), `target`, `inputs`, `evidence_ref`, `stamp`, `decision: allowed`, `checks`, `status` (`queued`, `dispatching`, `sent`, `done`, `failed`, `unknown`), `result` (`issue_number` and `issue_url`, or proposal and value IDs), timestamps `proposed_at`, `decided_at`, `claimed_at`, `sent_at`, `observed_at`, and `authorised_by`.
+  - `AuditEntry` and `Audit`: every action of a run in decision order, allowed ones from `actions` and blocked ones from `action_blocked` events, with `decision` (`allowed`, `blocked`), `failed_check` and `authorised_by` (principal, acting for, granted by, grant and version, expiry, policy-set version).
+  - `Event` types: `diagnostic_created`, `value_applied`, `proposal_pending`, `proposal_rejected`, `run_status_changed`, `action_allowed`, `action_blocked`, `action_status_changed`.
+- **The frozen signatures**, return types and error behaviour back-end PRs code against (bodies raise `NotImplementedError` until built), as AD-19 to AD-21:
+  - `gate.evaluate(ctx, action) -> Decision` with `allowed`, `failed_check`, `checks`, `grant_id`, `grant_version`, `policy_set_version`. The five checks, in order: `grant_active`; `team_scope`; `destination_action`; `evidence_checks`; `run_authorised`. Allowed inserts the `actions` document (`queued`) and emits `action_allowed`; blocked emits one `action_blocked` event and writes nothing else.
+  - `actions.dispatch(action, ctx) -> Action`: calls `gate.evaluate` first; on `allowed` claims, sends, reads back, reconciles; never raises on an ambiguous result, returns `unknown`.
+  - `runs.admit(run_id) -> bool`: one conditional update on `status: running` that increments `in_flight`, or refuses.
+  - `runs.release(run_id)`: decrements `in_flight` and moves `stopping` to `stopped` at zero (part of the `runs` contract).
+  - `runs.stop(run_id) -> Run`.
+  - `runs.stamp(run_id) -> Stamp`: the only stamp maker.
+  - `ledger.file(finding_id, changes, mode, ctx) -> FileResult`: calls `gate.evaluate` first; on `blocked` writes one audit event and nothing else.
+  - `llm.extract(item) -> list[Finding] | Failure` and `llm.check(finding, source_text) -> CheckResult`: failure record, never raise.
 
-After 11:09 a change to any of these goes through the contract keeper in its own PR.
+After 11:45 a change to any of these goes through the contract keeper in its own PR.
+
+## Required acceptance behaviours
+
+These six are binding on Stories 9.3 to 9.6. Each card below restates the ones that apply to it, and the reviewer agent checks them.
+
+| Concern | Required behaviour |
+|---|---|
+| Ambiguous GitHub result | Save an action ID in Atlas before sending and include it in the issue. If the outcome is uncertain (timeout, 5xx), reconcile by searching the repository for the action ID; never blindly retry creation. If still unresolved, mark the action `unknown` for manual reconciliation |
+| Concurrent retries | Claim the action atomically in Atlas (`queued` to `dispatching` with a conditional update) so two workers can never both dispatch it |
+| Stop semantics | Admission is an atomic, conditional update on the run (only while it is `running`), so a stop and an admission cannot race. After stop, nothing new is admitted; admitted actions may finish and show as in flight; the run shows `stopping` until in-flight reaches zero, then `stopped` |
+| Blocked action | No business-record change and no external call; one audit event is written with the policy and grant versions and the failed check |
+| Authority | The actor and grant are resolved server-side from the API key; a client-supplied name never confers permission |
+| Audit reconstruction | Each action keeps its inputs, evidence reference, grant version, policy-set version, decision, timestamps (proposed, decided, sent, observed) and external result (issue number and URL, or `unknown`) |
 
 ## Start requirements and merge requirements are separate
 
 Each card says two things:
 
-- **Start when merged:** what must be on `main` before the agent starts. For most PRs this is only the contracts, so work runs in parallel instead of one PR after another.
+- **Start when merged:** what must be on `main` before the agent starts. For most PRs this is only A01, so work runs in parallel instead of one PR after another.
 - **Merge after:** what must be on `main` before this PR merges, because it calls real code or another PR's file.
 
-A PR that calls a module not yet merged builds against the frozen signature and the fixtures, and is proved against the real module at an integration check.
+A PR that calls a module not yet merged builds against the frozen signature and is proved against the real module at I1.
 
-## Integration happens three times, not once
+## Integration happens twice
 
 | Check | PR | When | What runs |
 |---|---|---|---|
-| Seeded records | P41 | about 13:18 | Every merged screen against the dev database after the FDA seed |
-| Small real ingest | P42 | about 14:24 | Every merged screen against the 50-item run |
-| Final acceptance | P38 | about 15:24 | Every demo screen against the full Baseline in production |
+| Allowed-and-blocked loop | I1 | 13:45 to 14:30 | On the sandbox: a run over the selected trials; one allowed action updates a record with its quote and creates a real issue in `dxp-review-sandbox`; one out-of-scope action is blocked before execution; the audit API reconstructs both |
+| Final acceptance | I2 | 15:00 to 15:30 | On the sandbox: every core and supporting piece, every merged screen, stop mid-run, the audit view answering "who authorised this" |
 
-Failures surface during the day, not at the end. P38 is the last check, not the first contact with real data.
+I1 is where the real modules first meet. I2 is the final acceptance, not first contact: by then the loop has run since 14:30 and the screens have been wired to it between 14:30 and 15:00.
 
 ## How agent slots are used
 
-58 PRs are not 58 builders at once. The forecast peak is about 20 builders in Luis's lane and 8 to 10 in Vlad's. The rest of the slots go to:
+26 PRs are not 26 builders at once. The forecast peak is about 11 builders in Luis's lane (11:45 to 13:15) and 5 in Vlad's (12:00 to 14:00). The rest of Luis's slots go to:
 
-- one independent reviewer agent per open PR, checking acceptance criteria, secrets, `.env` values and PubMed text;
+- a second builder on each of A06, A08 and A09, which have no slack, writing the tests;
+- one independent reviewer agent per open PR, checking acceptance criteria, the required behaviours, secrets, `.env` values, tokens and PubMed text;
 - the contract keeper, who rejects any PR that changes a frozen contract without regenerating the types;
-- integrators, who run P41, P42 and P38 and keep a smoke test passing on every merge.
+- the integrator, who runs I1 and I2 and keeps a smoke test (one allowed action, one blocked action, audit read) passing on every merge after 13:45.
 
 People spend their attention on unclear behaviour and failures, not on reading every diff.
+
+## Done rule
+
+A story is done only when its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox.
 
 ## How to brief an agent for one PR
 
@@ -69,630 +105,334 @@ Give each agent one PR ID and this brief, filled in from its card:
 
 ```
 You are building PR <ID> of DxP: <What>.
-Read first: _bmad-output/planning-artifacts/development-plan.md (card <ID>),
-the Story <n.n> acceptance criteria in epics.md, the architecture spine
-(AD rules it cites), and for screens DESIGN.md, EXPERIENCE.md and the mockup.
+Read first: _bmad-output/planning-artifacts/development-plan.md (card <ID>
+and "Required acceptance behaviours"), the Story <n.n> acceptance criteria
+in epics.md, the architecture spine (AD rules it cites), and for screens
+DESIGN.md and EXPERIENCE.md. There are no mockups: every screen is built during the event.
 Branch: <branch>, from the latest main. Start only when every PR under
 "Start when merged" is on main. Code against the frozen contracts and
-fixtures from P01, P02 and P04 for anything not merged yet. Only edit the
+signatures from A01 and A02 for anything not merged yet. Only edit the
 files this PR owns; anything else goes back to its owner. Do not merge
-until every PR under "Merge after" is on main.
-Never commit secrets or .env values. Never write PubMed abstract text to
-any file. Open the PR as "Story <n.n>: <What> (<ID>)" with the acceptance
-criteria as a checklist, and follow the PR and merge steps in epics.md.
+until every PR under "Merge after" is on main. Build and test against the
+Atlas Sandbox.
+Never commit secrets, tokens or .env values. Never write PubMed abstract
+text to any file. Open the PR as "Story <n.n>: <What> (<ID>)" with the
+acceptance criteria and required behaviours as a checklist, and follow
+the PR and merge steps in epics.md.
 ```
+
+For example: "You are building PR A06 of DxP: ledger with the policy gate before every write", branch `story/9.3-policy-gate`; or "PR B02: Run console", branch `story/9.7-run-console`.
 
 ## Luis's PRs
 
 | PR | Story | What | Branch | Start when merged | Merge after | Start | Finish |
 |---|---|---|---|---|---|---|---|
-| P03 | 1.3 | Web skeleton (critical) | `story/1.3a-web-skeleton` | none | none | 09:39 | 10:24 |
-| P01 | 1.1 | API contract stub and generated types (near-critical) | `story/1.1a-contract` | none | none | 09:39 | 10:39 |
-| P02 | 1.2 | Registry and identity | `story/1.2a-registry-identity` | none | none | 09:39 | 10:39 |
-| P04 | 1.6 | Finding contract and module interfaces (near-critical) | `story/1.6a-finding-contract` | none | P01, P02 | 09:39 | 10:39 |
-| P23 | 6.1 | Memory adapter | `story/6.1-memory` | none | P01 | 09:39 | 12:39 |
-| P31 | 3.2 | Alerts inbox | `story/3.2-alerts-inbox` | P03 | none | 10:24 | 12:24 |
-| P34 | 6.4 | Home welcome panel, Alerts and Digest layout | `story/6.4b-home-panels` | P03 | none | 10:24 | 12:24 |
-| P33 | 5.2 | Graph component (critical) | `story/5.2a-graph-component` | P03 | none | 10:24 | 12:54 |
-| P27 | 1.12 | App shell | `story/1.12-app-shell` | P03 | none | 10:24 | 13:24 |
-| P26 | 1.3 | Diagnostics and Record pages | `story/1.3b-diagnostics-record` | P03 | P05 | 10:24 | 13:54 |
-| P29 | 2.4 | Review screen | `story/2.4-review-screen` | P03 | none | 10:24 | 13:54 |
-| P07 | 1.4 | Load Source items | `story/1.4-load-sources` | P01 | none | 10:39 | 11:15 |
-| P18 | 2.2 | Proposals queue API | `story/2.2-proposals-api` | P04 | none | 10:39 | 11:33 |
-| P05 | 1.1 | Read model and change feed | `story/1.1b-readmodel-changes` | P01 | none | 10:39 | 11:39 |
-| P06 | 8.1 | Deploy and CI | `story/8.1-deploy-ci` | P01, P03 | none | 10:39 | 11:39 |
-| P09 | 1.5 | Quote and support checks | `story/1.5b-quote-check` | P04 | none | 10:39 | 11:39 |
-| P10 | 1.6 | Ledger, Baseline mode | `story/1.6b-ledger-baseline` | P04 | none | 10:39 | 12:03 |
-| P08 | 1.5 | Triage and extraction calls (near-critical) | `story/1.5a-triage-extract` | P04 | none | 10:39 | 12:09 |
-| P19 | 2.3 | Decisions API | `story/2.3-decisions-api` | P04 | none | 10:39 | 12:09 |
-| P20 | 2.6 | Learned rules API | `story/2.6-rules-api` | P04 | none | 10:39 | 13:03 |
-| P22 | 5.1 | Graph API | `story/5.1-graph-api` | P04 | none | 10:39 | 13:03 |
-| P12 | 1.7 | Batch job (near-critical) | `story/1.7-batch-job` | P04 | none | 10:39 | 13:09 |
-| P21 | 3.1 | Alerts API | `story/3.1-alerts-api` | P04 | none | 10:39 | 13:27 |
-| P40 | 8.3 | Submission package | `story/8.3-submission` | P06 | none | 11:39 | 12:39 |
-| P13 | 1.6 | Ledger, live mode and stage rule | `story/1.6c-ledger-live` | P10 | none | 12:03 | 12:45 |
-| P11 | 1.2 | Seed FDA rows, Teams and terms | `story/1.2b-seed` | P10, P02 | none | 12:03 | 12:48 |
-| P14 | 1.5 | Tune extraction on real items (near-critical) | `story/1.5c-tune-real-items` | P08, P09, P07 | none | 12:09 | 13:09 |
-| P25 | 6.3 | Resume summary | `story/6.3-resume` | P23, P05 | none | 12:39 | 14:15 |
-| P41 | 1.3 | Integration: screens on seeded records | `integration/is-seeded` | P11, P05, P06 | none | 12:48 | 13:18 |
-| P24 | 6.2 | Synthetic Team history | `story/6.2-team-history` | P23, P11 | none | 12:48 | 13:24 |
-| P35 | 5.2 | Graph page (critical) | `story/5.2b-graph-page` | P33 | none | 12:54 | 14:54 |
-| P36 | 5.3 | Changed highlight (near-critical) | `story/5.3-changed-highlight` | P33 | none | 12:54 | 14:54 |
-| P37 | 6.4 | Home hero network (near-critical) | `story/6.4a-home-hero` | P33 | none | 12:54 | 14:54 |
-| P15 | 1.7 | Integration run: 50 items (near-critical) | `integration/i1-pipeline` | P14, P13, P12, P07, P11, P06 | none | 13:09 | 13:54 |
-| P17 | 2.1 | Dry run of the Held-back set | `story/2.1-dry-run` | P15 | none | 13:54 | 14:24 |
-| P42 | 1.7 | Integration: screens on the small real ingest | `integration/im-small-ingest` | P15 | none | 13:54 | 14:24 |
-| P16 | 1.9 | Baseline load and snapshot (near-critical) | `story/1.9-baseline-load` | P15, P11, P06 | none | 13:54 | 14:48 |
-| P38 | 8.2 | Final acceptance on production data (critical) | `integration/i2-acceptance` | P16, P42, P26, P27, V17, P29, V19, P31, V18, P35, P36, P37, P34, P18, P19, P20, P21, P22, P24, P25 | none | 14:54 | 15:24 |
-| P39 | 8.2 | Rehearsal (critical) | `story/8.2-rehearsal` | P38, P17 | none | 15:24 | 16:09 |
+| A01 | 1.1, 9.1 | Contract: routes, shapes, error shape, frozen signatures (critical) | `story/1.1-contract` | none | none | 10:45 | 11:45 |
+| A02 | 1.2 | Registry and identity (critical) | `story/1.2a-registry-identity` | none | none | 10:45 | 11:45 |
+| A03 | 9.2 | Grants and policies with schema validation, seeded; server-side actor resolution | `story/9.2-grants-policies` | none (drafts against A01) | A01 | 10:45 | 12:15 |
+| A04 | 8.1 | CI, Vercel and Modal deploy on the Atlas Sandbox; change streams checked | `story/8.1-deploy-sandbox` | none (starts on the bare package) | A01 | 11:00 | 12:00 |
+| A05 | 1.4 | Load the selected trial set | `story/1.4-selected-trials` | A01 | none | 11:45 | 12:15 |
+| A06 | 1.6, 9.3 | Ledger with the policy gate before every write (critical) | `story/9.3-policy-gate` | A01, A02 | A03 | 11:45 | 13:45 |
+| A07 | 9.1, 9.5 | Runs: identity stamping, atomic admission, stop (critical) | `story/9.5-runs-stop` | A01 | A03 | 11:45 | 13:15 |
+| A08 | 1.5 | Extraction with quote and support checks, tuned on the selected set (critical) | `story/1.5-extraction` | A01 | A05 | 11:45 | 13:45 |
+| A09 | 9.4 | GitHub review issue: claim, read-back, reconcile, `unknown` (critical) | `story/9.4-github-action` | A01 | A03 | 11:45 | 13:45 |
+| A10 | 1.7 | The run: LangGraph over the selected set (critical) | `story/1.7-run` | A01 | none | 11:45 | 13:30 |
+| A11 | 9.6 | Audit API and "who authorised" | `story/9.6-audit-api` | A01 | none | 11:45 | 13:15 |
+| A14 | 2.2, 2.3 | Proposals and decisions API, minimal | `story/2.3-proposals-decisions` | A01 | none | 11:45 | 13:15 |
+| A12 | 9.9 | Change-stream feed with polling fallback | `story/9.9-change-feed` | A01, A04 | none | 12:00 | 13:00 |
+| A15 | 5.1 | Graph API scoped by `run_id`, GitHub issues as nodes | `story/5.1-graph-api` | A01 | none | 12:00 | 13:30 |
+| A13 | 1.2 | Seed the FDA rows and synthetic Teams through the ledger (critical) | `story/1.2b-seed` | A01, A02 | A06 | 13:15 | 13:45 |
+| I1 | 9.3, 9.4 | Integration: the allowed-and-blocked loop on the sandbox (critical) | `integration/i1-allowed-blocked` | A05 to A13 | none | 13:45 | 14:30 |
+| A17 | 9.11 | Stretch: rejection drafts a policy for approval | `story/9.11-policy-draft` | I1 green | A14 | 14:30 | 15:30 |
+| I2 | 8.2 | Final acceptance on the sandbox (critical) | `integration/i2-acceptance` | I1, A14, A15, B02 to B05 | none | 15:00 | 15:30 |
+| A16 | 8.2 | Live-demo rehearsal and reset procedure (critical) | `story/8.2-rehearsal` | I2 | none | 15:30 | 16:15 |
 
 ## Vlad's PRs
 
 | PR | Story | What | Branch | Start when merged | Merge after | Start | Finish |
 |---|---|---|---|---|---|---|---|
-| V01 | 4.8 | Unmatched terms page | `story/4.8-terms-page` | P03 | none | 10:24 | 11:39 |
-| V02 | 4.3 | Comparison table: Evidence panel and keyboard | `story/4.3b-evidence-panel` | P03 | none | 10:24 | 12:17 |
-| V17 | 1.8 | Jobs page | `story/1.8-jobs-page` | P03 | none | 10:24 | 12:54 |
-| V19 | 2.7 | Rules on screen | `story/2.7-rules-screen` | P03 | none | 10:24 | 12:54 |
-| V18 | 3.3 | Digest | `story/3.3-digest` | P03 | none | 10:24 | 12:54 |
-| V06 | 4.3 | Comparison table and chips | `story/4.3a-compare-table` | P03 | none | 10:24 | 12:54 |
-| V07 | 4.6 | Category landscape | `story/4.6-categories` | P03 | P05 | 10:24 | 12:54 |
-| V08 | 4.1 | Search index with synonyms | `story/4.1b-synonyms` | P01 | none | 10:39 | 13:31 |
-| V09 | 4.1 | Vector Search index | `story/4.1a-vector-index` | P01 | none | 10:39 | 13:47 |
-| V11 | 4.2 | Plain-language query API | `story/4.2-query-api` | P04 | none | 10:39 | 14:09 |
-| V03 | 4.7 | Add a value API | `story/4.7-add-value-api` | P04 | none | 11:39 | 13:09 |
-| V04 | 1.11 | Tavily provider scan | `story/1.11-tavily` | P04 | none | 12:17 | 13:47 |
-| V10 | 4.5 | Export | `story/4.5-export` | V06 | none | 12:54 | 14:01 |
-| V05 | 7.1 | Quick capture | `story/7.1-quick-capture` | P04 | none | 12:54 | 14:24 |
-| V14 | 4.4 | Shortlist | `story/4.4-shortlist` | V06 | none | 12:54 | 15:24 |
-| V12 | 1.10 | Scheduled scan | `story/1.10-scheduled-scan` | P12 | none | 13:09 | 14:17 |
-| V13 | 3.4 | Audio briefing | `story/3.4-audio-briefing` | P21 | none | 13:27 | 14:35 |
-| V16 | 2.5 | Value history | `story/2.5-value-history` | P26 | none | 13:54 | 15:47 |
-| V15 | 3.5 | Play button | `story/3.5-play-button` | P31, V13 | none | 14:35 | 15:49 |
+| B01 | 1.3, 1.12 | Web skeleton and minimal shell | `story/1.12-web-shell` | none | none | 10:45 | 12:00 |
+| B02 | 9.7 | Run console | `story/9.7-run-console` | B01 | A01 | 12:00 | 14:15 |
+| B03 | 9.8 | Audit view | `story/9.8-audit-view` | B01 | A01 | 12:00 | 14:00 |
+| B04 | 1.3, 2.4 | Record and Review screen, minimal | `story/2.4-record-review` | B01 | A01 | 12:00 | 14:00 |
+| B05 | 5.2 | Run impact view | `story/5.2-impact-view` | B01 | A01 | 12:00 | 14:30 |
+| B06 | 9.10 | Stretch: spoken audit briefing with ElevenLabs | `story/9.10-audio-briefing` | B01 | A11 | 13:00 | 14:30 |
+| B07 | 8.3, 8.4 | README with the prepared vs built-today table, submission text, 60-second video script | `story/8.3-submission` | none | none | 13:00 | 14:00 |
 
-Vlad's times assume ten subagents and Sonnet cycle times 1.25 times the Opus figures (see `build-schedule.md`).
+Vlad's times assume Sonnet 5.5 at high effort with ten subagents.
 
 ## PR cards
 
-### P03: Web skeleton
+### A01: Contract
 
-- **Owner:** Luis · **Story:** 1.3 · **Branch:** `story/1.3a-web-skeleton` · **Forecast:** 09:39 to 10:24 · **Critical**
+- **Owner:** Luis · **Story:** 1.1, 9.1 · **Branch:** `story/1.1-contract` · **Forecast:** 10:45 to 11:45 · **Critical**
 - **Start when merged:** nothing: start at once
 - **Merge after:** nothing beyond its own checks
-- **Scope:** `web/` from `create-next-app` (Next.js 16, TypeScript, App Router, Tailwind), `shadcn init`, `web/lib/api.ts` (typed fetch using `types.ts` once P01 lands, a hand stub before), and the one server route that adds `X-DxP-Key`.
-- **Files this PR owns:** web/ (everything except web/lib/types.ts)
-- **Done when:** the Story 1.3 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** Create the `backend/` package with `uv`, a Modal app serving FastAPI, every route and shape listed under "Contracts come first" returning 501 except `GET /schema`, the error shape `{ error: { code, message } }`, the `store` module with `ensure_indexes()` and `emit_event()` (events carry `run_id` and `action_id`), the signature stubs for `gate`, `actions`, `runs`, `ledger` and `llm`, and the `npm` script that generates `web/lib/types.ts`.
+- **Files this PR owns:** backend/pyproject.toml, backend/modal_app.py, backend/dxp/api/ (app, models.py and route stubs; each route file goes to the PR that builds it), backend/dxp/store/ (except the `grants` and `policies` validator schemas in store/schemas/, which A03 fills), the signature stubs in backend/dxp/{gate,actions,runs,ledger,llm}/__init__.py, web/lib/types.ts, the web/package.json script only
+- **Done when:** the Story 1.1 and 9.1 contract criteria pass, `types.ts` regenerates cleanly, and the PR is merged.
 
-### P01: API contract stub and generated types
+### A02: Registry and identity
 
-- **Owner:** Luis · **Story:** 1.1 · **Branch:** `story/1.1a-contract` · **Forecast:** 09:39 to 10:39 · **Near-critical**
+- **Owner:** Luis · **Story:** 1.2 · **Branch:** `story/1.2a-registry-identity` · **Forecast:** 10:45 to 11:45 · **Critical**
 - **Start when merged:** nothing: start at once
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Create the `backend/` package with `uv`, a Modal app serving FastAPI, every AD-14 Pydantic class in `models.py`, every AD-14 route plus the routes and fields `epics.md` adds (shortlists, `Job.active`, Alert detail, graph `team_id` and `sample_type`, `last_seen_at`, `completeness`, `source_date`) returning 501 except `GET /schema`, the error shape `{ error: { code, message } }` for every route, the `store` module with `ensure_indexes()`, and the `npm` script that generates `web/lib/types.ts`. Leave the read model and `/changes` to P05.
-- **Files this PR owns:** backend/pyproject.toml, backend/dxp/api/, backend/dxp/store/, web/lib/types.ts, web/package.json script only
-- **Done when:** the Story 1.1 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `schema/registry.py` (fields, cardinality, enums, stage order, confidence threshold, `canonical()`) and `identity.derive()`, `identity.normalise_name()` as AD-3. Seeding is A13.
+- **Files this PR owns:** backend/dxp/schema/registry.py, backend/dxp/identity/, their tests
+- **Done when:** the Story 1.2 registry and identity criteria pass, and the PR is merged.
 
-### P02: Registry and identity
+### A03: Grants and policies
 
-- **Owner:** Luis · **Story:** 1.2 · **Branch:** `story/1.2a-registry-identity` · **Forecast:** 09:39 to 10:39
-- **Start when merged:** nothing: start at once
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `schema/registry.py` (ten fields, cardinality, enums, stage order, confidence threshold, `canonical()`, `is_early_research()`) and `identity.derive()`, `identity.normalise_name()` as AD-3. Seeding is P11.
-- **Files this PR owns:** backend/dxp/schema/registry.py, backend/dxp/identity.py, their tests
-- **Done when:** the Story 1.2 acceptance criteria this scope covers pass, and the PR is merged.
+- **Owner:** Luis · **Story:** 9.2 · **Branch:** `story/9.2-grants-policies` · **Forecast:** 10:45 to 12:15
+- **Start when merged:** nothing: drafts against the A01 shapes from 10:45
+- **Merge after:** A01
+- **Scope:** The `$jsonSchema` validator schemas for `grants` and `policies` (AD-18), which `store.ensure_indexes()` applies at collection creation; versioned, hand-written grant and policy documents, each policy's `requires` limited to `quote_found`, `supported` and `min_confidence`; the seed `python -m dxp.gate.seed` for the demo (one agent principal and one Reviewer principal, one team scope, destinations `ledger` and `github:dxp-review-sandbox`, allowed actions, an expiry, and one out-of-scope Diagnostic for the blocked case); `resolve_actor(api_key)`, which hashes `X-DxP-Key` and resolves the principal and grant server-side (401 on no match); `GET /whoami`, `GET /grants`, `GET /grants/<grant_id>`, `GET /policies?status=`.
+- **Required behaviour (Authority):** the actor and grant are resolved server-side from the API key; a client-supplied name never confers permission.
+- **Files this PR owns:** backend/dxp/gate/seed.py, backend/dxp/gate/seed/, backend/dxp/store/schemas/ (the `grants` and `policies` validator schemas only), backend/dxp/api/auth.py, backend/dxp/api/routes_grants.py
+- **Done when:** the Story 9.2 criteria pass, a write with an invalid grant is rejected by the validator, and the PR is merged.
 
-### P04: Finding contract and module interfaces
+### A04: Deploy on the Atlas Sandbox
 
-- **Owner:** Luis · **Story:** 1.6 · **Branch:** `story/1.6a-finding-contract` · **Forecast:** 09:39 to 10:39 · **Near-critical**
-- **Start when merged:** nothing: start at once
-- **Merge after:** P01, P02
-- **Scope:** Drafted from 9:39 from the architecture spine, alongside P01 and P02, and validated once they merge. The `Finding` model and five JSON fixtures, and the frozen signatures, return types and error behaviour other PRs code against: `llm.extract()` and `llm.check()` (failure record, never raise), `ledger.file(finding_id, changes, mode)` (duplicate-key means exists), `ledger.decide()`, the job item contract, `memory` (empty result on error), `rules.evaluate()`, `alerts.react()`, `search.completeness()`. Bodies raise `NotImplementedError`.
-- **Files this PR owns:** backend/dxp/ledger/types.py, backend/dxp/llm/__init__.py (signatures), backend/dxp/jobs/types.py, backend/tests/fixtures/findings/
-- **Done when:** the Story 1.6 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P23: Memory adapter
-
-- **Owner:** Luis · **Story:** 6.1 · **Branch:** `story/6.1-memory` · **Forecast:** 09:39 to 12:39
-- **Start when merged:** nothing: start at once
-- **Merge after:** P01
-- **Scope:** `agent_engine` and `collections` backends behind one interface; only `backend/dxp/memory` imports the SDK; errors never fail a request.
-- **Files this PR owns:** backend/dxp/memory/
-- **Done when:** the Story 6.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P31: Alerts inbox
-
-- **Owner:** Luis · **Story:** 3.2 · **Branch:** `story/3.2-alerts-inbox` · **Forecast:** 10:24 to 12:24
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Team picker, Alerts newest first with why line, stage, Evidence, dismiss; the shared Alert item component.
-- **Files this PR owns:** web/app/alerts/, web/components/alert-item/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/alerts.html`
-- **Done when:** the Story 3.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P34: Home welcome panel, Alerts and Digest layout
-
-- **Owner:** Luis · **Story:** 6.4 · **Branch:** `story/6.4b-home-panels` · **Forecast:** 10:24 to 12:24
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Welcome-back panel with memory tag from `NEXT_PUBLIC_MEMORY_BACKEND`, Reopen fallback, latest 2 of 5 Alerts, Digest.
-- **Files this PR owns:** web/app/page.tsx, web/components/welcome/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/home.html`
-- **Done when:** the Story 6.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P33: Graph component
-
-- **Owner:** Luis · **Story:** 5.2 · **Branch:** `story/5.2a-graph-component` · **Forecast:** 10:24 to 12:54 · **Critical**
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `react-force-graph-2d` via `next/dynamic`, node colours and shapes, legend, focus path rendering; reused by Home.
-- **Files this PR owns:** web/components/graph/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/graph.html`
-- **Done when:** the Story 5.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P27: App shell
-
-- **Owner:** Luis · **Story:** 1.12 · **Branch:** `story/1.12-app-shell` · **Forecast:** 10:24 to 13:24
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Tokens, fonts, logo, top bar v3, tissue field, stage track, badges, toasts, skeletons.
-- **Files this PR owns:** web/components/shell/, web/app/layout.tsx, web/styles/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/index.html (top bar on every page)`
-- **Done when:** the Story 1.12 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P26: Diagnostics and Record pages
-
-- **Owner:** Luis · **Story:** 1.3 · **Branch:** `story/1.3b-diagnostics-record` · **Forecast:** 10:24 to 13:54
-- **Start when merged:** P03
-- **Merge after:** P05
-- **Scope:** Diagnostics list and Record page with Evidence on every value, Unreviewed values with Accept, Edit, Reject, "your name" picker.
-- **Files this PR owns:** web/app/diagnostics/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/diagnostics.html, mockups/record.html`
-- **Done when:** the Story 1.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P29: Review screen
-
-- **Owner:** Luis · **Story:** 2.4 · **Branch:** `story/2.4-review-screen` · **Forecast:** 10:24 to 13:54
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** The queue with focused row, compact actions, j/k/a/e/r/Esc, reasons required, rule flags.
-- **Files this PR owns:** web/app/review/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/review.html`
-- **Done when:** the Story 2.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P07: Load Source items
-
-- **Owner:** Luis · **Story:** 1.4 · **Branch:** `story/1.4-load-sources` · **Forecast:** 10:39 to 11:15
-- **Start when merged:** P01
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `python -m dxp.sources.load` upserts every item with `window`, `sets` and `source_date`.
-- **Files this PR owns:** backend/dxp/sources/load.py and tests
-- **Done when:** the Story 1.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P18: Proposals queue API
-
-- **Owner:** Luis · **Story:** 2.2 · **Branch:** `story/2.2-proposals-api` · **Forecast:** 10:39 to 11:33
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `GET /proposals?status=pending` with `diagnostic_id=`; low confidence first, then rule-flagged, then the rest; no PubMed text.
-- **Files this PR owns:** backend/dxp/api/routes_proposals.py, backend/dxp/review/queue.py
-- **Done when:** the Story 2.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P05: Read model and change feed
-
-- **Owner:** Luis · **Story:** 1.1 · **Branch:** `story/1.1b-readmodel-changes` · **Forecast:** 10:39 to 11:39
-- **Start when merged:** P01
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `search.readmodel` and the real `GET /diagnostics`, `GET /diagnostics/<dx_id>` and `GET /changes?after=` (plain polling). The read model calls `search.completeness()` (Vlad, V07) through its frozen signature; until V07 merges it returns null.
-- **Files this PR owns:** backend/dxp/search/readmodel.py, backend/dxp/api/routes_diagnostics.py, backend/dxp/api/routes_changes.py
-- **Done when:** the Story 1.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P06: Deploy and CI
-
-- **Owner:** Luis · **Story:** 8.1 · **Branch:** `story/8.1-deploy-ci` · **Forecast:** 10:39 to 11:39
-- **Start when merged:** P01, P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** GitHub Actions on every pull request (web type check and build, backend tests), Vercel previews and production from `main`, `modal deploy` with `DXP_DB=dxp`, CORS to the Vercel origins, README section on who deploys and the PR steps.
+- **Owner:** Luis · **Story:** 8.1 · **Branch:** `story/8.1-deploy-sandbox` · **Forecast:** 11:00 to 12:00
+- **Start when merged:** nothing: starts on the bare package and CI
+- **Merge after:** A01
+- **Scope:** GitHub Actions on every pull request (web type check and build, backend tests), Vercel previews and production from `main`, `modal deploy` against the Atlas Sandbox, CORS to the Vercel origins. Check change streams on the sandbox tier and record the result in the README; if they are not available, A12 ships polling only (`DXP_FEED=poll`). README section on who deploys and the PR steps.
 - **Files this PR owns:** .github/workflows/, web/vercel.json if needed, backend/dxp/api/app.py (CORS only), README.md (deploy section)
-- **Done when:** the Story 8.1 acceptance criteria this scope covers pass, and the PR is merged.
+- **Done when:** the Story 8.1 criteria pass on the sandbox, the change-stream result is recorded, and the PR is merged.
 
-### P09: Quote and support checks
+### A05: Load the selected trial set
 
-- **Owner:** Luis · **Story:** 1.5 · **Branch:** `story/1.5b-quote-check` · **Forecast:** 10:39 to 11:39
-- **Start when merged:** P04
+- **Owner:** Luis · **Story:** 1.4 · **Branch:** `story/1.4-selected-trials` · **Forecast:** 11:45 to 12:15
+- **Start when merged:** A01
 - **Merge after:** nothing beyond its own checks
-- **Scope:** `evidence.quote_in_source()` and the support check call; a value passes only when both are true.
-- **Files this PR owns:** backend/dxp/evidence/ and its prompt file under backend/dxp/llm/prompts/
-- **Done when:** the Story 1.5 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `python -m dxp.sources.load --set selected` upserts 10 to 20 held-back trials that hit FDA-seeded Diagnostics, including at least one that produces an allowed action and one that targets an out-of-scope Diagnostic. The list is a checked-in manifest of NCT IDs.
+- **Files this PR owns:** backend/dxp/sources/load.py, backend/dxp/sources/selected.json, tests
+- **Done when:** the Story 1.4 criteria this scope covers pass, the set loads idempotently on the sandbox, and the PR is merged.
 
-### P10: Ledger, Baseline mode
+### A06: Ledger with the policy gate
 
-- **Owner:** Luis · **Story:** 1.6 · **Branch:** `story/1.6b-ledger-baseline` · **Forecast:** 10:39 to 12:03
-- **Start when merged:** P04
+- **Owner:** Luis · **Story:** 1.6, 9.3 · **Branch:** `story/9.3-policy-gate` · **Forecast:** 11:45 to 13:45 · **Critical, no slack**
+- **Start when merged:** A01, A02
+- **Merge after:** A03
+- **Scope:** `gate.evaluate(ctx, action)` with the five checks in order (`grant_active`, `team_scope`, `destination_action`, `evidence_checks`, `run_authorised`), each returning the failed check by name. On `allowed` the gate inserts the `actions` document (`queued`) and emits `action_allowed`; on `blocked` it emits one `action_blocked` event and nothing else. `ledger.file()` calls the gate before every write; on `allowed` it applies the change in one update with `rev`, field history and an event carrying the AD-17 stamp (`run_id`, principal, grant and policy-set versions) and the `action_id`, then sets the action `done`. The Baseline-mode path the seed (A13) uses goes through the same gate with the seed's own grant.
+- **Required behaviours:**
+  - **Blocked action:** no business-record change and no external call; one audit event is written with the policy and grant versions and the failed check.
+  - **Authority:** the actor and grant are resolved server-side from the API key; a client-supplied name never confers permission.
+  - **Audit reconstruction (fields this PR writes):** each action keeps its inputs, evidence reference, grant version, policy-set version, decision and the proposed and decided timestamps.
+  - **Stop semantics (the gate's fifth check):** `run_authorised` passes only when the run is `running` or `stopping` and the action was admitted (AD-21); since admission refuses after stop, nothing new passes the gate after stop.
+- **Files this PR owns:** backend/dxp/gate/ (except seed.py and seed/, which are A03's), backend/dxp/ledger/file.py, backend/dxp/ledger/types.py
+- **Done when:** tests prove each of the five checks blocks on its own and that a blocked action leaves the record and GitHub untouched; the Story 1.6 and 9.3 criteria pass; the PR is merged.
+
+### A07: Runs, admission and stop
+
+- **Owner:** Luis · **Story:** 9.1, 9.5 · **Branch:** `story/9.5-runs-stop` · **Forecast:** 11:45 to 13:15 · **Critical, 30 minutes slack**
+- **Start when merged:** A01
+- **Merge after:** A03
+- **Scope:** `POST /runs { source, set, limit, team_id }` creates a run (`_id` `run_<random>`) with agent, model, prompt version, policy-set version, principal and the person it acts for, all resolved server-side, and returns 409 while another run is `running` or `stopping`; `runs.stamp()`, the only stamp maker, used by every write, event and external action; `runs.admit()` as one conditional update (`status: running`, increment `in_flight`); `runs.release()`; `runs.stop()` and `POST /runs/<run_id>/stop` moving the run to `stopping`, then `stopped` when `in_flight` reaches zero; `run_status_changed` on every status change; `GET /runs`, `GET /runs/<run_id>`.
+- **Required behaviours:**
+  - **Stop semantics:** admission is an atomic, conditional update on the run (only while it is `running`), so a stop and an admission cannot race. After stop, nothing new is admitted; admitted actions may finish and show as in flight; the run shows `stopping` until in-flight reaches zero, then `stopped`.
+  - **Authority:** the actor and grant are resolved server-side from the API key; a client-supplied name never confers permission. A run's `acting_for`, `principal`, `grant_id` and `grant_version` come from `resolve_actor`, never from the request body.
+- **Files this PR owns:** backend/dxp/runs/, backend/dxp/api/routes_runs.py
+- **Done when:** a concurrency test fires stop and admissions together and never admits after stop; a run with in-flight actions shows `stopping` then `stopped`; the Story 9.1 and 9.5 criteria pass; the PR is merged.
+
+### A08: Extraction with quote and support checks
+
+- **Owner:** Luis · **Story:** 1.5 · **Branch:** `story/1.5-extraction` · **Forecast:** 11:45 to 13:45 · **Critical, no slack**
+- **Start when merged:** A01
+- **Merge after:** A05
+- **Scope:** `llm.extract()` (Sonnet 5.5) and `llm.check()` through the one `llm` module: one Finding per Diagnostic named, raw value, quote and confidence per field, backoff and failure records; `evidence.quote_in_source()` and the support check, a value passes only when both are true. Tune the prompts on the selected set until quotes are found. No PubMed text in any file.
+- **Files this PR owns:** backend/dxp/llm/ (client, extract, check, prompts), backend/dxp/evidence/
+- **Done when:** extraction over the selected set returns Findings with found quotes; the Story 1.5 criteria pass; the PR is merged.
+
+### A09: GitHub review issue
+
+- **Owner:** Luis · **Story:** 9.4 · **Branch:** `story/9.4-github-action` · **Forecast:** 11:45 to 13:45 · **Critical, no slack**
+- **Start when merged:** A01 (A03 lands at 12:15; until then the agent codes against the frozen grant shapes)
+- **Merge after:** A03
+- **Scope:** `actions.dispatch()` for `create_review_issue` actions on `dxp-review-sandbox` with the fine-grained token from `DXP_GITHUB_TOKEN` (`.env` locally, issues only): call `gate.evaluate()` first and send nothing when blocked; claim (`queued` to `dispatching`); create the evidence-review issue with the action ID in its title and body; read the issue back; reconcile on an ambiguous result; set `sent_at`, `observed_at` and `result` (`issue_number`, `issue_url`), or `unknown`, or `failed` on another 4xx; emit `action_status_changed` on every status change; `POST /actions/<action_id>/reconcile`, which searches and never creates. A fake GitHub client for tests, with timeout and 5xx modes.
+- **Required behaviours:**
+  - **Ambiguous GitHub result:** save an action ID in Atlas before sending and include it in the issue. If the outcome is uncertain (timeout, 5xx), reconcile by searching the repository for the action ID; never blindly retry creation. If still unresolved, mark the action `unknown` for manual reconciliation.
+  - **Concurrent retries:** claim the action atomically in Atlas (`queued` to `dispatching` with a conditional update) so two workers can never both dispatch it.
+  - **Blocked action:** a blocked action makes no external call; `dispatch` sends nothing when the gate blocks it.
+  - **Audit reconstruction (fields this PR writes):** the sent and observed timestamps and the external result (issue number and URL, or `unknown`).
+- **Files this PR owns:** backend/dxp/actions/ (dispatch, github.py, fake client, tests), backend/dxp/api/routes_reconcile.py
+- **Done when:** tests prove two concurrent dispatches create one issue, a timeout followed by a found issue reconciles without a second issue, and an unresolved one ends `unknown`; one real issue is created on the sandbox repository; the Story 9.4 criteria pass; the PR is merged.
+
+### A10: The run
+
+- **Owner:** Luis · **Story:** 1.7 · **Branch:** `story/1.7-run` · **Forecast:** 11:45 to 13:30 · **Critical, 15 minutes slack**
+- **Start when merged:** A01
+- **Merge after:** nothing beyond its own checks (real modules are wired in I1)
+- **Scope:** One LangGraph run over the selected set at low concurrency, started by `POST /runs`: for each item, `llm.extract()` and `llm.check()`, then for each proposed action `runs.admit()`, `gate.evaluate()` through `ledger.file()` or `actions.dispatch()` for GitHub actions, and `runs.release()` in a `finally` once the action is blocked, `done`, `failed` or `unknown`. Stops admitting when the run is stopped. Built against stubs of the frozen signatures.
+- **Files this PR owns:** backend/dxp/pipeline/
+- **Done when:** the run completes over stubs with one allowed and one blocked action; the Story 1.7 criteria this scope covers pass; the PR is merged.
+
+### A11: Audit API
+
+- **Owner:** Luis · **Story:** 9.6 · **Branch:** `story/9.6-audit-api` · **Forecast:** 11:45 to 13:15
+- **Start when merged:** A01
 - **Merge after:** nothing beyond its own checks
-- **Scope:** `ledger.file()` in `baseline` mode: `ensure_diagnostic` on `aliases`, insert-if-absent Findings, values applied `unreviewed`, one update writing value, `rev`, `search_text`, `facets`, `edges`, and `store.emit_event()`.
-- **Files this PR owns:** backend/dxp/ledger/file.py, backend/dxp/store/events.py
-- **Done when:** the Story 1.6 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `search.audit` and `GET /runs/<run_id>/audit` return every action in decision order, allowed (from `actions`) and blocked (from `action_blocked` events), with identity, grant and policy versions, decision, failed check, timestamps and external result; `GET /actions/<action_id>` returns the action with `authorised_by`, which answers "who authorised this action" (principal, the person the run acts for, who granted it, grant and version, expiry, policy-set version); `GET /actions?run_id=&status=`. Built from `actions`, `runs` and `events`, with grants and policies read at the recorded versions; nothing is recomputed from current grants or policies.
+- **Required behaviours:**
+  - **Audit reconstruction:** each action keeps its inputs, evidence reference, grant version, policy-set version, decision, timestamps (proposed, decided, sent, observed) and external result (issue number and URL, or `unknown`).
+  - **Blocked action:** the blocked action's one audit event appears in the trail with the policy and grant versions and the failed check.
+  - **Authority:** "who authorised" reports the server-resolved actor and grant, never a client-supplied name.
+- **Files this PR owns:** backend/dxp/search/audit.py, backend/dxp/api/routes_audit.py, backend/dxp/api/routes_actions.py
+- **Done when:** the trail for a fixture run with one allowed and one blocked action reconstructs both in order with every field above; the Story 9.6 criteria pass; the PR is merged.
 
-### P08: Triage and extraction calls
+### A12: Change-stream feed
 
-- **Owner:** Luis · **Story:** 1.5 · **Branch:** `story/1.5a-triage-extract` · **Forecast:** 10:39 to 12:09 · **Near-critical**
-- **Start when merged:** P04
+- **Owner:** Luis · **Story:** 9.9 · **Branch:** `story/9.9-change-feed` · **Forecast:** 12:00 to 13:00 · **Supporting**
+- **Start when merged:** A01, A04
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Triage on Haiku 5.5 and extraction on Sonnet 5.5 through `llm`, one Finding per Diagnostic named, raw value, quote and confidence per field, backoff and failure records.
-- **Files this PR owns:** backend/dxp/llm/ (client, triage, extract, prompts)
-- **Done when:** the Story 1.5 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** The live action feed for a run, served to the web as `GET /changes?after=<seq>&run_id=` over `events` (AD-10, AD-23). With `DXP_FEED=change_stream` it waits up to 25 seconds, woken by `events.watch()` on inserts; with `DXP_FEED=poll` (when A04 found no change streams on the sandbox) it returns at once and the web app polls every 2 seconds. The query on `seq` is the only source of truth, and the response is the same either way.
+- **Files this PR owns:** backend/dxp/search/changes.py, backend/dxp/api/routes_changes.py
+- **Done when:** an action written on the sandbox appears in the feed within a few seconds, by change stream or polling; the Story 9.9 criteria pass; the PR is merged.
 
-### P19: Decisions API
+### A13: Seed through the ledger
 
-- **Owner:** Luis · **Story:** 2.3 · **Branch:** `story/2.3-decisions-api` · **Forecast:** 10:39 to 12:09
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Accept, edit, reject with reason; claim and apply in one update; history kept with reason; review of unreviewed values; events.
-- **Files this PR owns:** backend/dxp/ledger/decide.py, backend/dxp/api/routes_decisions.py
-- **Done when:** the Story 2.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P20: Learned rules API
-
-- **Owner:** Luis · **Story:** 2.6 · **Branch:** `story/2.6-rules-api` · **Forecast:** 10:39 to 13:03
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `rules.draft()`, `rules.evaluate()`, status on and off, flags only, Discard sets the rule off, `GET /rules`, synthetic rules.
-- **Files this PR owns:** backend/dxp/rules/, backend/dxp/api/routes_rules.py, backend/dxp/llm/prompts/rule_draft.*
-- **Done when:** the Story 2.6 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P22: Graph API
-
-- **Owner:** Luis · **Story:** 5.1 · **Branch:** `story/5.1-graph-api` · **Forecast:** 10:39 to 13:03
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `GET /graph` with `after`, `focus`, `depth`, `team_id`; nodes with `sample_type`; `$graphLookup`; `POST /teams/<id>/seen` storing `last_seen_seq` and `last_seen_at`.
-- **Files this PR owns:** backend/dxp/graph/, backend/dxp/api/routes_graph.py
-- **Done when:** the Story 5.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P12: Batch job
-
-- **Owner:** Luis · **Story:** 1.7 · **Branch:** `story/1.7-batch-job` · **Forecast:** 10:39 to 13:09 · **Near-critical**
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `POST /jobs`, `GET /jobs`, `GET /jobs/<id>`; one LangGraph run with `Send` at concurrency 16; `counts`, `actor`, `started_at`, `finished_at`, `active`, failures; resume via `processed_at`; stall rule. Built with stubbed extraction and ledger.
-- **Files this PR owns:** backend/dxp/jobs/, backend/dxp/api/routes_jobs.py
-- **Done when:** the Story 1.7 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P21: Alerts API
-
-- **Owner:** Luis · **Story:** 3.1 · **Branch:** `story/3.1-alerts-api` · **Forecast:** 10:39 to 13:27
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `alerts.react()` first and update Alerts, `why` line, `diagnostic_name`, stages and Evidence on the Alert, `GET /alerts`, dismiss.
-- **Files this PR owns:** backend/dxp/alerts/, backend/dxp/api/routes_alerts.py, backend/dxp/llm/prompts/why.*
-- **Done when:** the Story 3.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P40: Submission package
-
-- **Owner:** Luis · **Story:** 8.3 · **Branch:** `story/8.3-submission` · **Forecast:** 11:39 to 12:39
-- **Start when merged:** P06
-- **Merge after:** nothing beyond its own checks
-- **Scope:** README disclosure, what was built on Saturday, MongoDB capability table, credits, links.
-- **Files this PR owns:** README.md
-- **Done when:** the Story 8.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P13: Ledger, live mode and stage rule
-
-- **Owner:** Luis · **Story:** 1.6 · **Branch:** `story/1.6c-ledger-live` · **Forecast:** 12:03 to 12:45
-- **Start when merged:** P10
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Live mode (`pending` on tracked Diagnostics), equal-value and `single`-field rules, stage only moves forward with `stage_advance`, concurrency test.
-- **Files this PR owns:** backend/dxp/ledger/file.py
-- **Done when:** the Story 1.6 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P11: Seed FDA rows, Teams and terms
-
-- **Owner:** Luis · **Story:** 1.2 · **Branch:** `story/1.2b-seed` · **Forecast:** 12:03 to 12:48
-- **Start when merged:** P10, P02
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Seed the 76 lung FDA rows through `ledger.file()` in Baseline mode, three synthetic Teams, `GET /teams`, the curated "liquid biopsy" synonym. Idempotent.
+- **Owner:** Luis · **Story:** 1.2 · **Branch:** `story/1.2b-seed` · **Forecast:** 13:15 to 13:45 · **Critical, no slack**
+- **Start when merged:** A01, A02 (A06 finishes at 13:45, so the agent codes against the frozen `ledger.file` signature)
+- **Merge after:** A06
+- **Scope:** Seed the lung FDA rows and three synthetic Teams through `ledger.file()` in Baseline mode under the seed's grant; `GET /teams`. Idempotent.
 - **Files this PR owns:** backend/dxp/ledger/seed.py, backend/dxp/api/routes_teams.py
-- **Done when:** the Story 1.2 acceptance criteria this scope covers pass, and the PR is merged.
+- **Done when:** the seed runs twice on the sandbox with no duplicates; the Story 1.2 seed criteria pass; the PR is merged.
 
-### P14: Tune extraction on real items
+### A14: Proposals and decisions API
 
-- **Owner:** Luis · **Story:** 1.5 · **Branch:** `story/1.5c-tune-real-items` · **Forecast:** 12:09 to 13:09 · **Near-critical**
-- **Start when merged:** P08, P09, P07
+- **Owner:** Luis · **Story:** 2.2, 2.3 · **Branch:** `story/2.3-proposals-decisions` · **Forecast:** 11:45 to 13:15 · **Supporting**
+- **Start when merged:** A01
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Run 20 baseline trials end to end through `llm` and the checks, fix prompts until quotes are found, print Findings; no PubMed text in any file.
-- **Files this PR owns:** backend/dxp/llm/prompts/, backend/dxp/evidence/
-- **Done when:** the Story 1.5 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `GET /proposals?status=pending&run_id=`, `POST /proposals/<p_id>/decision` (accept, edit, reject with reason) claimed and applied in one update through the ledger after `gate.evaluate` with the Reviewer's grant, history kept, events stamped (`run_id: null` and the Reviewer's principal, AD-17); `rule_draft` is always null. Minimal: no rule flags, no learned rules.
+- **Files this PR owns:** backend/dxp/ledger/decide.py, backend/dxp/api/routes_proposals.py
+- **Done when:** the trimmed Story 2.2 and 2.3 criteria pass; the PR is merged.
 
-### P25: Resume summary
+### A15: Graph API by run
 
-- **Owner:** Luis · **Story:** 6.3 · **Branch:** `story/6.3-resume` · **Forecast:** 12:39 to 14:15
-- **Start when merged:** P23, P05
+- **Owner:** Luis · **Story:** 5.1 · **Branch:** `story/5.1-graph-api` · **Forecast:** 12:00 to 13:30 · **Supporting**
+- **Start when merged:** A01
 - **Merge after:** nothing beyond its own checks
-- **Scope:** `GET /teams/<id>` with changes since `last_seen_seq`, a resume from `recall`, last Intended use and Shortlist; episodes written on search, open and dismiss.
-- **Files this PR owns:** backend/dxp/api/routes_teams.py (team detail), backend/dxp/memory/resume.py
-- **Done when:** the Story 6.3 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `GET /graph?run_id=` returns what one run touched: Diagnostics, trials, changed fields and the GitHub issues as nodes, with `$graphLookup` for neighbours.
+- **Files this PR owns:** backend/dxp/search/graph.py, backend/dxp/api/routes_graph.py
+- **Done when:** the trimmed Story 5.1 criteria pass for a fixture run; the PR is merged.
 
-### P41: Integration: screens on seeded records
+### I1: Integration, the allowed-and-blocked loop
 
-- **Owner:** Luis · **Story:** 1.3 · **Branch:** `integration/is-seeded` · **Forecast:** 12:48 to 13:18
-- **Start when merged:** P11, P05, P06
+- **Owner:** Luis · **Story:** 9.3, 9.4 · **Branch:** `integration/i1-allowed-blocked` · **Forecast:** 13:45 to 14:30 · **Critical**
+- **Start when merged:** A05, A06, A07, A08, A09, A10, A11, A12, A13
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Every merged screen against the dev database after the seed (P11): Diagnostics, Record, Review queue, graph. Fix what breaks.
+- **Scope:** Wire the real modules into the run on the sandbox. A run over the selected set: one allowed action updates a record with its quote and creates a real issue in `dxp-review-sandbox` (open it); one out-of-scope action is blocked before execution; the audit API reconstructs both with identity, grant, policy version and result. Fix what breaks in the modules above, through their owners' files.
+- **Required behaviours checked here:** all six, end to end.
 - **Files this PR owns:** fixes only
-- **Done when:** the Story 1.3 acceptance criteria this scope covers pass, and the PR is merged.
+- **Done when:** the loop passes on the sandbox by 14:30, and the PR is merged.
 
-### P24: Synthetic Team history
+### A17: Stretch, rejection drafts a policy
 
-- **Owner:** Luis · **Story:** 6.2 · **Branch:** `story/6.2-team-history` · **Forecast:** 12:48 to 13:24
-- **Start when merged:** P23, P11
+- **Owner:** Luis · **Story:** 9.11 · **Branch:** `story/9.11-policy-draft` · **Forecast:** 14:30 to 15:30 · **Stretch, only if I1 is green**
+- **Start when merged:** I1 green
+- **Merge after:** A14
+- **Scope:** When Sam rejects a proposal with a reason, the model drafts a policy as structured data: a `requires` object limited to `quote_found`, `supported` and `min_confidence`, with `applies_to`; it stays `draft` until a person principal approves it through `POST /policies/<policy_id>/approve { version }`, and then becomes a new `active` version and a new policy-set version. Model prose is never executable authority.
+- **Files this PR owns:** backend/dxp/gate/drafts.py, backend/dxp/llm/prompts/policy_draft.*, backend/dxp/api/routes_policy_drafts.py
+- **Done when:** the Story 9.11 criteria pass; the PR is merged.
+
+### I2: Final acceptance
+
+- **Owner:** Luis · **Story:** 8.2 · **Branch:** `integration/i2-acceptance` · **Forecast:** 15:00 to 15:30 · **Critical**
+- **Start when merged:** I1, A14, A15, B02, B03, B04, B05
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Five to ten synthetic episodes per Team, last Intended use and one Shortlist; idempotent.
-- **Files this PR owns:** backend/dxp/memory/seed.py
-- **Done when:** the Story 6.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P35: Graph page
-
-- **Owner:** Luis · **Story:** 5.2 · **Branch:** `story/5.2b-graph-page` · **Forecast:** 12:54 to 14:54 · **Critical**
-- **Start when merged:** P33
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Graph page, click-through to Record and Evidence, focus and neighbourhood, side panel, View as table, `$graphLookup` tag.
-- **Files this PR owns:** web/app/graph/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/graph.html`
-- **Done when:** the Story 5.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P36: Changed highlight
-
-- **Owner:** Luis · **Story:** 5.3 · **Branch:** `story/5.3-changed-highlight` · **Forecast:** 12:54 to 14:54 · **Near-critical**
-- **Start when merged:** P33
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Changed marks with words, the one pulse (not under reduced motion), focus-mode dimming, live updates from `/changes`, Mark as seen.
-- **Files this PR owns:** web/components/graph/changes.ts, web/app/graph/ (toolbar)
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/graph.html`
-- **Done when:** the Story 5.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P37: Home hero network
-
-- **Owner:** Luis · **Story:** 6.4 · **Branch:** `story/6.4a-home-hero` · **Forecast:** 12:54 to 14:54 · **Near-critical**
-- **Start when merged:** P33
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Dark hero with the Team network from `GET /graph?team_id=`, changed glow and pulse, click to Graph focused.
-- **Files this PR owns:** web/components/hero/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/home.html`
-- **Done when:** the Story 6.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P15: Integration run: 50 items
-
-- **Owner:** Luis · **Story:** 1.7 · **Branch:** `integration/i1-pipeline` · **Forecast:** 13:09 to 13:54 · **Near-critical**
-- **Start when merged:** P14, P13, P12, P07, P11, P06
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Wire real extraction and ledger into the job; a 50-item run with one forced failure gives 49 done, 1 failed, no duplicates.
-- **Files this PR owns:** fixes only, in the modules above
-- **Done when:** the Story 1.7 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P17: Dry run of the Held-back set
-
-- **Owner:** Luis · **Story:** 2.1 · **Branch:** `story/2.1-dry-run` · **Forecast:** 13:54 to 14:24
-- **Start when merged:** P15
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `mode: dry_run` writes nothing; prints matched Diagnostic and fields per item; five camera items recorded in the README demo notes.
-- **Files this PR owns:** backend/dxp/jobs/ (dry_run mode), README.md (demo notes)
-- **Done when:** the Story 2.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### P42: Integration: screens on the small real ingest
-
-- **Owner:** Luis · **Story:** 1.7 · **Branch:** `integration/im-small-ingest` · **Forecast:** 13:54 to 14:24
-- **Start when merged:** P15
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Every merged screen against the 50-item run from P15. Fix what breaks.
+- **Scope:** Final check, not first contact: every core and supporting piece on the sandbox through the screens. Start a run from the Run console; watch actions stream in; open the real issue; see the blocked action and its failed check; Sam reviews a proposal; stop the run mid-flight (`stopping`, then `stopped`); the Audit view answers "who moved SuperARMS to clinical utility, and under what authority?"; the impact view shows what the run touched.
 - **Files this PR owns:** fixes only
-- **Done when:** the Story 1.7 acceptance criteria this scope covers pass, and the PR is merged.
+- **Done when:** the Story 8.2 acceptance criteria pass on the sandbox, and the PR is merged.
 
-### P16: Baseline load and snapshot
+### A16: Rehearsal and reset
 
-- **Owner:** Luis · **Story:** 1.9 · **Branch:** `story/1.9-baseline-load` · **Forecast:** 13:54 to 14:48 · **Near-critical**
-- **Start when merged:** P15, P11, P06
+- **Owner:** Luis · **Story:** 8.2 · **Branch:** `story/8.2-rehearsal` · **Forecast:** 15:30 to 16:15 · **Critical**
+- **Start when merged:** I2
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Run the Baseline in production: trials first, then the 150 most recent PubMed items of `small` in the baseline window. Snapshot with `mongodump` outside the repo; retake procedure in the README.
-- **Files this PR owns:** README.md (retake section)
-- **Done when:** the Story 1.9 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** Rehearse the 3-minute live demo and the 60-second video script on the sandbox twice; a reset procedure that restores the seeded state, clears runs and actions, and closes the test issues in `dxp-review-sandbox`. README notes only.
+- **Files this PR owns:** README.md (demo notes and reset section), scripts/reset_demo.py
+- **Done when:** the demo runs twice from a reset without a fix, and the PR is merged.
 
-### P38: Final acceptance on production data
+### B01: Web skeleton and minimal shell
 
-- **Owner:** Luis · **Story:** 8.2 · **Branch:** `integration/i2-acceptance` · **Forecast:** 14:54 to 15:24 · **Critical**
-- **Start when merged:** P16, P42, P26, P27, V17, P29, V19, P31, V18, P35, P36, P37, P34, P18, P19, P20, P21, P22, P24, P25
+- **Owner:** Vlad · **Story:** 1.3, 1.12 · **Branch:** `story/1.12-web-shell` · **Forecast:** 10:45 to 12:00
+- **Start when merged:** nothing: start at once
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Final check, not first contact: every demo screen against the full Baseline in production. By now screens have run on seeded records (P41) and the small ingest (P42).
-- **Files this PR owns:** fixes only
-- **Done when:** the Story 8.2 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** `web/` from `create-next-app` (Next.js 16, TypeScript, App Router, Tailwind), `shadcn init`, `web/lib/api.ts` (typed fetch using `types.ts` once A01 lands, a hand stub before), the one server route that adds `X-DxP-Key`, and a minimal shell: tokens and fonts from `DESIGN.md`, a top bar with Run console, Audit, Review and Impact and the read-only "Signed in as" chip from `GET /whoami` (no name picker), badges, toasts, skeletons.
+- **Files this PR owns:** web/ (everything except web/lib/types.ts and the screens below), web/components/shell/
+- **Design reference:** tokens from `DESIGN.md`; the interface is built during the event
+- **Done when:** the trimmed Story 1.3 and 1.12 criteria pass, the skeleton deploys on Vercel, and the PR is merged.
 
-### P39: Rehearsal
+### B02: Run console
 
-- **Owner:** Luis · **Story:** 8.2 · **Branch:** `story/8.2-rehearsal` · **Forecast:** 15:24 to 16:09 · **Critical**
-- **Start when merged:** P38, P17
+- **Owner:** Vlad · **Story:** 9.7 · **Branch:** `story/9.7-run-console` · **Forecast:** 12:00 to 14:15 · **Core**
+- **Start when merged:** B01
+- **Merge after:** A01
+- **Scope:** Start a run; identity card (agent, model, prompt version, policy-set version, acting for, grant and scope); live action feed from `/changes` with allowed, blocked (failed check named), in flight and unknown states; stop button with `stopping` then `stopped`; links to the GitHub issues and to the Audit view.
+- **Files this PR owns:** web/app/runs/[run_id]/page.tsx, web/app/runs/page.tsx, web/components/run-console/
+- **Design reference:** the Run console section of `EXPERIENCE.md`, with `DESIGN.md` tokens
+- **Done when:** the Story 9.7 criteria pass against the sandbox, and the PR is merged.
+
+### B03: Audit view
+
+- **Owner:** Vlad · **Story:** 9.8 · **Branch:** `story/9.8-audit-view` · **Forecast:** 12:00 to 14:00 · **Core**
+- **Start when merged:** B01
+- **Merge after:** A01
+- **Scope:** One run reconstructed action by action from `GET /runs/<run_id>/audit`: inputs, evidence quote, grant and policy versions, decision and failed check, the four timestamps, issue link or `unknown`; a "who authorised this" panel from `authorised_by` on `GET /actions/<action_id>`.
+- **Files this PR owns:** web/app/runs/[run_id]/audit/, web/components/audit/
+- **Design reference:** the Audit view section of `EXPERIENCE.md`, with `DESIGN.md` tokens
+- **Done when:** the Story 9.8 criteria pass against the sandbox, and the PR is merged.
+
+### B04: Record and Review, minimal
+
+- **Owner:** Vlad · **Story:** 1.3, 2.4 · **Branch:** `story/2.4-record-review` · **Forecast:** 12:00 to 14:00 · **Supporting**
+- **Start when merged:** B01
+- **Merge after:** A01
+- **Scope:** The Record page with Evidence on every value and the `run_id` that last changed it; a minimal Review queue for one run's proposals with accept, edit and reject with reason.
+- **Files this PR owns:** web/app/diagnostics/, web/app/review/
+- **Design reference:** the Record and Review section of `EXPERIENCE.md`, with `DESIGN.md` tokens
+- **Done when:** the trimmed Story 1.3 and 2.4 criteria pass against the sandbox, and the PR is merged.
+
+### B05: Run impact view
+
+- **Owner:** Vlad · **Story:** 5.2 · **Branch:** `story/5.2-impact-view` · **Forecast:** 12:00 to 14:30 · **Supporting**
+- **Start when merged:** B01
+- **Merge after:** A01
+- **Scope:** `react-force-graph-2d` through `next/dynamic` over `GET /graph?run_id=`: what the run touched, with the GitHub issues as nodes, click-through to the Record and to the issue, and View as table.
+- **Files this PR owns:** web/app/runs/[run_id]/impact/, web/components/graph/
+- **Design reference:** the Run impact view section of `EXPERIENCE.md`, with `DESIGN.md` tokens
+- **Done when:** the trimmed Story 5.2 criteria pass against the sandbox, and the PR is merged.
+
+### B06: Stretch, spoken audit briefing
+
+- **Owner:** Vlad · **Story:** 9.10 · **Branch:** `story/9.10-audio-briefing` · **Forecast:** 13:00 to 14:30 · **Stretch**
+- **Start when merged:** B01
+- **Merge after:** A11
+- **Scope:** `GET /runs/<run_id>/audit/audio`: ElevenLabs reads a run's audit summary, a short script built from the `GET /runs/<run_id>/audit` response only, cached in `audio` per run, 503 on failure; a play, pause, loading and error control on the Audit view.
+- **Files this PR owns:** backend/dxp/api/briefing.py, backend/dxp/api/routes_audio.py, web/components/audit/audio.tsx
+- **Done when:** the Story 9.10 criteria pass, and the PR is merged.
+
+### B07: Submission package
+
+- **Owner:** Vlad · **Story:** 8.3, 8.4 · **Branch:** `story/8.3-submission` · **Forecast:** 13:00 to 14:00
+- **Start when merged:** nothing: start at once
 - **Merge after:** nothing beyond its own checks
-- **Scope:** Live run of `narrow.heldback` then PubMed `small` held-back; one accept, one reject with a rule; memory write and read; restore from the snapshot. README notes only.
-- **Files this PR owns:** README.md (demo notes)
-- **Done when:** the Story 8.2 acceptance criteria this scope covers pass, and the PR is merged.
+- **Scope:** README with the problem statement (Statement 1), a prepared vs built-today table, the MongoDB capability table, credits and links; the submission description; the 60-second video script (0 to 10 s scope, 10 to 30 s allowed action across two systems, 30 to 45 s blocked action, 45 to 60 s stop and "who authorised").
+- **Files this PR owns:** README.md (submission sections), docs/video-script.md
+- **Done when:** the Story 8.3 and 8.4 criteria pass, and the PR is merged.
 
-### V01: Unmatched terms page
+## Deferred work
 
-- **Owner:** Vlad · **Story:** 4.8 · **Branch:** `story/4.8-terms-page` · **Forecast:** 10:24 to 11:39
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Terms page: term and times seen only.
-- **Files this PR owns:** web/app/terms/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/terms.html`
-- **Done when:** the Story 4.8 acceptance criteria this scope covers pass, and the PR is merged.
+Deferred (pivot, 13 Nov). No agent builds these on Saturday. The old PR IDs P01 to P42 and V01 to V19 are retired; do not reuse them.
 
-### V02: Comparison table: Evidence panel and keyboard
-
-- **Owner:** Vlad · **Story:** 4.3 · **Branch:** `story/4.3b-evidence-panel` · **Forecast:** 10:24 to 12:17
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Evidence panel for a cell, focusable cells, Enter opens Evidence.
-- **Files this PR owns:** web/components/compare/evidence-panel/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/find.html`
-- **Done when:** the Story 4.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V17: Jobs page
-
-- **Owner:** Vlad · **Story:** 1.8 · **Branch:** `story/1.8-jobs-page` · **Forecast:** 10:24 to 12:54
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Start a job, live counts, agents working now from `active`, failures, earlier jobs.
-- **Files this PR owns:** web/app/jobs/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/jobs.html`
-- **Done when:** the Story 1.8 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V19: Rules on screen
-
-- **Owner:** Vlad · **Story:** 2.7 · **Branch:** `story/2.7-rules-screen` · **Forecast:** 10:24 to 12:54
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Rule draft panel after a reject or edit, Rules page with switches, Agent Memory tag.
-- **Files this PR owns:** web/app/rules/, web/components/rule-panel/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/rules.html, mockups/review.html (rule card)`
-- **Done when:** the Story 2.7 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V18: Digest
-
-- **Owner:** Vlad · **Story:** 3.3 · **Branch:** `story/3.3-digest` · **Forecast:** 10:24 to 12:54
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `GET /digest` and the Digest panel used on Home.
-- **Files this PR owns:** backend/dxp/api/routes_digest.py, web/components/digest/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/home.html (Digest panel)`
-- **Done when:** the Story 3.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V06: Comparison table and chips
-
-- **Owner:** Vlad · **Story:** 4.3 · **Branch:** `story/4.3a-compare-table` · **Forecast:** 10:24 to 12:54
-- **Start when merged:** P03
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Find page: query box, parsed chips (filters-only rerun), table with stage track, Vector Search tag.
-- **Files this PR owns:** web/app/find/
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/find.html`
-- **Done when:** the Story 4.3 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V07: Category landscape
-
-- **Owner:** Vlad · **Story:** 4.6 · **Branch:** `story/4.6-categories` · **Forecast:** 10:24 to 12:54
-- **Start when merged:** P03
-- **Merge after:** P05
-- **Scope:** Categories page, `search.completeness()` in Vlad's own module (the read model owned by P05 already calls it), and the Category map in `schema/categories.py`. No edit to `readmodel.py`.
-- **Files this PR owns:** web/app/categories/, backend/dxp/search/completeness.py, backend/dxp/schema/categories.py
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/categories.html`
-- **Done when:** the Story 4.6 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V08: Search index with synonyms
-
-- **Owner:** Vlad · **Story:** 4.1 · **Branch:** `story/4.1b-synonyms` · **Forecast:** 10:39 to 13:31
-- **Start when merged:** P01
-- **Merge after:** nothing beyond its own checks
-- **Scope:** MongoDB Search index with the synonym mapping over `terms`, `search.terms` expansion, unmatched terms written, `GET /terms`.
-- **Files this PR owns:** backend/dxp/search/terms.py, backend/dxp/api/routes_terms.py
-- **Done when:** the Story 4.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V09: Vector Search index
-
-- **Owner:** Vlad · **Story:** 4.1 · **Branch:** `story/4.1a-vector-index` · **Forecast:** 10:39 to 13:47
-- **Start when merged:** P01
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Vector Search index with Automated Embedding on `search_text`, readiness check, text-search fallback.
-- **Files this PR owns:** backend/dxp/search/indexes.py
-- **Done when:** the Story 4.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V11: Plain-language query API
-
-- **Owner:** Vlad · **Story:** 4.2 · **Branch:** `story/4.2-query-api` · **Forecast:** 10:39 to 14:09
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `POST /query`: parsing to registry filters, facets filter, `$vectorSearch` ranking, filters-only path with no model call.
-- **Files this PR owns:** backend/dxp/search/query.py, backend/dxp/api/routes_query.py, backend/dxp/llm/prompts/query.*
-- **Done when:** the Story 4.2 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V03: Add a value API
-
-- **Owner:** Vlad · **Story:** 4.7 · **Branch:** `story/4.7-add-value-api` · **Forecast:** 11:39 to 13:09
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `POST /diagnostics/<id>/values` through `ledger.file()` with `evidence.manual`.
-- **Files this PR owns:** backend/dxp/api/routes_values.py
-- **Done when:** the Story 4.7 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V04: Tavily provider scan
-
-- **Owner:** Vlad · **Story:** 1.11 · **Branch:** `story/1.11-tavily` · **Forecast:** 12:17 to 13:47
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Provider adapter with `include_domains` from the allow-list.
-- **Files this PR owns:** backend/dxp/sources/provider_web.py
-- **Done when:** the Story 1.11 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V10: Export
-
-- **Owner:** Vlad · **Story:** 4.5 · **Branch:** `story/4.5-export` · **Forecast:** 12:54 to 14:01
-- **Start when merged:** V06
-- **Merge after:** nothing beyond its own checks
-- **Scope:** CSV export with escaping, formula guard and credits.
-- **Files this PR owns:** web/lib/export.ts
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/find.html`
-- **Done when:** the Story 4.5 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V05: Quick capture
-
-- **Owner:** Vlad · **Story:** 7.1 · **Branch:** `story/7.1-quick-capture` · **Forecast:** 12:54 to 14:24
-- **Start when merged:** P04
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Capture box API and the top-bar button behaviour.
-- **Files this PR owns:** backend/dxp/capture/, web/components/capture/
-- **Done when:** the Story 7.1 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V14: Shortlist
-
-- **Owner:** Vlad · **Story:** 4.4 · **Branch:** `story/4.4-shortlist` · **Forecast:** 12:54 to 15:24
-- **Start when merged:** V06
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Implements `POST /shortlists` and `GET /shortlists`, whose shapes are already in the P01 contract, plus row checkboxes and Save shortlist.
-- **Files this PR owns:** backend/dxp/api/routes_shortlists.py, web/app/find/shortlist.tsx
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/find.html`
-- **Done when:** the Story 4.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V12: Scheduled scan
-
-- **Owner:** Vlad · **Story:** 1.10 · **Branch:** `story/1.10-scheduled-scan` · **Forecast:** 13:09 to 14:17
-- **Start when merged:** P12
-- **Merge after:** nothing beyond its own checks
-- **Scope:** `modal.Cron` scan that starts a live job unless one is running; manual "scan now".
-- **Files this PR owns:** backend/dxp/sources/scan.py
-- **Done when:** the Story 1.10 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V13: Audio briefing
-
-- **Owner:** Vlad · **Story:** 3.4 · **Branch:** `story/3.4-audio-briefing` · **Forecast:** 13:27 to 14:35
-- **Start when merged:** P21
-- **Merge after:** nothing beyond its own checks
-- **Scope:** ElevenLabs briefing, cached, 503 on failure.
-- **Files this PR owns:** backend/dxp/alerts/audio.py, backend/dxp/api/routes_audio.py
-- **Done when:** the Story 3.4 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V16: Value history
-
-- **Owner:** Vlad · **Story:** 2.5 · **Branch:** `story/2.5-value-history` · **Forecast:** 13:54 to 15:47
-- **Start when merged:** P26
-- **Merge after:** nothing beyond its own checks
-- **Scope:** History disclosure on the Record: superseded and rejected values with Evidence, who, when and reason.
-- **Files this PR owns:** web/app/diagnostics/[id]/history.tsx
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/record.html`
-- **Done when:** the Story 2.5 acceptance criteria this scope covers pass, and the PR is merged.
-
-### V15: Play button
-
-- **Owner:** Vlad · **Story:** 3.5 · **Branch:** `story/3.5-play-button` · **Forecast:** 14:35 to 15:49
-- **Start when merged:** P31, V13
-- **Merge after:** nothing beyond its own checks
-- **Scope:** Play, pause, loading and error states on the Alert item.
-- **Files this PR owns:** web/components/alert-item/audio.tsx
-- **Mockup:** `ux-designs/ux-agents-in-context-toronto-2026-11-13/mockups/alerts.html`
-- **Done when:** the Story 3.5 acceptance criteria this scope covers pass, and the PR is merged.
-
+| Deferred | Stories |
+|---|---|
+| Full Baseline load and snapshot, scheduled scan, Tavily provider scan | 1.9, 1.10, 1.11 |
+| Jobs page (replaced by the Run console, 9.7) | 1.8 |
+| Dry run of the Held-back set, Value history, Learned rules API and Rules on screen | 2.1, 2.5, 2.6, 2.7 (2.6 returns only as stretch Story 9.11) |
+| Alerts API, Alerts inbox, Digest, audio briefing and play button (audio returns as stretch Story 9.10) | 3.1, 3.2, 3.3, 3.4, 3.5 |
+| Find and Categories: search indexes, query API, comparison table, shortlist, export, add a value, Category landscape, unmatched terms | 4.1 to 4.8 |
+| Changed highlight on the graph | 5.3 |
+| Memory and resume, synthetic Team history, Home hero and welcome panel | 6.1 to 6.4 |
+| Quick capture | 7.1 |
+| The broad Home dashboard and the full app shell beyond B01 | parts of 1.12 |
