@@ -4,14 +4,14 @@
 
 Built for **Agents in Context Toronto: a MongoDB Hackathon** (Cerebral Valley), Problem Statement 1, "Agents You Can Audit".
 
-**Status: the build is in progress on Saturday 14 November 2026 (hacking is planned to run 10:45 to 17:00 ET; the deadline is confirmed in docs/clearance.md).** Everything below describes planned behaviour until the "Verified on the sandbox" section says otherwise. Facts we do not know yet are shown as markers that start with the word PENDING inside double square brackets, each with where the answer will come from. No marker is a claim. A sentence that describes behaviour in the present tense ends with a tag in the form `[[VERIFY: I1 | I3 | A16 pass 1]]`. The tag names every check that must pass before the sentence stands; until then it is a plan, not a claim. After the checks, the B07 follow-up PR deletes each sentence whose check did not pass and removes the tags from the rest.
+**Status: the build is in progress on Saturday 14 November 2026. The organisers allowed hacking from 10:30 ET; the deadline is planned for 17:00 ET (to be confirmed in docs/clearance.md, added by Luis).** Everything below describes planned behaviour until the "Verified on the sandbox" section says otherwise. Markers in double square brackets show open facts and open checks; no marker is a claim. See "Reading the markers" under the verified table.
 
 - Event page: https://cerebralvalley.ai/e/mongodb-toronto-hackathon
 - Location: The Quay, 100 Queens Quay E 3rd Floor, Toronto, ON M5E 1V3, Canada
 - Production URL: [[PENDING: production URL (A04, docs/deploy.md)]]
 - Public repository: [[PENDING: public repository URL (R1)]]
 - 60-second video: [[PENDING: video link (R1)]]
-- Team: [[PENDING: team members as submitted (R1)]]
+- Team: Luis, Vlad and Gregorio
 
 DxP supports research review. It is not a clinical decision tool and gives no medical advice.
 
@@ -19,14 +19,14 @@ DxP supports research review. It is not a clinical decision tool and gives no me
 
 A diagnostics team follows public evidence in one research area. Finding a newly updated trial, connecting it to what the team already holds, and deciding what to do next is slow manual work. An agent can do that work only if the team can answer: who acted, under what authority, what was it allowed to do, what was it stopped from doing, and why.
 
-DxP's agent, `dxp-curator`, works for one research scope under a scoped grant. [[VERIFY: I1]] The demo scope is **"Plasma ctDNA genotyping assays in NSCLC"**, owned by a synthetic team, "Team Liquid Biopsy Dx". The data layer is MongoDB Atlas: identity, grants, policies, decisions and audit are all documents there. [[VERIFY: I1 | I3]]
+DxP's agent, `dxp-curator`, is planned to work for one research scope under a scoped grant. The demo scope is **"Plasma ctDNA genotyping assays in NSCLC"**, owned by a synthetic team, "Team Liquid Biopsy Dx". The data layer is planned to be MongoDB Atlas: identity, grants, policies, decisions and audit are all documents there. The checks for these sentences are in the first two rows of the verified table.
 
 ### How the project changed
 
-- **13 November, the pivot.** DxP moved to Problem Statement 1, "Agents You Can Audit": governed agent actions, with scoped grants, a policy gate, a recorded Decision for every check, notify-only Slack, a stop control and an audit view that answers who acted and why. [[VERIFY: I1 | I3 | A16 pass 1]]
-- **14 November, the discovery-agent change.** The agent became proactive: it is built to scan its scope for trials updated since a cursor, relate what it finds to what the team already holds, remember reviewer corrections, file one pending report for a human to approve, and build longitudinal value over time. [[VERIFY: I1 | I3]]
+- **13 November, the pivot.** DxP moved to Problem Statement 1, "Agents You Can Audit": governed agent actions, with scoped grants, a policy gate, a recorded Decision for every check, notify-only Slack, a stop control and an audit view that answers who acted and why.
+- **14 November, the discovery-agent change.** The agent became proactive: it is built to scan its scope for trials updated since a cursor, relate what it finds to what the team already holds, remember reviewer corrections, file one pending report for a human to approve, and build longitudinal value over time.
 
-Both changes are described below as planned behaviour until the verified table says otherwise.
+Both changes are described below as planned behaviour until the verified table says otherwise. Their checks are in the first two rows of that table.
 
 ### The governed discovery loop
 
@@ -36,7 +36,7 @@ Both changes are described below as planned behaviour until the verified table s
 4. **Gate.** Versioned policies are checked before every action, and every check is recorded as a Decision. A blocked action changes nothing and is still recorded. The checks cover: the grant is active, the target is in the team's scope, the destination and action match the grant, the required evidence is present (including claim checks), and the run is still authorised. [[VERIFY: I1]]
 5. **Propose.** The agent files one pending report: the finding, its quotes, related evidence, uncertainties, the evidence gap, and one recommended follow-up task. Nothing becomes accepted knowledge yet. [[VERIFY: I1]]
 6. **Notify.** One Slack alert per report links back to the report in DxP. Slack only notifies; approving and rejecting happen only in DxP. [[VERIFY: I1 | I3]]
-7. **Brief (optional, on demand).** A ten-second ElevenLabs briefing and LiveAvatar (HeyGen), pending approval (proposed V70), are planned as on-demand extras. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is pending Luis's approval as decision V49 and is the first supporting cut. The report's own text script is always shown as text [[VERIFY: I1]]; nothing waits on either extra. [[PENDING: whether the briefing and LiveAvatar passed their checks (B06, B08, OD7, V49)]]
+7. **Brief and interview (optional, on demand).** A ten-second ElevenLabs briefing is a planned on-demand extra. LiveAvatar (HeyGen), proposed V70 and approved by Luis together with the interview page, replaces the earlier pre-rendered video (B08): it is planned to run in FULL mode with `repeat(text)` only, never `message()`, with listening and the microphone off, and to speak only the text the backend returned. If it fails, the text answer still shows. An "Interview this evidence" page on an accepted report only is planned behind the `interview` feature flag: a question goes in, and the answer is built only from the verbatim quotes stored on that report (pinned to its version), with a citations panel. Each question is a gated, logged Decision. A question that asks for medical advice gets one fixed refusal and no model call, and a question the report cannot answer gets "The accepted record doesn't answer that". All of this is optional work behind its flags. It is never on the critical path, it is shown only if its own checks pass, and it is cut if not merged by 15:00 (the avatar is cut first, then the interview page). The report's own text script is always shown as text; nothing waits on any extra. [[VERIFY: I1]] [[PENDING: whether the briefing, LiveAvatar and the interview page passed their checks (B06, OD7, the avatar sandbox test, the interview checks, proposed V70)]]
 8. **Decide.** A reviewer approves or rejects in DxP. Approval moves the report's own update into accepted knowledge and authorises one follow-up task under its own narrow grant. [[VERIFY: I3]] Whatever that task later finds is planned to stay pending until a reviewer decides on it ("approved" is not "accepted" for the task). [[VERIFY: I3b]] A rejection or a correction is planned to become a memory for the next discovery. [[VERIFY: I3]]
 9. **Audit and stop.** Every step can be replayed: what the agent found, which memory changed its wording, what was blocked, and who authorised the follow-up. [[VERIFY: I3]] A person is planned to be able to stop a run at any moment [[PENDING: Stop check (A16 pass 1)]].
    - **The rollback story (planned behaviour).** Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. The agent cannot change accepted knowledge without a human approval. [[VERIFY: I3 | A16 pass 1]]
@@ -55,7 +55,7 @@ One discovery run on the scope finds the anchor trial NCT04712877 (updated 2026-
 
 When the demo or the report mentions an assay name that appears in a trial record, we say it is "named in the record". A name in a record is not evidence that the trial used or studied that product. DxP is built to describe each assay name as "named in the record", and its claim check is planned to block any performance or results claim the source version does not support. A person is planned to check a full report against its source version before it is shown. [[PENDING: result of that source check (A16 pass 1)]]
 
-The briefing and LiveAvatar (HeyGen), pending approval (proposed V70) (step 7), are optional, on demand and not on the critical path; LiveAvatar is the first supporting cut. Running the approved follow-up task is a stretch goal behind a feature flag; if it does not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
+The briefing, LiveAvatar (HeyGen), proposed V70, and the "Interview this evidence" page (step 7) are optional, on demand, behind their flags and not on the critical path; LiveAvatar is the first supporting cut and the interview page is cut after it. Running the approved follow-up task is a stretch goal behind a feature flag; if it does not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ## Verified on the sandbox
 
@@ -63,15 +63,22 @@ Each row is filled in with its evidence when it passes, and stays a marker until
 
 | Behaviour | Status |
 |---|---|
+| The agent works for one scope under a scoped grant; identity, grants, policies, decisions and audit are Atlas documents ("What it does") | [[VERIFY: I1 | I3]] |
+| The 13 November pivot and the 14 November discovery-agent change, as described under "How the project changed" | [[VERIFY: I1 | I3 | A16 pass 1]] |
 | Discovery, relationship with quotes, memory effect, policy block, pending report | [[PENDING: pass or fail and evidence (I1)]] |
 | Slack alert that opens the report | [[PENDING: pass or fail (I1)]] |
 | Approval, promotion and task authorisation, audit answer | [[PENDING: pass or fail (I3)]] |
 | Stop | [[PENDING: pass or fail (A16 pass 1)]] |
 | Ten-second briefing | [[PENDING: passed or not (B06 check)]] |
-| LiveAvatar (HeyGen), pending approval (proposed V70) | [[PENDING: passed or not (B08 check; OD7 passed for LiveAvatar; proposed V70)]] |
+| LiveAvatar (HeyGen), proposed V70: the free sandbox test, repeat speaks the exact text with the microphone muted (replaces B08) | [[PENDING: passed or not (avatar sandbox test; OD7; proposed V70)]] |
+| "Interview this evidence": answers from the accepted report's verbatim quotes only, with citations, claim checks, the fixed medical-advice refusal and "The accepted record doesn't answer that" | [[PENDING: passed or not (interview checks; flag `interview`; merge by 15:00 or cut)]] |
 | Revert an approval | [[PENDING: passed or not (S4)]] |
 | Live updates from a change stream | [[PENDING: passed or not (S5)]] |
 | Follow-up task run | [[PENDING: ran or not (I3b)]] |
+
+### Reading the markers
+
+Facts we do not know yet are markers that start with the word PENDING inside double square brackets, each with where the answer will come from. A sentence that describes behaviour in the present tense ends with a marker that starts with the word VERIFY and names every check that must pass (for example I1, I3 or A16 pass 1) before the sentence stands; until then it is a plan, not a claim. The first two rows above carry the checks for the descriptive sentences near the top of this page. After the checks, the B07 follow-up PR deletes each sentence whose check did not pass and removes the markers from the rest.
 
 ## MongoDB capabilities
 
@@ -99,7 +106,7 @@ The event rules allow only work built during the event to be highlighted. This t
 | `data/` and `scripts/data/`: open data downloaded and fetch scripts written before the event | Not used without written organiser clearance. [[PENDING: whether the organisers cleared them (docs/clearance.md)]]. The build is planned to fetch its own data during the event, unless the organisers cleared the prepared files, in which case this row is updated [[PENDING: whether any prepared data file was loaded (docs/clearance.md)]]; if the FDA page could not be fetched, the Diagnostics the scope names were typed from the FDA page during the event [[PENDING: whether the FDA fetch worked (A13)]] |
 | Logo images in the UX folder | Not used without written organiser clearance. [[PENDING: whether the organisers cleared them (docs/clearance.md)]]. The interface uses a text wordmark, "DxP" |
 | The Slack incoming webhook for `#all-mango-db-hackathon`, created and tested before the event | The channel is planned to be used [[PENDING: organiser answer on alert volume in that channel (docs/clearance.md)]]. The webhook address lives only in `.env` and the Modal secret and is never committed. Any script used to test it is not reused; the notifier is written during the event |
-| The ElevenLabs and LiveAvatar (HeyGen), pending approval (proposed V70), accounts, if created before the event [[PENDING: which accounts existed beforehand (OD3, OD7)]] | Keys live only in `.env` and the Modal secret and are never committed. Every briefing is planned to be generated, and any LiveAvatar session opened, during the event, on demand, from a report's own verified script. [[PENDING: Luis confirms no test audio or video was made before the event (OD3, OD7)]] |
+| The ElevenLabs and LiveAvatar (HeyGen), proposed V70, accounts, if created before the event [[PENDING: which accounts existed beforehand (OD3, OD7)]] | Keys live only in `.env` and the Modal secret and are never committed. Every briefing is planned to be generated, and any LiveAvatar session opened, during the event, on demand, from a report's own verified script. [[PENDING: Luis confirms no test audio or video was made before the event (OD3, OD7)]] |
 | A modified copy of the BMad sprint-planning status script | Planning tool only. It never recommends deferred stories. Not product |
 
 | Planned to be built on 14 November (a row counts as built only once its check in the verified table passed) |
@@ -115,17 +122,17 @@ The event rules allow only work built during the event to be highlighted. This t
 - **No file from `data/`**, so the evidence in the demo comes from live fetches that can be repeated, unless an organiser cleared it in writing.
 - **No prepared logo**, so the interface carries only a text wordmark, unless an organiser cleared it.
 - **No script used to test the Slack webhook**, so the notifier is written and tested during the event.
-- **No clip planned to be made beforehand** with ElevenLabs or LiveAvatar (HeyGen), pending approval (proposed V70): every briefing is planned to be generated, and any LiveAvatar session opened, during the event, from a report's own verified script, so it shows the product working on the day. [[PENDING: Luis confirms no test audio or video was made before the event (OD3, OD7)]]
+- **No clip planned to be made beforehand** with ElevenLabs or LiveAvatar (HeyGen), proposed V70: every briefing is planned to be generated, and any LiveAvatar session opened, during the event, from a report's own verified script, so it shows the product working on the day. [[PENDING: Luis confirms no test audio or video was made before the event (OD3, OD7)]]
 - **No seeded reviewer memory.** It is created by a person through the interface.
 
 ## Organiser answers
 
-The answers are recorded in [docs/clearance.md](docs/clearance.md) on Saturday morning. This table copies them in.
+The answers are recorded in docs/clearance.md (added by Luis) on Saturday morning. This table copies them in.
 
 | Question | Answer |
 |---|---|
 | Submission deadline (the event guide says 17:00) | [[PENDING: organiser answer (docs/clearance.md)]] |
-| May any coding start before 10:45? | [[PENDING: organiser answer (docs/clearance.md)]] |
+| May any coding start before 10:45? | Yes, from 10:30, per the organisers |
 | How should prepared material be presented? | [[PENDING: organiser answer (docs/clearance.md)]] |
 | May the prepared data in `data/` and the logo images be used? | [[PENDING: organiser answer (docs/clearance.md)]] |
 | Is one Slack alert per report in `#all-mango-db-hackathon` acceptable for that channel? | [[PENDING: organiser answer (docs/clearance.md)]] |
@@ -137,7 +144,7 @@ The answers are recorded in [docs/clearance.md](docs/clearance.md) on Saturday m
 | Web app | Next.js on Vercel: report page, run console, audit view |
 | API and agent | FastAPI and LangGraph on Modal, with Claude models |
 | Data, identity, policy, audit | MongoDB Atlas Sandbox |
-| External systems | ClinicalTrials.gov API (read), Slack incoming webhook (notify only), ElevenLabs and LiveAvatar (HeyGen), pending approval (proposed V70) (optional, on demand) |
+| External systems | ClinicalTrials.gov API (read), Slack incoming webhook (notify only), ElevenLabs and LiveAvatar (HeyGen), proposed V70, plus the optional "Interview this evidence" page (all optional, on demand, behind flags) |
 
 Rules the design holds to:
 
@@ -151,8 +158,8 @@ Rules the design holds to:
 ## Documentation
 
 - [Deployment](docs/deploy.md)
-- [Demo setup, rehearsal and reset](docs/demo-and-reset.md)
-- [Organiser clearance](docs/clearance.md)
+- Demo setup, rehearsal and reset: docs/demo-and-reset.md (added by A16)
+- Organiser clearance: docs/clearance.md (added by Luis)
 - [Submission description](docs/submission.md)
 - [60-second video script](docs/video-script.md)
 - The full plan is in `_bmad-output/planning-artifacts/`: the discovery-agent change of 14 November (`sprint-change-proposal-2026-11-14-discovery-agent.md`), the pivot of 13 November (`sprint-change-proposal-2026-11-13.md`), the epics, the architecture and the development plan.
@@ -164,4 +171,4 @@ Rules the design holds to:
 
 ## Credits
 
-Data planned to be fetched during the event: ClinicalTrials.gov (U.S. National Library of Medicine) and the FDA list of companion diagnostics (fda.gov) [[PENDING: whether any prepared data file was loaded instead (docs/clearance.md)]]. Platform and services: MongoDB Atlas, Claude (Anthropic), Slack, Modal and Vercel, and, if their checks passed, ElevenLabs and LiveAvatar (HeyGen, pending V49). DxP is not endorsed by any of these organisations. Prepared open data under `data/` is not used unless an organiser cleared it; its sources, including openFDA, are credited in `data/README.md`. Built by [[PENDING: team members as submitted (R1)]] at Agents in Context Toronto.
+Data planned to be fetched during the event: ClinicalTrials.gov (U.S. National Library of Medicine) and the FDA list of companion diagnostics (fda.gov) [[PENDING: whether any prepared data file was loaded instead (docs/clearance.md)]]. Platform and services: MongoDB Atlas, Claude (Anthropic), Slack, Modal and Vercel, and, if their checks passed, ElevenLabs and LiveAvatar (HeyGen, proposed V70). DxP is not endorsed by any of these organisations. Prepared open data under `data/` is not used unless an organiser cleared it; its sources, including openFDA, are credited in `data/README.md`. Built by Luis, Vlad and Gregorio at Agents in Context Toronto.

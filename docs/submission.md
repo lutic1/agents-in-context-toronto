@@ -2,7 +2,7 @@
 
 Text for the Agents in Context Toronto submission form (Problem Statement 1, "Agents You Can Audit"). R1 pastes it in with the video link by 16:55.
 
-**R1, read this first.** Each sentence below that describes behaviour ends with a tag in the form `[[VERIFY: I1 | I3 | A16 pass 1]]`. Nothing the tag gates has been verified yet. The tag names every check that must have passed before that sentence is submitted: read the results in the README "Verified on the sandbox" table and in `docs/demo-and-reset.md` (A16 pass 1). If any check named in a tag did not pass, delete the sentence (or the whole bullet). Then remove every remaining `[[VERIFY: ...]]` tag before pasting. Resolve each marker that starts with the word PENDING in double square brackets in the same way: fill in the fact, or delete the sentence. A VERIFY or PENDING marker left in the form is a failed submission check. One exception: the rollback sentences under "How to stop or roll back an agent mid-run" are the V48 line, which is never cut. If their checks did not pass, do not submit; tell Luis.
+**R1, read this first.** Each sentence below that describes behaviour ends with a tag in the form `[[VERIFY: I1 | I3 | A16 pass 1]]`. Nothing the tag gates has been verified yet. The tag names every check that must have passed before that sentence is submitted: read the results in the README "Verified on the sandbox" table and in `docs/demo-and-reset.md` (added by A16; A16 pass 1). If any check named in a tag did not pass, delete the sentence (or the whole bullet). Then remove every remaining `[[VERIFY: ...]]` tag before pasting. Resolve each marker that starts with the word PENDING in double square brackets in the same way: fill in the fact, or delete the sentence. A VERIFY or PENDING marker left in the form is a failed submission check. One exception: the rollback sentences under "How to stop or roll back an agent mid-run" are the V48 line, which is never cut. If their checks did not pass, do not submit; tell Luis.
 
 **Wording status.** Features that are optional or not built yet are written as planned and are not tagged. They stay phrased as planned unless the matching row of "Verified on the sandbox" in the README has passed, in which case R1 may rewrite that one sentence in the present tense.
 
@@ -15,7 +15,7 @@ Text for the Agents in Context Toronto submission form (Problem Statement 1, "Ag
 | Public repository | [[PENDING: public repository URL (R1)]] |
 | Production URL | [[PENDING: production URL (A04, docs/deploy.md)]] |
 | Video (60 seconds) | [[PENDING: video link (R1)]] |
-| Team members | [[PENDING: team members as submitted (R1)]] |
+| Team members | Luis, Vlad and Gregorio |
 
 ## One line
 
@@ -64,16 +64,17 @@ The scope's scan cursor and the team's memories are kept over time, so the next 
 
 ### Optional extras
 
-Each of these is optional, on demand and planned. None gates the loop. Keep a sentence only if its check passed, and say nothing about the rest. [[PENDING: which supporting features passed their checks: briefing (B06), LiveAvatar (B08, OD7, V49), revert (S4), live stream (S5), follow-up task run (I3b)]]
+Each of these is optional, on demand and planned. None gates the loop. Keep a sentence only if its check passed, and say nothing about the rest. [[PENDING: which supporting features passed their checks: briefing (B06), LiveAvatar (avatar sandbox test, OD7, proposed V70), Interview this evidence (interview checks), revert (S4), live stream (S5), follow-up task run (I3b)]]
 
 - A ten-second ElevenLabs briefing is planned to be made on demand from the report's own text script. [[VERIFY: B06]]
-- LiveAvatar (HeyGen), pending approval (proposed V70), is a live, interactive avatar planned to speak only the report's verified script. It is pending Luis's approval as a proposed decision V70, it is the first supporting cut, and the sentence stays only if V49 was approved and its check passed. [[VERIFY: B08 | OD7 | V49]]
+- LiveAvatar (HeyGen), proposed V70 (approved by Luis together with the interview page, replacing the earlier pre-rendered video), is a live, interactive avatar planned to speak only the text the backend returned, in FULL mode with `repeat(text)` only, with listening and the microphone off. If it fails, the text still shows. It is optional, behind its flag and the first supporting cut, and the sentence stays only if its sandbox test passed. [[VERIFY: avatar sandbox test | OD7]]
+- "Interview this evidence" is a planned page on an accepted report only, behind the `interview` flag. A question goes in, and the answer is built only from verbatim quotes stored on that report, with a citations panel. Each question is a gated, logged decision. Questions that ask for medical advice get one fixed refusal, and questions the report cannot answer get "The accepted record doesn't answer that". It is optional, never on the critical path, shown only if its own checks pass, and cut if not merged by 15:00. [[VERIFY: interview checks]]
 - The script is always shown as text. [[VERIFY: I1]]
 - Running the authorised follow-up task is a stretch goal. If it did not run, DxP says "Follow-up task authorised; not run" and claims no follow-up results.
 
 ### Built on the day, and what was prepared
 
-The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), pending approval (proposed V70), accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
+The plan is that all code, all data in Atlas and any briefing or LiveAvatar session are produced during the event, and that no prepared code, data file, logo or clip is reused unless an organiser cleared it in writing. [[PENDING: whether any prepared data file or logo was cleared and used (docs/clearance.md)]] Prepared material (planning documents, reference skills, open data files, logo images, the Slack webhook and channel, and any ElevenLabs and LiveAvatar (HeyGen), proposed V70, accounts) is listed in the README, with what was and was not used. [[PENDING: organiser answers on prepared material (docs/clearance.md)]]
 
 ### Limits
 

@@ -2,7 +2,7 @@
 
 Script for the 60-second submission video (Story 8.4, recorded by R1 from 16:30 to 16:50, submitted by 16:55). Timings follow V17 as amended by V25 to V48. If two decisions disagree, the higher number wins (V48 over V1 to V47; V38 to V47 over everything earlier; V33 to V37 over V25 to V27).
 
-Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), pending approval (proposed V70), revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is pending Luis's approval as decision V49, it is optional and it is the first supporting cut (V28). It is never part of the 60 seconds.
+Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), proposed V70, revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is proposed V70, approved by Luis together with the "Interview this evidence" page, and replaces the earlier pre-rendered video (B08). It is optional, behind its flag, and it is the first supporting cut (V28); the interview page is cut after it. It is never part of the 60 seconds.
 
 ## Fixed rules for every take
 
@@ -192,7 +192,7 @@ Complete all items before R1 presses record. Do not skip the source check.
 ### The V44 source check (the video is not recorded until both parts pass)
 - [ ] **(a) Against the version used.** One person reads the complete report and its narration script side by side with the exact source version the report used (its stored `version_id`), and confirms every claim in the report, the captions and this script is supported by that version.
 - [ ] **(b) Against the live record.** Separately, compare that version with the live ClinicalTrials.gov record for the anchor. A difference is noted as "changed since the run", not as an error in the report.
-- [ ] The result is recorded in `docs/demo-and-reset.md` (A16). A wording search is not enough: it cannot show that nothing implies an unsupported claim.
+- [ ] The result is recorded in `docs/demo-and-reset.md` (added by A16). A wording search is not enough: it cannot show that nothing implies an unsupported claim.
 
 ### State of the sandbox and the screen
 - [ ] The sandbox was reset to the post-setup snapshot with `scripts/reset_demo.py` (A13) at 16:30: M1 is active, no run, no report on the anchor, no task.
@@ -201,7 +201,7 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Second tab: Slack `#all-mango-db-hackathon`, signed in, nothing else showing.
 - [ ] Screen 1440 x 900, browser zoom 100%. The report's header, first related item, M1 chip and decisions bar fit without scrolling, or the bar is sticky.
 - [ ] No key, webhook address, `.env`, secret page or developer tools can appear in any frame, including notifications and tab titles.
-- [ ] The briefing and LiveAvatar (HeyGen), pending approval (proposed V70), are not part of the 60 seconds.
+- [ ] The briefing and LiveAvatar (HeyGen), proposed V70, are not part of the 60 seconds.
 
 ### Wording check
 - [ ] No narration, caption or on-screen text says the trial "uses", "used" or "studies" either assay name, or implies how any assay performs.
@@ -212,6 +212,6 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Every narration used was re-timed at `say -r 77` after its last edit (control: 105 words in 42.46 s) and ends at least 0.5 s inside its window. No more than 2 captions are on screen at once, at about 3 words a second or slower.
 
 ### After the take (R1)
-- [ ] Upload the video, add its link to the README and paste `docs/submission.md` into the form with the public repository and team members, by 16:55.
+- [ ] Upload the video, add its link to the README and paste `docs/submission.md` into the form with the public repository and the team (Luis, Vlad and Gregorio), by 16:55.
 - [ ] A B07 follow-up PR (owner Vlad) updates the README status line, the Verified table and the MongoDB capability table from the A16 and I1 to I3 results before 16:30, and deletes each README sentence tagged `[[VERIFY: ...]]` whose check did not pass and removes the tags from the rest; the video link is added by R1.
 - [ ] Luis runs `scripts/reset_demo.py` between 16:55 and 17:10, ready for the 17:15 live demo.
