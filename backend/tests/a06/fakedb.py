@@ -113,6 +113,10 @@ class FakeCursor:
         self._docs.sort(key=lambda d: (_get_path(d, key) is _MISSING, _get_path(d, key)), reverse=direction < 0)
         return self
 
+    def limit(self, n: int) -> "FakeCursor":
+        self._docs = self._docs[:n] if n else self._docs
+        return self
+
     def __aiter__(self):
         self._it = iter(self._docs)
         return self

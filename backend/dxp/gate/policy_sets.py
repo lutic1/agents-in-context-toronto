@@ -130,7 +130,9 @@ def members_of(policies: list[dict[str, Any]]) -> list[str]:
 
 def policy_set_version(members: list[str]) -> str:
     """`derive("ps_", *sorted members)` (AD-18)."""
-    from dxp import identity  # A02; imported here so the API starts even before A02 merges
+    from dxp import (
+        identity,  # A02; imported here so the API starts even before A02 merges
+    )
 
     return identity.derive("ps_", *sorted(members))
 

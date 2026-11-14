@@ -29,7 +29,8 @@ class _Deps:
     * ``dxp.store.db()`` and ``dxp.store.emit_event(event, *, session=None) -> int`` (A01);
     * ``dxp.identity.derive`` and ``normalise_name`` (A02);
     * ``dxp.gate.policy_sets.current_grant(grant_id) -> Grant | None`` (latest version, any
-      status), ``current_set() -> PolicySet`` and ``policies_in_set(policy_set_version)`` (A03);
+      status), ``current_set() -> PolicySet``, ``policy_set(version)`` and
+      ``policies_in_set(version)`` (A03);
     * ``dxp.schema.registry.STAGE_ORDER`` and ``get_field(key).cardinality`` (A02).
 
     Grants and policies come back as plain documents (``model_dump``) so the checks stay
@@ -77,6 +78,15 @@ class _Deps:
         version = ps_doc.get("id") or ps_doc.get("_id")
         policies = await _maybe_await(self._real("dxp.gate.policy_sets", "policies_in_set")(version))
         return version, [as_doc(p) for p in policies]
+
+    async def policy_set(self, version: str) -> dict[str, Any] | None:
+        """A recorded ``policy_sets`` document (a run's pinned set), or ``None``."""
+        return await _maybe_await(self._pick("policy_set", "dxp.gate.policy_sets")(version))
+
+    async def policies_in_set(self, version: str) -> list[dict[str, Any]]:
+        """The member policy documents of a recorded set (A03)."""
+        found = await _maybe_await(self._pick("policies_in_set", "dxp.gate.policy_sets")(version))
+        return [as_doc(p) for p in found]
 
     def stage_order(self) -> list[str]:
         if "stage_order" in self._overrides:

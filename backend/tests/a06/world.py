@@ -9,8 +9,8 @@ Store tests run on two backends (see ``conftest.world``):
 
 ``identity`` and ``schema.registry`` are A02's real modules. On ``atlas`` the
 store is A01's real ``store.db()`` and ``store.emit_event``; on ``fake`` an
-in-memory database and an AD-10 emitter stand in. A03's ``current_grant`` and
-``current_set`` are not on main yet, so AD-18 stand-ins are used on both.
+in-memory database (behind the store's accessors) and an AD-10 emitter stand
+in. ``gate.policy_sets`` is A03's real module on both.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ TEAM_ID = "team_liquid_biopsy_dx"
 ANCHOR = "clinicaltrials.gov:NCT04712877"
 
 
-# --- stand-ins for A02, A01 and A03 ----------------------------------------
+# --- stand-in for the store's event writer on the fake backend ---------------
 
 
 def dx(name: str) -> str:
@@ -61,31 +61,6 @@ class Emitter:
                 if type(exc).__name__ != "DuplicateKeyError":
                     raise
         raise RuntimeError("could not emit event")
-
-
-class PolicySets:
-    """AD-18 selection: latest version first, then status."""
-
-    def __init__(self, db: Any):
-        self.db = db
-
-    async def current_grant(self, grant_id: str) -> dict | None:
-        found = await self.db["grants"].find({"grant_id": grant_id}).sort("version", -1).to_list(1)
-        return found[0] if found else None
-
-    async def current_set(self) -> tuple[str, list[dict]]:
-        latest: dict[str, dict] = {}
-        async for p in self.db["policies"].find({}):
-            if p["policy_id"] not in latest or p["version"] > latest[p["policy_id"]]["version"]:
-                latest[p["policy_id"]] = p
-        members = sorted(p["_id"] for p in latest.values() if p["status"] == "active")
-        version = derive("ps_", *members)
-        try:
-            await self.db["policy_sets"].insert_one({"_id": version, "members": members, "created_at": NOW})
-        except Exception as exc:
-            if type(exc).__name__ != "DuplicateKeyError":
-                raise
-        return version, [latest[m.split("@")[0]] for m in members]
 
 
 # --- the seeded world --------------------------------------------------------
@@ -181,7 +156,9 @@ class World:
             "_id": ANCHOR, "source": "clinicaltrials.gov", "current_version_id": "sv_anchor0000000001",
             "overall_status": "RECRUITING", "has_results": False, "scope_ids": [SCOPE_ID], "window": "discovered",
         })
-        self.policy_set_version, _ = await PolicySets(db).current_set()
+        from dxp.gate.policy_sets import current_set
+
+        self.policy_set_version = (await current_set()).id
         await db["runs"].insert_one({
             "_id": self.run_id, "agent": "dxp-curator", "initiated_by": "sam", "grant_id": "lbdx",
             "grant_version": 1, "policy_set_version": self.policy_set_version, "status": "running",
@@ -284,25 +261,36 @@ class Raw(dict):
 
 
 async def open_world(backend: str) -> tuple[World, Callable[[], Awaitable[None]]]:
-    """Seed a world on ``fake`` (in memory) or ``atlas`` (A01's store and test database)."""
+    """Seed a world on ``fake`` (in memory) or ``atlas`` (A01's store and test database).
+
+    A03's ``gate.policy_sets`` is used as it is on both: on ``fake`` the store's
+    database accessors are pointed at the in-memory database for the test.
+    """
+    from dxp import store
+
+    restore: dict[str, Any] = {}
     if backend == "fake":
         db = FakeDB()
         db["events"].unique.append(("dedupe_key",))
-        deps.override(db=lambda: db, emit_event=Emitter(db))
+        for name in ("db", "get_db"):
+            restore[name] = getattr(store, name)
+            setattr(store, name, lambda _db=db: _db)
+        restore["collection"] = store.collection
+        store.collection = lambda name, _db=db: _db[name]
+        # store.emit_event reads with a projection and a sort the fake does not model: AD-10 stand-in.
+        deps.override(emit_event=Emitter(db))
     else:
-        from dxp import store
-
         await store.ensure_indexes()
         db = store.db()
         for name in ATLAS_COLLECTIONS:
             await db[name].delete_many({})
-    ps = PolicySets(db)
-    # A03's current_grant and current_set are not on main yet: AD-18 stand-ins.
-    deps.override(current_grant=ps.current_grant, current_set=ps.current_set, now=lambda: NOW)
+    deps.override(now=lambda: NOW)
     w = World(db)
     await w.seed()
 
     async def close() -> None:
         deps.reset()
+        for name, fn in restore.items():
+            setattr(store, name, fn)
 
     return w, close

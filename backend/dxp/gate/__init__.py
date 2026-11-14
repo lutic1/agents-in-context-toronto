@@ -22,15 +22,10 @@ from dxp.gate.decisions import api_decision, deps
 
 async def _load_policies(ctx: GateCtx) -> tuple[str | None, list[dict[str, Any]]]:
     """The run's pinned policy set; outside a run (or unpinned), the current set (AD-18)."""
-    db = deps.db()
     if ctx.policy_set_version:
-        ps = await db["policy_sets"].find_one({"_id": ctx.policy_set_version}, session=ctx.session)
-        if ps is None:
+        if await deps.policy_set(ctx.policy_set_version) is None:
             raise LookupError(f"policy set {ctx.policy_set_version} not found")
-        members = list(ps.get("members") or [])
-        cursor = db["policies"].find({"_id": {"$in": members}}, session=ctx.session)
-        policies = [p async for p in cursor]
-        return ctx.policy_set_version, policies
+        return ctx.policy_set_version, await deps.policies_in_set(ctx.policy_set_version)
     version, policies = await deps.current_set()
     return version, list(policies)
 
