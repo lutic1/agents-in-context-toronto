@@ -65,7 +65,7 @@ export function classifyError(error: unknown): TurnOutcome {
           ? { kind: "error", reason: "report_not_found", message: "This report was not found." }
           : { kind: "error", reason: "flag_off", message: "Interview this evidence is switched off on the server." };
       case 409:
-        return { kind: "error", reason: "not_accepted", message: "Only an accepted report can be interviewed." };
+        return { kind: "error", reason: "not_accepted", message: "Only a pending or accepted report can be interviewed." };
       case 401:
       case 403:
         return { kind: "error", reason: "unauthorised", message: "This session may not ask questions. Nothing was asked." };

@@ -5,7 +5,7 @@ type AvatarResponse = components["schemas"]["AvatarResponse"];
 
 /**
  * Where the avatar's session token comes from. The interview page calls this only when the user clicks
- * "Start avatar". Today the token comes from `POST /reports/<report_id>/avatar` (gated `generate_avatar_video`,
+ * "Engage". Today the token comes from `POST /reports/<report_id>/avatar` (gated `generate_avatar_video`,
  * B08's LiveAvatar session-token route, returning A01's AvatarResponse) through B01's proxy. The LiveAvatar key never reaches the browser; only
  * this short-lived, single-use session token does. If the token source changes, only this file changes.
  */

@@ -23,7 +23,7 @@ const UNAVAILABLE: Record<string, string> = {
 /**
  * Optional avatar (V70), behind the `avatar` flag. It speaks only text the backend returned, with `repeat`.
  * The microphone is off and nothing is listened to. The answer text is always on the page, so a failure here
- * changes nothing else. The session starts only on "Start avatar" and stops on `pagehide`.
+ * changes nothing else. The session starts only on "Engage", never by itself, and stops on `pagehide`.
  */
 export function AvatarPanel({
   reportId,
@@ -148,7 +148,7 @@ export function AvatarPanel({
         {phase !== "ready" ? (
           <div className="flex aspect-video items-center justify-center p-4 text-center text-caption text-muted-foreground">
             {phase === "starting" ? "Starting the avatar. The answers on this page are usable now." : null}
-            {phase === "idle" ? "Start the avatar to hear an answer read aloud." : null}
+            {phase === "idle" ? "Press Engage to start the avatar and hear an answer read aloud." : null}
             {phase === "ended" ? "Avatar session ended. The answers are still here as text." : null}
             {phase === "unavailable" ? "Avatar unavailable. The answers are shown as text; nothing else is affected." : null}
           </div>
@@ -163,7 +163,7 @@ export function AvatarPanel({
           </Button>
         ) : (
           <Button type="button" onClick={() => void start()} disabled={phase === "starting"}>
-            Start avatar
+            Engage
           </Button>
         )}
         <p role="status" aria-live="polite" className="text-caption text-muted-foreground">
