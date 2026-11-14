@@ -47,7 +47,7 @@ export function TopBar() {
         <Wordmark />
         <nav
           aria-label="Main"
-          className="order-last -mx-2 flex w-[calc(100%+1rem)] min-w-0 items-center gap-1 overflow-x-auto px-2 md:order-none md:mx-0 md:w-auto md:overflow-visible md:px-0"
+          className="order-last -mx-2 flex w-[calc(100%+1rem)] min-w-0 items-center gap-1 overflow-x-auto px-2 [scrollbar-width:none] md:order-none md:mx-0 md:w-auto md:overflow-visible md:px-0"
         >
           <NavItem href="/runs" label="Run console" Icon={SquareTerminal} active={onRunConsole} />
           <NavItem
@@ -59,7 +59,7 @@ export function TopBar() {
               // Hidden while unknown, while the route is not built, and at zero: a "0" badge is noise.
               pendingNotBuilt || pendingCount === null || (pendingCount === 0 && !hasMore) ? null : (
                 <span
-                  className="rounded-full bg-primary px-2 py-0.5 text-caption font-bold leading-none text-primary-foreground"
+                  className="rounded-full bg-apricot px-2 py-0.5 text-caption font-bold leading-none text-foreground"
                   title={`${pendingCount}${hasMore ? "+" : ""} pending`}
                 >
                   {pendingCount}
@@ -106,7 +106,7 @@ function NavItem({
         // Active: ink-tint fill plus a 2px ink bottom edge, so it does not rely on colour alone.
         // The weight stays the same, so the tabs never change width between pages.
         active
-          ? "bg-ink-tint shadow-[inset_0_-2px_0_0_var(--ink-deep)]"
+          ? "bg-ink-tint shadow-[inset_0_-2px_0_0_var(--periwinkle)]"
           : "hover:bg-ink-tint/60",
       )}
     >

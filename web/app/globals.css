@@ -45,6 +45,9 @@
   --color-ink-tint: var(--ink-tint);
   --color-ink-deep: var(--ink-deep);
   --color-eosin: var(--eosin);
+  --color-periwinkle: var(--periwinkle);
+  --color-periwinkle-tint: var(--periwinkle-tint);
+  --color-apricot: var(--apricot);
   --color-eosin-text: var(--eosin-text);
   --color-eosin-tint: var(--eosin-tint);
   --color-low-confidence: var(--low-confidence);
@@ -60,7 +63,7 @@
   --color-node-provider: var(--node-provider);
 
   /* Fonts (next/font/google sets the three variables in app/layout.tsx) */
-  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-atkinson-mono), ui-monospace, monospace;
   --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
   --font-heading: var(--font-sans);
@@ -85,48 +88,55 @@
 
 :root {
   /* shadcn semantic tokens, set to DESIGN.md values */
-  --background: #f6f8fb; /* slide */
-  --foreground: #23264f; /* haematoxylin ink */
+  --background: #f7f8f5; /* slide */
+  --foreground: #252a34; /* haematoxylin ink */
   --card: #ffffff; /* coverslip */
-  --card-foreground: #23264f;
+  --card-foreground: #252a34;
   --popover: #ffffff;
-  --popover-foreground: #23264f;
-  --primary: #23264f;
+  --popover-foreground: #252a34;
+  --primary: #252a34;
   --primary-foreground: #ffffff;
-  --secondary: #e3e5f3;
-  --secondary-foreground: #23264f;
-  --muted: #eef0f8;
-  --muted-foreground: #5a5f7d; /* faded ink */
-  --accent: #e3e5f3;
-  --accent-foreground: #23264f;
+  --secondary: #e8eaf4;
+  --secondary-foreground: #252a34;
+  --muted: #eff0f6;
+  --muted-foreground: #5c6170; /* faded ink */
+  --accent: #e8eaf4;
+  --accent-foreground: #252a34;
   --destructive: #b3261e; /* errors, blocked, rejected, always with icon and word */
-  --border: rgb(35 38 79 / 0.12); /* slide rule: translucent ink, so it recedes on any surface */
-  --input: #cdd3e0;
-  --ring: #23264f;
-  --chart-1: #23264f;
+  --border: rgb(37 42 52 / 0.12); /* slide rule: translucent ink, so it recedes on any surface */
+  --input: #cfd2dd;
+  --ring: #797de8; /* periwinkle focus ring: 3.6:1 on chalk and white */
+  --chart-1: #797de8;
   --chart-2: #2f7f73;
   --chart-3: #8a5a2b;
   --chart-4: #3f6fb5;
   --chart-5: #6e4c9e;
   --radius: 10px;
   --sidebar: #ffffff;
-  --sidebar-foreground: #23264f;
-  --sidebar-primary: #23264f;
+  --sidebar-foreground: #252a34;
+  --sidebar-primary: #252a34;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e3e5f3;
-  --sidebar-accent-foreground: #23264f;
-  --sidebar-border: #cdd3e0;
-  --sidebar-ring: #23264f;
+  --sidebar-accent: #e8eaf4;
+  --sidebar-accent-foreground: #252a34;
+  --sidebar-border: #cfd2dd;
+  --sidebar-ring: #797de8;
+
+  /* Brand DNA (concept 03): Graphite #252A34, Periwinkle #797DE8,
+     Apricot #F5AB83, Cloud #E8EAF4, Chalk #F7F8F5. Periwinkle and Apricot are
+     fills and marks only; text stays Graphite for contrast. */
+  --periwinkle: #797de8;
+  --periwinkle-tint: #ecedfc;
+  --apricot: #f5ab83;
 
   /* DESIGN.md colors */
-  --ink-tint: #e3e5f3; /* haematoxylin wash */
-  --ink-deep: #171a3d;
-  --eosin: #d2457a; /* new or changed: fills, dots (never text) */
-  --eosin-text: #b8325f;
-  --eosin-tint: #f7dce6;
+  --ink-tint: #e8eaf4; /* haematoxylin wash */
+  --ink-deep: #1a1d25;
+  --eosin: #f5ab83; /* new or changed: fills, dots (never text) */
+  --eosin-text: #a4552b;
+  --eosin-tint: #fdebdf;
   --low-confidence: #9a6512; /* ochre */
   --accepted: #2f7f73; /* methyl green */
-  --node-diagnostic: #23264f;
+  --node-diagnostic: #252a34;
   --node-biomarker: #2f7f73;
   --node-trial: #8a5a2b;
   --node-drug: #3f6fb5;
@@ -138,15 +148,15 @@
      white so any component still naming them stays readable. */
   --glass: #ffffff;
   --glass-strong: #ffffff;
-  --glass-edge: rgb(35 38 79 / 0.1);
+  --glass-edge: rgb(37 42 52 / 0.1);
   --elevation-raised:
-    0 0 0 1px rgb(35 38 79 / 0.06),
-    0 1px 2px rgb(35 38 79 / 0.05),
-    0 4px 12px -4px rgb(35 38 79 / 0.06);
+    0 0 0 1px rgb(37 42 52 / 0.06),
+    0 1px 2px rgb(37 42 52 / 0.05),
+    0 4px 12px -4px rgb(37 42 52 / 0.06);
   --elevation-overlay:
-    0 0 0 1px rgb(35 38 79 / 0.08),
-    0 2px 4px rgb(35 38 79 / 0.06),
-    0 12px 24px -8px rgb(35 38 79 / 0.14);
+    0 0 0 1px rgb(37 42 52 / 0.08),
+    0 2px 4px rgb(37 42 52 / 0.06),
+    0 12px 24px -8px rgb(37 42 52 / 0.14);
   --border-hairline: 1px;
 }
 @media (min-resolution: 2dppx) {
