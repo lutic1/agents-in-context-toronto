@@ -19,6 +19,7 @@ const KIND_NAMES: Record<ActionKind, string> = {
   revert_report: "Revert approval",
   decide_proposal: "Decide proposal",
   answer_question: "Answer interview question",
+  transcribe_question: "Transcribe spoken question",
 };
 
 export function kindName(kind: string): string {
@@ -30,6 +31,7 @@ const DESTINATION_NAMES: Record<Destination, string> = {
   "slack:#all-mango-db-hackathon": "#all-mango-db-hackathon",
   "source:clinicaltrials.gov": "ClinicalTrials.gov",
   "tts:elevenlabs": "ElevenLabs",
+  "stt:elevenlabs": "ElevenLabs speech-to-text",
   "video:heygen": "HeyGen",
 };
 
