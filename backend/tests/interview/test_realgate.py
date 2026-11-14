@@ -11,7 +11,7 @@ world = a06.world  # the fixture
 from dxp.api import models as m  # noqa: E402
 from dxp.interview import service, texts  # noqa: E402
 
-from .conftest import REPORT_ID, make_ctx  # noqa: E402
+from .conftest import REPORT_ID, make_ctx, make_report  # noqa: E402
 
 
 def reviewer_ctx(w, actions=None, grant_version: int = 2, request_id: str = "req_real_1") -> m.RunContext:
@@ -74,3 +74,12 @@ async def test_a_revoked_grant_costs_no_model_call(world, store, fake_llm) -> No
     response = await service.answer_question(REPORT_ID, "What is the study design?", reviewer_ctx(world, grant_version=3))
     assert response.refused is True and response.refusal_reason == "blocked"
     assert fake_llm.calls == [], "the gate runs before the model, so a revoked grant never costs a model call"
+
+
+async def test_a_pending_report_is_answered_on_the_real_gate(world, store, fake_llm, settled) -> None:
+    # V74: the interview runs before approval, under the same gate and Sam's grant.
+    store.reports[REPORT_ID] = make_report(status="pending")
+    response = await service.answer_question(REPORT_ID, "What is the status of this trial?", reviewer_ctx(world))
+    assert response.refused is False and response.citations and response.decision_id.startswith("dec_")
+    [decision] = await decisions_of(world)
+    assert decision["outcome"] == "allowed" and decision["inputs"]["outcome"] == "answered"

@@ -2,7 +2,7 @@
 
 Order, and why. Every step before the gate is deterministic, and none of them calls a model:
 
-1. The report must exist and be `accepted` (404, 409). Nothing is read from anything but the report.
+1. The report must exist and be `pending` or `accepted` (404, 409; V74). Nothing is read from anything but the report.
 2. MEDICAL: a question that mentions a person or a clinical decision gets the one fixed refusal.
    A letter outside ASCII is refused here too (a language the gate cannot read gets the same fixed refusal).
 3. INTENT: the question must map to exactly one answerable intent (status, dates, conditions, phase, design,
@@ -203,8 +203,8 @@ async def answer_question(
         report = await repo.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")
-    if not cards_module.is_accepted(report):
-        raise ApiError(409, "report_not_accepted", "Only an accepted report can be interviewed.")
+    if not cards_module.is_interviewable(report):
+        raise ApiError(409, "report_not_accepted", "Only a pending or accepted report can be interviewed.")
     question = question.strip()
     if not question:
         raise ApiError(422, "invalid_request", "Ask a question first.")

@@ -88,8 +88,8 @@ async def transcribe_question(report_id: str, request: Request) -> m.TranscribeR
     report = await repo.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")
-    if not cards.is_accepted(report):
-        raise ApiError(409, "report_not_accepted", "Only an accepted report can be interviewed.")
+    if not cards.is_interviewable(report):
+        raise ApiError(409, "report_not_accepted", "Only a pending or accepted report can be interviewed.")
     mime = transcribe.normalise_mime(request.headers.get("content-type"))
     if mime is None:
         raise ApiError(415, "unsupported_media_type", "Send the recording as audio/webm or audio/wav.")

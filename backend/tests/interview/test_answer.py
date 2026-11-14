@@ -202,8 +202,15 @@ async def test_a_pinned_version_that_no_longer_holds_the_quotes_gives_the_exact_
 # --- who may ask, which report ------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("status", ["pending", "accepting", "rejected", "reverting", "reverted"])
-async def test_a_report_that_is_not_accepted_is_refused_with_409(status, store, fake_llm, fake_gate, ctx) -> None:
+async def test_a_pending_report_is_answered(store, fake_llm, fake_gate, ctx) -> None:
+    # V74: a pending report is interviewed through the same gate.
+    store.reports[REPORT_ID] = make_report(status="pending")
+    response = await service.answer_question(REPORT_ID, "What is the status?", ctx)
+    assert response.refused is False and len(fake_gate.calls) == 1
+
+
+@pytest.mark.parametrize("status", ["accepting", "rejected", "reverting", "reverted"])
+async def test_a_report_that_is_not_pending_or_accepted_is_refused_with_409(status, store, fake_llm, fake_gate, ctx) -> None:
     store.reports[REPORT_ID] = make_report(status=status)
     with pytest.raises(ApiError) as caught:
         await service.answer_question(REPORT_ID, "Is the trial recruiting?", ctx)
@@ -218,11 +225,11 @@ async def test_an_unknown_report_is_404(store, fake_llm, fake_gate, ctx) -> None
     assert fake_llm.calls == [] and fake_gate.calls == []
 
 
-async def test_a_medical_question_on_a_pending_report_is_still_409(store, fake_llm, fake_gate, ctx) -> None:
+async def test_a_medical_question_on_a_pending_report_is_still_refused(store, fake_llm, fake_gate, ctx) -> None:
+    # V74: a pending report is interviewed, and the medical refusal still holds.
     store.reports[REPORT_ID] = make_report(status="pending")
-    with pytest.raises(ApiError) as caught:
-        await service.answer_question(REPORT_ID, "Should I start my patient on it?", ctx)
-    assert caught.value.status_code == 409
+    response = await service.answer_question(REPORT_ID, "Should I start my patient on it?", ctx)
+    assert response.refused is True and response.refusal_reason == "medical_advice" and response.citations == []
 
 
 async def test_a_blocked_gate_returns_refused_blocked_with_the_decision(store, fake_llm, fake_gate, ctx) -> None:

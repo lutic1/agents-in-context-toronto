@@ -51,7 +51,8 @@ __all__ = [
     "comparison_like",
     "discovery_versions",
     "field_for_label",
-    "is_accepted",
+    "INTERVIEWABLE_STATUSES",
+    "is_interviewable",
     "load_cards",
     "looks_like_instruction",
     "mention_names",
@@ -139,9 +140,12 @@ def advises(text: str) -> bool:
     return bool(_ADVICE.search(skeleton(text)))
 
 
-def is_accepted(report: dict[str, Any]) -> bool:
-    """Only an `accepted` report may be interviewed. Pending, rejected, reverting and reverted are not."""
-    return report.get("status") == "accepted"
+INTERVIEWABLE_STATUSES = frozenset({"pending", "accepted"})
+
+
+def is_interviewable(report: dict[str, Any]) -> bool:
+    """A `pending` or `accepted` report may be interviewed (V74). Rejected, accepting, reverting and reverted are not."""
+    return report.get("status") in INTERVIEWABLE_STATUSES
 
 
 def mention_names(report: dict[str, Any]) -> list[str]:
