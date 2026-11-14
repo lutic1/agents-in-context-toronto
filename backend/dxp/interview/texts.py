@@ -7,6 +7,12 @@ from dxp.interview import framing
 # "Reply exactly" (Luis's ruling, V70 amendment): the allowlisted sentence, with its full stop.
 NOT_IN_RECORD = framing.FRAME_NOT_IN_RECORD
 
+# A question with no intent at all (a greeting, an off-topic question): the same outcome, with what can be asked.
+NO_INTENT_HELP = (
+    "I can answer from this report's record: its status, dates, conditions, phase, design, interventions, sponsor, "
+    "location, enrollment or posted results."
+)
+
 # One fixed refusal for a medical question. No model call is made before or after it. Built only from the
 # sentences listed in `framing` (each passes the no-facts check); the import below fails if that ever stops being true.
 MEDICAL_REFUSAL = " ".join(framing.MEDICAL_SENTENCES)

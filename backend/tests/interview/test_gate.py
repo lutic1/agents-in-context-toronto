@@ -45,7 +45,7 @@ NOT_IN_RECORD = texts.NOT_IN_RECORD
 
 
 def test_the_fixed_reply_is_the_allowlisted_sentence_with_its_full_stop() -> None:
-    assert texts.NOT_IN_RECORD == "The accepted record doesn't answer that." == framing.FRAME_NOT_IN_RECORD
+    assert texts.NOT_IN_RECORD == "This report's record doesn't answer that." == framing.FRAME_NOT_IN_RECORD
 
 
 def test_there_are_at_least_twenty_legitimate_questions_per_intent() -> None:
@@ -79,7 +79,7 @@ async def test_a_one_card_intent_needs_no_model_call(name, store, fake_llm, fake
 @pytest.mark.parametrize("text", OFF_TOPIC)
 async def test_an_off_topic_question_is_not_in_the_record_with_no_model_call(text, store, fake_llm, fake_gate, ctx) -> None:
     response = await service.answer_question(REPORT_ID, text, ctx)
-    assert response.answer == NOT_IN_RECORD
+    assert response.answer in (NOT_IN_RECORD, texts.NO_INTENT_HELP)
     assert response.refused is False and response.refusal_reason == "not_in_record" and response.citations == []
     assert fake_llm.calls == [], "no model call for an off-topic question"
     assert len(fake_gate.calls) == 1
@@ -93,7 +93,7 @@ def test_there_are_at_least_twenty_off_topic_questions() -> None:
 @pytest.mark.parametrize("text", NO_INTENT + CLAIM_QUESTIONS)
 async def test_no_intent_ambiguity_and_claim_questions_are_not_in_the_record_with_no_model_call(text, store, fake_llm, fake_gate, ctx) -> None:
     response = await service.answer_question(REPORT_ID, text, ctx)
-    assert response.answer == NOT_IN_RECORD and response.citations == []
+    assert response.answer in (NOT_IN_RECORD, texts.NO_INTENT_HELP) and response.citations == []
     assert fake_llm.calls == []
 
 
@@ -219,7 +219,7 @@ async def test_a_report_with_no_quotes_has_nothing_to_answer_from(store, fake_ll
     report = make_report()
     report["discovery"]["quotes"] = []
     store.reports[REPORT_ID] = report
-    response = await service.answer_question(REPORT_ID, "What is the status?", ctx)
+    response = await service.answer_question(REPORT_ID, "Who is the sponsor?", ctx)
     assert response.answer == NOT_IN_RECORD and fake_llm.calls == []
 
 

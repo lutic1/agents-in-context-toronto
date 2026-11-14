@@ -78,6 +78,18 @@ def classify_intent(question: str) -> Verdict:
     return Verdict(intent, reason)
 
 
+_ABOUT = re.compile(
+    r"^\s*(?:(?:so|ok|okay|hi|hello|hey)[,!.]?\s+)?(?:what(?:'s|s| is| was)\s+)?(?:this|the|that|it)(?:\s+(?:report|record|trial|study|entry))?(?:'s|s)?\s+(?:is\s+)?about\s*[?.!]*\s*$|"
+    r"^\s*(?:please\s+)?(?:summari[sz]e|give me (?:a |an )?(?:summary|overview)(?: of)?)(?:\s+(?:this|the|that|it)(?:\s+(?:report|record|trial|study))?)?\s*[?.!]*\s*$"
+)
+
+
+def asks_what_about(question: str) -> bool:
+    """"What is this report about?", "whats this about", "summarise": the whole question, nothing else. It is answered
+    by the record's own conditions, design, phase and status lines (intents.ABOUT)."""
+    return bool(_ABOUT.match(strip_invisible(question).lower().replace("\u2019", "'")))
+
+
 def spaced_letters(lowered: str) -> bool:
     """Three or more single letters in a row: a question typed one letter at a time ("w h a t d o s e")."""
     run = 0

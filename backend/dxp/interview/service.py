@@ -6,7 +6,7 @@ Order, and why. Every step before the gate is deterministic, and none of them ca
 2. MEDICAL: a question that mentions a person or a clinical decision gets the one fixed refusal.
    A letter outside ASCII is refused here too (a language the gate cannot read gets the same fixed refusal).
 3. INTENT: the question must map to exactly one answerable intent (status, dates, conditions, phase, design,
-   interventions, sponsor, location, enrollment, results). Otherwise: "The accepted record doesn't answer that."
+   interventions, sponsor, location, enrollment, results). Otherwise: "This report's record doesn't answer that."
    A definition, a general-knowledge frame and a question typed one letter at a time have no intent.
 4. CARDS: the intent may use only cards of its own fields, each with the shape of that field (cards.shape_ok) and no
    claim-like wording, pinned to the report's own version. None: the same reply. Each eligible card has also passed
@@ -86,7 +86,8 @@ class _Draft:
 
 
 def _not_in_record(**detail: Any) -> _Draft:
-    draft = _Draft(OUTCOME_NOT_IN_RECORD, texts.NOT_IN_RECORD, texts.REASON_NOT_IN_RECORD)
+    answer = texts.NO_INTENT_HELP if detail.get("reason") == question_gate.REASON_NO_INTENT else texts.NOT_IN_RECORD
+    draft = _Draft(OUTCOME_NOT_IN_RECORD, answer, texts.REASON_NOT_IN_RECORD)
     draft.detail = detail
     return draft
 
@@ -96,20 +97,28 @@ async def plan_answer(report: dict[str, Any], question: str, *, quote_check: Quo
     answer in report order. The cards shown are the first ones in report order (`select.MAX_SELECTED`), whatever a model
     says, so the Decision can name them before any model is asked. Never raises for a verification failure."""
     verdict = question_gate.classify_intent(question)
+    if verdict.intent is None and verdict.reason == question_gate.REASON_NO_INTENT and question_gate.asks_what_about(question):
+        verdict = question_gate.Verdict(intents.ABOUT, "ok")
     if verdict.intent is None:
         return _not_in_record(reason=verdict.reason)
     intent = verdict.intent
 
-    raw = await _raw_texts(cards_module.discovery_versions(report))
+    versions = set(cards_module.discovery_versions(report))
+    pinned = cards_module.pinned_version(report)
+    if pinned and intent.name in cards_module.RECORD_LINE_INTENTS:
+        versions.add(pinned)
+    raw = await _raw_texts(versions)
     all_cards = cards_module.load_cards(report, raw)
-    if not all_cards:
-        return _not_in_record(reason="no_quotes_on_report", intent=intent.name)
     source_fields = source_fields_of(report)
-    eligible = [
-        card
-        for card in intents.eligible_cards(intent, all_cards, cards_module.mention_names(report))
-        if card_passes(card, source_fields)
-    ]
+    names = cards_module.mention_names(report)
+    eligible = [card for card in intents.eligible_cards(intent, all_cards, names) if card_passes(card, source_fields)]
+    if not eligible and intent.name in cards_module.RECORD_LINE_INTENTS:
+        # The drafting model rarely quotes the status, results or design lines, so the answer falls back to the
+        # pinned version's own labelled lines, verbatim (cards.record_line_cards), under the same checks.
+        line_cards = cards_module.record_line_cards(report, raw, cards_module.RECORD_LINE_INTENTS[intent.name])
+        eligible = [card for card in intents.eligible_cards(intent, line_cards, names) if card_passes(card, source_fields)]
+    if not all_cards and not eligible:
+        return _not_in_record(reason="no_quotes_on_report", intent=intent.name)
     if not eligible:
         return _not_in_record(reason="no_eligible_cards", intent=intent.name)
     outside = question_gate.off_topic_words(question, question_gate.vocabulary(report, eligible), intent)

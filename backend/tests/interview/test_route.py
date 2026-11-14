@@ -185,7 +185,7 @@ def test_an_off_topic_question_over_http_makes_no_model_call(api_client, feature
     features("interview")
     response = api_client.post(URL, json={"question": "What is the status of the Moon landing?"}, headers=HEADERS)
     body = response.json()
-    assert response.status_code == 200 and body["answer"] == "The accepted record doesn't answer that."
+    assert response.status_code == 200 and body["answer"] == "This report's record doesn't answer that."
     assert body["refusal_reason"] == "not_in_record" and body["citations"] == []
     assert fake_llm.calls == []
 

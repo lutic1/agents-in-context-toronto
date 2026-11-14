@@ -2,7 +2,7 @@
 
 An answer is, in blocks separated by one blank line:
 
-    Here's what the accepted record says.        <- framing, from the fixed allowlist
+    Here's what this report's record says.        <- framing, from the fixed allowlist
     "<quote>" [1]                                <- one cited verbatim quote per block, numbered
     "<quote>" [2]
     These are the quotes it rests on.            <- framing, from the fixed allowlist

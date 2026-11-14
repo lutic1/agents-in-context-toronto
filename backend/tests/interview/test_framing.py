@@ -12,9 +12,9 @@ from dxp.interview.cards import load_cards
 
 def test_the_allowlist_is_the_four_sentences_of_the_ruling() -> None:
     assert framing.ALLOWLIST == (
-        "Here's what the accepted record says.",
+        "Here's what this report's record says.",
         "I can only answer from this record.",
-        "The accepted record doesn't answer that.",
+        "This report's record doesn't answer that.",
         "These are the quotes it rests on.",
     )
 
