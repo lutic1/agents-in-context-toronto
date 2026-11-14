@@ -2,41 +2,49 @@
 
 Script for the 60-second submission video (Story 8.4, recorded by R1 from 16:30 to 16:50, submitted by 16:55). Timings follow V17 as amended by V25 to V48. If two decisions disagree, the higher number wins (V48 over V1 to V47; V38 to V47 over everything earlier; V33 to V37 over V25 to V27).
 
-Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the avatar, revert, the live stream or the follow-up task run.
+Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), pending V49, revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is pending Luis's approval as decision V49, it is optional and it is the first supporting cut (V28). It is never part of the 60 seconds.
 
 ## Fixed rules for every take
 
 1. **Wording (V33, V37).** Both "FoundationOne CDx" and "FoundationOne Liquid" are "named in the record" or "mentioned". Never say the trial "uses", "used", "studies" or "showed" either one. Say nothing that implies any assay's performance. Never merge the two names or map "FoundationOne Liquid" to an FDA-approved product.
 2. **The anchor (V36).** The script uses the trial the live API returned at 10:45. [[PENDING: the anchor trial, verified at 10:45 with its update date, status and results (OD2)]] The text below is written for the expected candidate. If the anchor is another trial, rewrite segments 2 and 3 from that trial's own fields, following the V33 pattern, and recount the words.
 3. **Follow-up work (V39).** Narrate completed follow-up work only if the task actually ran in this take. Otherwise say "Follow-up task authorised; not run" and nothing more about it.
-4. **The rollback line (V48, never cut).** Segment 5 says, word for word: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." Say the agent "cannot change accepted knowledge without a human approval" (caption, see segment 5). Never claim any automatic rollback of external effects: a Slack alert that was sent stays sent.
+4. **The rollback line (V48, never cut).** Segment 5 says, word for word: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." The agent "cannot change accepted knowledge without a human approval" is a caption (see segment 5), because the spoken line fills its window. Never claim any automatic rollback of external effects: a Slack alert that was sent stays sent.
 5. **Only what passed (D1, V29).** Show only behaviour that passed on the integrated build, built on 14 November. Never show a key, the Slack webhook address, `.env`, the Modal or Vercel secret pages, or browser developer tools.
 6. **Capability names.** Name a MongoDB capability only if it was proven on the sandbox. Say "Vector Search" only if the report's retrieval method was Vector Search; if it fell back, the screen reads "Related by text search" and the tag reads "Atlas Search (text)". Say "change streams" only if the console label read "Live (change stream)" on this take; otherwise do not name them. [[PENDING: retrieval method on this take, Vector Search or text search (OD1)]] [[PENDING: whether the console label reads "Live (change stream)" (S5, OD5)]]
-7. **Pace and take.** The narration is read at 150 words a minute including pauses, and each segment must end within 0.5 s of its boundary. Set `DXP_DEMO_PACE` so the anchor is the first item and the block is visible in the feed. Total narration budget is 150 words. Decide before recording whether the 60 seconds is one continuous take or cut by segment. In a continuous take the report must be filed by 0:13 and the Slack alert must be visible by 0:35 on this take's own clock. If that does not hold in rehearsal pass 2, either start the run before the recording window (identity card first, then the report), or cut the take by segment and keep each segment's on-screen run time inside its boundaries.
+7. **Timing and captions (measured, not counted).** A word cap does not predict read-aloud time: acronyms (ctDNA, NSCLC, DxP), long words and punctuation slow speech. Every segment is therefore timed with macOS `say`, as follows.
+   - **Calibration.** A 105-word plain-prose control takes 42.46 s at `say -r 77` (41.83 s at `-r 78`; `say` moves in steps, so no rate gives exactly 42.00 s). The slower rate, 77, is used so the figures err on the long side.
+   - **Measurement.** Each narration below is timed at `say -r 77` (default voice, plain text exactly as written, `afinfo` estimated duration). Each segment must end at least 0.5 s inside its window; the figure is recorded next to each narration and in the timeline table. Re-time after any edit: write the narration to a text file, run `say -r 77 -f <file> -o <file>.aiff`, and read the duration with `afinfo`.
+   - **Captions.** A caption is text added in editing, including a capability tag. Show at most about 3 words per second on screen, and at most 2 captions at once. Each caption below states its window and word count. The page's own text (the headline, the feed rows, the gap, the M1 chip) is not read aloud and is not relied on as a caption, except the approval line in segment 5, which is counted as a caption.
+   - **Take.** Set `DXP_DEMO_PACE` so the anchor is the first item and the block is visible in the feed. Decide before recording whether the 60 seconds is one continuous take or cut by segment. In a continuous take the report must be filed by 0:13 and the Slack alert must be visible by 0:35 on this take's own clock. If that does not hold in rehearsal pass 2, either start the run before the recording window (identity card first, then the report), or cut the take by segment and keep each segment's on-screen run time inside its boundaries.
+   - **What does not fit.** Anything that did not fit its window is listed under "Held back from the 60 seconds" after the timeline, with where it went (a caption or the 3-minute live demo).
 
 ## Approval variants
 
-Segment 5 has two narrations. Choose before recording, by the state of the backend flag `task_run` on this take.
+Segment 5 has one narration for both variants. The variants differ only in the approval line the page shows and the first caption holds. Choose before recording, by the state of the backend flag `task_run` on this take.
 
-| Variant | When | Approval line, on screen and spoken |
+| Variant | When | Approval line, shown on screen as the page's own text (not spoken in full) |
 |---|---|---|
 | **A (V27, V38 flag on)** | `task_run` is on, so the approved task was queued | "Approved: 1 update accepted. Follow-up task authorised; its findings will be pending review." |
 | **B (V38 flag off)** | `task_run` is off (the page reads "not run") | "Approved: 1 update accepted. Follow-up task authorised; not run." |
 
-In variant A the task's run may be shown only if it actually ran in this take, and its findings are shown as "Pending review". Approved is not accepted for the task. If the flag is on but the task has not started or has not finished within the take, record variant A's approval line without showing any task result and claim nothing completed. [[PENDING: which variant applies on the recording take (R1, I3b, task_run state)]]
+The narration says only "Approved: one update accepted." The follow-up sentence is on screen (caption K1 in segment 5) and is spoken in the 3-minute live demo. In variant A the task's run may be shown only if it actually ran in this take, and its findings are shown as "Pending review". Approved is not accepted for the task. If the flag is on but the task has not started or has not finished within the take, record variant A's approval line without showing any task result and claim nothing completed. [[PENDING: which variant applies on the recording take (R1, I3b, task_run state)]]
 
 ## Timeline
 
-| Seconds | Segment | Cap at 150 wpm | Narration words |
-|---|---|---|---|
-| 0 to 10 | 1. Scope and identity | 25 | 23 |
-| 10 to 25 | 2. The signal, related evidence, the gap and M1 | 37 | 33 |
-| 25 to 35 | 3. The block | 25 | 23 (24 with the claim variant) |
-| 35 to 45 | 4. Slack opens the report | 25 | 20 |
-| 45 to 60 | 5. Approval, the rollback line, audit | 37 | 36 (variant A), 35 (variant B) |
-| | **Total** | 149 | 134 to 136 (about 54 seconds) |
+Measured with `say -r 77` (control: 105 words in 42.46 s). "Margin" is the window minus the measured time; it must be at least 0.5 s.
 
-Recount after any edit: count the words of the quoted narration in each segment, and keep each segment at or under its cap.
+| Seconds | Segment | Narration words | Measured at -r 77 | Margin |
+|---|---|---|---|---|
+| 0 to 10 | 1. Scope and identity | 16 | 9.07 s | 0.93 s |
+| 10 to 25 | 2. The signal, related evidence, the gap and M1 | 24 | 13.33 s (variants: 12.58 s, 13.88 s, 14.10 s) | 1.67 s (worst variant 0.90 s) |
+| 25 to 35 | 3. The block | 15 | 8.91 s (claim variant, 18 words: 8.97 s) | 1.09 s (claim variant 1.03 s) |
+| 35 to 45 | 4. Slack opens the report | 15 | 8.64 s | 1.36 s |
+| 45 to 60 | 5. Approval, the rollback line, audit | 24 | 13.66 s | 1.34 s |
+
+There is no total word budget. Total narration is about 94 words, about 53 s at these measured speeds, with the gaps between segments left for the on-screen steps.
+
+Re-time after any edit. A segment whose measured time is less than 0.5 s inside its window is edited, not recorded.
 
 ## Segment 1: 0 to 10 s, the scope and the agent's identity
 
@@ -44,51 +52,62 @@ Recount after any edit: count the words of the quoted narration in each segment,
 1. 0:00 Run console. Sam (Synthetic) chooses the grant labelled "Team Liquid Biopsy Dx (Synthetic), Plasma ctDNA genotyping assays in NSCLC".
 2. 0:03 Press "Start run".
 3. 0:05 The identity card fills: agent `dxp-curator`, "Started by Sam", the grant shown as its id and version, the policy set shown as `ps_...` with its policy count, and "Scanning trials updated since" the cursor date. Hold on the card until 0:10.
-4. Caption tag: "Schema validation" (grants and policies), only if proven. [[PENDING: whether schema validation was proven on the sandbox (I1)]]
 
-**Narration (23 words)**
-> Plasma ctDNA genotyping assays in NSCLC. The agent, dxp-curator, holds a scoped grant. Each scan reads only what changed since the last one.
+**Captions (2 at most at once, 8 words in all)**
+- 0:03 to 0:05.5 tag "Schema validation" (2 words), only if proven. [[PENDING: whether schema validation was proven on the sandbox (I1)]]
+- 0:05.5 to 0:10 "Agent dxp-curator, scoped grant" (4 words).
+- 0:07 to 0:10 tag "Change streams" (2 words), only if the console label reads "Live (change stream)" on this take. [[PENDING: live label on this take (S5, OD5)]]
 
-**Notes.** This is the V32 line: the scan looks only at what changed since the last scan.
+**Narration (16 words, 9.07 s)**
+> Plasma ctDNA tests in lung cancer. The agent reads only what changed since its last scan.
+
+**Notes.** This is the V32 line: the scan looks only at what changed since the last scan. The full scope name, "Plasma ctDNA genotyping assays in NSCLC", is on screen in the grant label, not spoken. The agent's name and its scoped grant are on the identity card and in the caption, not spoken. No acronym is expanded aloud: expanding "ctDNA" would cost about 1.5 s the window does not have.
 
 ## Segment 2: 10 to 25 s, the signal, its related evidence, the gap and M1
 
 **On screen**
 1. 0:10 The scan row "Search source" is allowed; the anchor appears first in the feed.
-2. 0:13 The report page opens on the headline (V33): "This study investigates molecular profiling using blood (ctDNA) and tumour tissue in early-stage (IA2 to III) lung cancer, to find actionable drivers before surgery. No results posted." This text is for the expected candidate and is the report's own words. [[PENDING: the anchor's headline as the report states it (OD2)]]
+2. 0:13 The report page opens on the headline (V33): "This study investigates molecular profiling using blood (ctDNA) and tumour tissue in early-stage (IA2 to III) lung cancer, to find actionable drivers before surgery. No results posted." This text is for the expected candidate and is the report's own words. It is shown, not read aloud, and the camera holds on it until 0:17. [[PENDING: the anchor's headline as the report states it (OD2)]]
 3. 0:16 The first related item with its relationship label and both checked quotes (or, if it reads "related (no relationship established)", use the fallback narration below); the score reads "similarity, not evidence". The tag reads "Atlas Vector Search", or "Atlas Search (text)" with "Related by text search" if that was the fallback. [[PENDING: Vector Search or text search (OD1)]]
-4. 0:20 The evidence gap: "Have early-stage NSCLC studies that combine plasma ctDNA with tissue profiling posted results?"
-5. 0:22 The M1 chip, only if it is visible on this take: "Wording changed because of M1 (Sam, 14 Nov): states recruiting status, no results yet", with Before and After. Tag "Memory in Atlas".
+4. 0:20 The evidence gap, as the page's own text: "Have early-stage NSCLC studies that combine plasma ctDNA with tissue profiling posted results?"
+5. 0:22 The M1 chip, only if it is visible on this take: "Wording changed because of M1 (Sam, 14 Nov): states recruiting status, no results yet", with Before and After.
 6. The report must show "Named in the record" for both names and the intervention uncertainty. Do not zoom on or read any statement about an assay.
 
-**Narration (33 words)**
-> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence carries checked quotes; gap named. M1, a correction from earlier today, changed the wording.
+**Captions (2 at most at once, 6 words in all)**
+- 0:16 to 0:20 tag "Atlas Vector Search" (3 words), or "Atlas Search (text)" for the fallback.
+- 0:22 to 0:25 tag "Memory in Atlas" (3 words), only if the M1 chip is visible and the tag was proven. [[PENDING: whether memories in Atlas were proven (I1, S3)]]
 
-**Fallback narration, no relationship (33 words).** Use it whenever the first related item has no relationship label and both checked quotes:
-> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Related evidence, no relationship claimed; gap named. M1, a correction from earlier today, changed the wording.
+**Narration (24 words, 13.33 s)**
+> An updated lung cancer trial, no results posted. Related evidence has checked quotes. One gap named. A correction from earlier today changed the wording.
 
-**Text-search variant (33 words).** Use it when retrieval fell back to text search:
-> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text-search relations carry checked quotes; gap named. M1, a correction from earlier today, changed the wording.
+**Fallback narration, no relationship (22 words, 12.58 s).** Use it whenever the first related item has no relationship label and both checked quotes:
+> An updated lung cancer trial, no results posted. No relationship claimed. One gap named. A correction from earlier today changed the wording.
 
-**Text-search variant with no relationship (33 words).** Use it when both apply:
-> An updated trial: molecular profiling using blood and tumour tissue in early-stage lung cancer. No results posted. Text-search evidence, no relationship claimed; gap named. M1, a correction from earlier today, changed the wording.
+**Text-search variant (24 words, 13.88 s).** Use it when retrieval fell back to text search:
+> An updated lung cancer trial, no results posted. Text-search relations have checked quotes. One gap named. A correction from earlier today changed the wording.
 
-**Notes.** "A correction from earlier today" is the V32 line: M1 was created by Sam through the real UI during setup. "Updated trial", not "new trial": the anchor is a trial updated after the cursor (V36) and may have been in the registry for years. If the M1 chip with its Before and After is not visible on this take, delete the M1 sentence and the M1 on-screen step. Choose the variant before recording so nothing is edited on the fly.
+**Text-search variant with no relationship (24 words, 14.10 s, margin 0.90 s).** Use it when both apply:
+> An updated lung cancer trial, no results posted. Text search, no relationship claimed. One gap named. A correction from earlier today changed the wording.
+
+**Notes.** "A correction from earlier today" is the V32 line: M1 was created by Sam through the real UI during setup. "Updated trial", not "new trial": the anchor is a trial updated after the cursor (V36) and may have been in the registry for years. The detail "molecular profiling using blood and tumour tissue in early-stage lung cancer" moved from the narration to the on-screen headline; the narration carries "no results posted" and the recording must show the headline. "M1" is named by the chip, not spoken. If the M1 chip with its Before and After is not visible on this take, delete the last sentence ("A correction from earlier today changed the wording.") and the M1 on-screen step; the remaining narration is 9.16 s. Choose the variant before recording so nothing is edited on the fly.
 
 ## Segment 3: 25 to 35 s, the blocked case
 
 **On screen**
 1. 0:25 Go back to the Run console feed (or the Audit view); the block row was recorded during the scan, before the report was filed. The feed row: "Blocked before it ran: Diagnostic in team scope failed", with the explanation that the record names "FoundationOne CDx" (a tissue assay) and the team's plasma scope excludes it. This block is guaranteed on the expected anchor (V35, V37). [[PENDING: whether the block is on the record's "FoundationOne CDx" mention for the actual anchor (OD2)]]
-2. 0:30 Open the one blocked Decision: the check, the mention and the scope rule. Tag "Schema validation" or "Decisions in Atlas", only if proven. [[PENDING: which of the two tags was proven (I1, I3)]]
-3. If the first draft also wrote an unsupported performance or results claim on this take, show its row too: "Claim blocked before filing: 'showed' needs reported results. The source is RECRUITING and has no posted results." The model may not be made to write it; never promise it, and never stage it.
+2. 0:30 Open the one blocked Decision: the check, the mention and the scope rule.
+3. If the first draft also wrote an unsupported performance or results claim on this take, show its row too, from 0:31: "Claim blocked before filing: 'showed' needs reported results. The source is RECRUITING and has no posted results." The model may not be made to write it; never promise it, and never stage it.
 
-**Narration (23 words)**
-> Blocked before filing: the agent proposed linking the record's FoundationOne CDx mention to our plasma scope. Check two failed: assay out of scope.
+**Captions (1 at a time, 3 words in all)**
+- 0:30 to 0:34 tag "Decisions in Atlas" (3 words), or "Schema validation" (2 words), only whichever was proven. [[PENDING: which of the two tags was proven (I1, I3)]]
 
-**Claim variant (24 words), only if the claim block occurred on this take**
-> A claim needing posted results was blocked too. The agent's link from the record's FoundationOne CDx mention to our plasma scope failed check two.
+**Narration (15 words, 8.91 s)**
+> Blocked before filing: the agent's link from the record's FoundationOne CDx mention failed check two.
 
-**Notes.** "Mention" is deliberate (V33, V37). Do not say the trial uses, studies or tested the assay. Check 2 is "Diagnostic in team scope".
+**Claim variant (18 words, 8.97 s), only if the claim block occurred on this take**
+> A results claim was blocked too. The agent's link from the record's FoundationOne CDx mention failed check two.
+
+**Notes.** "Mention" is deliberate (V33, V37). Do not say the trial uses, studies or tested the assay. Check 2 is "Diagnostic in team scope". The words "assay out of scope" moved from the narration to the page's own explanation line on the block row ("the team's plasma scope excludes it"), which stays on screen from 0:25.
 
 ## Segment 4: 35 to 45 s, the Slack alert opens the report
 
@@ -96,35 +115,64 @@ Recount after any edit: count the words of the quoted narration in each segment,
 1. 0:35 Switch to the second tab, Slack `#all-mango-db-hackathon`, already signed in. The one alert for this report is visible: headline, relationship summary, "Approve or reject in DxP".
 2. 0:39 Press "Review in DxP". The same report opens in DxP on the deployed app (`/reports/<report_id>`). The webhook address and the Slack integration settings are never shown.
 3. Hold on the report with "Pending review" visible.
-4. Caption tag: "Atomic updates" (the alert is claimed once), only if proven. [[PENDING: whether conditional updates were proven (I1)]]
 
-**Narration (20 words)**
-> One Slack alert per report. Review in DxP opens that same report. Slack only notifies; the decision happens in DxP.
+**Captions (1 at a time, 2 words in all)**
+- 0:40 to 0:44 tag "Atomic updates" (2 words), only if proven. [[PENDING: whether conditional updates were proven (I1)]]
 
-**Notes.** Slack for the rehearsals and earlier takes remains in the channel; the alert for this take is told apart by its run ID. [[PENDING: whether the organisers accept the alert volume in this channel (docs/clearance.md)]]
+**Narration (15 words, 8.64 s)**
+> One Slack alert per report. Review in DxP opens that same report. Slack only notifies.
+
+**Notes.** "The decision happens in DxP" is now the page's own text, "Approve or reject in DxP", on the alert and the report. Slack for the rehearsals and earlier takes remains in the channel; the alert for this take is told apart by its run ID. [[PENDING: whether the organisers accept the alert volume in this channel (docs/clearance.md)]]
 
 ## Segment 5: 45 to 60 s, approval, the rollback line, the audit answer and the close
 
 **On screen**
-1. 0:45 Press "Approve". The page shows the approval line for the chosen variant (see the table above) and the update "Accepted" in the scope's evidence collection. No assay record changes. Task line reads "Authorised" (or "Not run").
-2. 0:50 (variant B: 0:49) Open the Audit view. Keep the scripted question as a persistent banner at the top of the screen until 0:55, at least 5 s: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?" Give the answer by scrolling only the four rows the question names, one after another: what was found (the sources and cursor), M1 and its effect, the block, and the authorisation (under "After the run", Sam's approval and the task authorisation). Do not scroll past the retrieval or the Slack result in this window. Caption tag: "Decisions and actions in Atlas" over the audit view, only if proven. [[PENDING: whether the decisions and actions audit history was proven (I3)]]
-3. 0:55 The banner leaves. In a lower-third line, caption: "The agent cannot change accepted knowledge without a human approval." Hold it to 0:58. Then it is replaced by: "Pending reports can be rejected. History and source versions are never overwritten." Hold that to the end. The Slack row stays as it is: the alert that was sent stays sent. Add "Memories can be revoked." (only if S3 passed) and the revert caption of step 4 only if each fits on screen, readable, before 0:59; otherwise leave them out. [[PENDING: whether memory revoke passed S3 (A21+A22)]]
-4. Optional caption, only if S4 (revert) passed and it fits before 0:59: "An approval can be reverted." Do not press "Revert approval" in the video. [[PENDING: whether revert passed its check (S4)]]
-5. Optional tag "Change streams", only if the console label read "Live (change stream)" on this take. [[PENDING: live label on this take (S5)]]
-6. 0:58 Hold on the Audit view for the close. Variant A, mandatory: at 0:58 a closing caption, centred and separate from the lower-third line, held to the end: "The aim: team-specific, longitudinal intelligence on the diagnostics a team follows. This demo shows one turn of that loop."
+1. 0:45 Press "Approve". The page shows the approval line for the chosen variant (see the table above) and the update "Accepted" in the scope's evidence collection. No assay record changes. The task line reads "Authorised" (or "Not run").
+2. 0:49.5 Open the Audit view. Give the answer by scrolling only the four rows the scripted question names, about 1.5 s each: what was found (the sources and cursor), M1 and its effect, the block, and the authorisation (under "After the run", Sam's approval and the task authorisation). Do not scroll past the retrieval or the Slack result in this window. The Slack row stays as it is: the alert that was sent stays sent.
+3. Do not press "Revert approval" in the video.
 
-**Narration, variant A (36 words, `task_run` on, V27)**
-> Approved: one update accepted. Follow-up task authorised; its findings will be pending review. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. Team-specific, longitudinal intelligence.
+**Captions (never more than one at a time, 39 words in all, 42 in variant A; each at about 3 words a second or slower)**
 
-**Narration, variant B (35 words, flag off, V38)**
-> Approved: one update accepted. Follow-up task authorised; not run. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo. Team-specific, longitudinal intelligence: one turn shown.
+| Id | Window | Words | Text |
+|---|---|---|---|
+| K1 | 0:45 to 0:49.5 | 10 (variant A: 13) | The page's own approval line, held unobscured: variant A or B from the table above |
+| K2 | 0:49.5 to 0:51.5 | 5 | "Audit: found, reworded, blocked, authorised." |
+| K3 | 0:51.5 to 0:55 | 10 | "The agent cannot change accepted knowledge without a human approval." |
+| K4 | 0:55 to 0:57.7 | 8 | "Reports can be rejected. History is never overwritten." |
+| K5 | 0:57.7 to 0:59.9 | 6 | "Team-specific, longitudinal intelligence: one turn shown." |
+
+K5 is mandatory in both variants. It is centred and separate from K3 and K4, and it is the last thing on screen. The Atlas tags ("Decisions and actions in Atlas", "Change streams") are not shown in this segment: no room at this speed. "Decisions in Atlas" is shown in segment 3 instead, and "Change streams" in segment 1.
+
+**Narration (24 words, 13.66 s, both variants)**
+> Approved: one update accepted. Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo.
 
 **Notes**
-- **The close (V32).** The last words name the bigger value, team-specific, longitudinal intelligence, and the close must say the demo shows one turn of that loop. Variant B says "one turn shown" aloud. Variant A has no room for it in the narration (36 words plus 3 would be 39, over the 37 cap), so variant A carries that qualifier as the mandatory closing caption at 0:58 (step 6), not as narration. Never end variant A on the bare spoken line with no caption.
-- **The 15-second limit.** At 150 words a minute, 15 seconds holds about 37 words. The approval line, the 20-word rollback line and the close already fill it, so the spoken script cannot also carry the audit answer or the supporting points. The audit question and the supporting points are therefore on-screen captions, and the audit view carries the answer visually: the question banner stays up from 0:50 to 0:55 so it can be read. This is a deliberate choice. Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail the AC: the V48 "cannot change accepted knowledge without a human approval" sentence, the supporting points, any revert mention and the audit answer are captions, because the spoken rollback line fills the 15 seconds; the full spoken form belongs to the 3-minute live demo. The rollback line is the narrated part. R1 keeps the two captions "The agent cannot change accepted knowledge without a human approval." and "Pending reports can be rejected. History and source versions are never overwritten." on screen for the whole of their windows. If more spoken time is wanted, take it from segment 4, not from the rollback line.
-- **The approval line on screen (V27, V38).** The full sentence appears as the page's own text, even though the narration reads "one" for "1".
+- **The rollback line (V48, never cut).** The second sentence of the narration is the V48 line, word for word. It is 10.2 s alone at this speed, so the 15 seconds hold it, the words "Approved: one update accepted." and nothing else.
+- **The close (V32).** The last thing on screen names the bigger value, team-specific, longitudinal intelligence, and says the demo shows one turn of that loop. It is caption K5, not narration; there is no spoken time left for it.
+- **The approval line on screen (V27, V38).** The full sentence appears as the page's own text and is caption K1; the narration reads "one" for "1" and drops the follow-up sentence.
 - **No completed follow-up work (V39).** Do not say the task found, completed or answered anything unless it ran in this take. "Approved" is not "accepted" for the task's findings.
 - **Rollback of external effects.** Never say or caption that anything was rolled back outside DxP.
+
+## Held back from the 60 seconds
+
+Each item below did not fit its window at the measured speed. It was not dropped silently. Where it went:
+
+| Item | Went to |
+|---|---|
+| Agent name `dxp-curator` and "scoped grant" (segment 1) | Caption in segment 1 and the identity card |
+| Full scope name "Plasma ctDNA genotyping assays in NSCLC" (segment 1) | The grant label on screen; spoken in the 3-minute live demo |
+| "Molecular profiling using blood and tumour tissue in early-stage lung cancer" (segment 2) | The report headline on screen; spoken in the 3-minute live demo |
+| "M1" by name (segment 2) | The M1 chip on screen |
+| "Check two: assay out of scope" (segment 3) | The block row's explanation on screen |
+| "The decision happens in DxP" (segment 4) | The alert and report text, "Approve or reject in DxP" |
+| "Follow-up task authorised; ..." (segment 5) | Caption K1, the page's approval line; spoken in the live demo |
+| The scripted audit question (segment 5) | Live demo; the video gives caption K2 and the four audit rows |
+| "Pending reports can be rejected", "history and source versions are never overwritten" (segment 5) | Caption K4, shortened to "Reports can be rejected. History is never overwritten."; "and source versions" is in the submission text and the live demo |
+| "Memories can be revoked" (only if S3 passed) and "An approval can be reverted" (only if S4 passed) | The 3-minute live demo and the submission text; no caption room in the video |
+| The closing line "The aim: team-specific, longitudinal intelligence on the diagnostics a team follows. This demo shows one turn of that loop." | Caption K5, shortened to "Team-specific, longitudinal intelligence: one turn shown."; the full sentence is in the submission text and the live demo |
+| The full spoken form of the V48 "cannot change accepted knowledge without a human approval" sentence | Caption K3 in the video; spoken in the live demo |
+
+Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail the AC: the V48 "cannot change accepted knowledge without a human approval" sentence, the supporting points, the audit question, the close and the follow-up sentence are captions or live-demo content, because the spoken rollback line fills most of the last 15 seconds. The rollback line is the narrated part. If more spoken time is wanted, take it from segment 4, not from the rollback line.
 
 ## Pre-recording checklist
 
@@ -153,17 +201,17 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Second tab: Slack `#all-mango-db-hackathon`, signed in, nothing else showing.
 - [ ] Screen 1440 x 900, browser zoom 100%. The report's header, first related item, M1 chip and decisions bar fit without scrolling, or the bar is sticky.
 - [ ] No key, webhook address, `.env`, secret page or developer tools can appear in any frame, including notifications and tab titles.
-- [ ] Briefing and avatar are not part of the 60 seconds.
+- [ ] The briefing and LiveAvatar (HeyGen), pending V49, are not part of the 60 seconds.
 
 ### Wording check
 - [ ] No narration, caption or on-screen text says the trial "uses", "used" or "studies" either assay name, or implies how any assay performs.
 - [ ] "FoundationOne Liquid" is never mapped to an FDA-approved product; the report's uncertainty about it stays on screen if it is shown.
 - [ ] The rollback line is said word for word. No automatic rollback of external effects is claimed.
-- [ ] Variant A: the closing caption "The aim: team-specific, longitudinal intelligence on the diagnostics a team follows. This demo shows one turn of that loop." is on screen from 0:58. The audit question banner is on screen from 0:50 (variant B: 0:49) to 0:55.
+- [ ] Both variants: the closing caption K5, "Team-specific, longitudinal intelligence: one turn shown.", is on screen from 0:57.7 to the end. The segment 5 captions K1 to K5 follow the table, one at a time.
 - [ ] No completed follow-up work is narrated unless the task ran in this take.
-- [ ] Narration is 150 words or fewer in total, read at 150 words a minute including pauses, and each segment ends within 0.5 s of its boundary.
+- [ ] Every narration used was re-timed at `say -r 77` after its last edit (control: 105 words in 42.46 s) and ends at least 0.5 s inside its window. No more than 2 captions are on screen at once, at about 3 words a second or slower.
 
 ### After the take (R1)
 - [ ] Upload the video, add its link to the README and paste `docs/submission.md` into the form with the public repository and team members, by 16:55.
-- [ ] A B07 follow-up PR (owner Vlad) updates the README status line, the Verified table and the MongoDB capability table from the A16 and I1 to I3 results before 16:30; the video link is added by R1.
+- [ ] A B07 follow-up PR (owner Vlad) updates the README status line, the Verified table and the MongoDB capability table from the A16 and I1 to I3 results before 16:30, and deletes each README sentence tagged `[[VERIFY: ...]]` whose check did not pass and removes the tags from the rest; the video link is added by R1.
 - [ ] Luis runs `scripts/reset_demo.py` between 16:55 and 17:10, ready for the 17:15 live demo.
