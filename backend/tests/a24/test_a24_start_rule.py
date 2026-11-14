@@ -111,6 +111,22 @@ async def test_a_stalled_queued_task_is_started_again_on_the_same_run(world, fea
     assert third == [RUN_ID] and len(world.db.all("runs")) == 1
 
 
+async def test_an_existing_run_is_not_started_again_by_a_fresh_claim(world, features) -> None:
+    """start_if_absent reports the run was not created by this call: no second worker."""
+    features("task_run")
+    from dxp.api.models import Principal
+
+    sam = Principal(id="sam", name="Sam", kind="person")
+    await rd().decide(REPORT_ID, "approve", None, None, sam)
+    await ta().authorise(REPORT_ID, sam)
+    world.db.data["runs"][RUN_ID] = {"_id": RUN_ID, "status": "done", "agent": "dxp-curator",
+                                     "initiated_by": "sam", "grant_id": "g", "grant_version": 1,
+                                     "set": f"task:{TASK_ID}", "kind": "task"}
+    spawned: list[str] = []
+    run = await td().dispatch_next(spawned.append)
+    assert run is not None and run.id == RUN_ID and spawned == []
+
+
 async def test_dispatch_does_nothing_with_task_run_off(world) -> None:
     world.db.data["tasks"]["task_x"] = {"_id": "task_x", "status": "queued", "grant_id": "task-x"}
     spawned: list[str] = []

@@ -232,16 +232,22 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     monkeypatch.setattr(dxp.ledger, "apply_with", apply_with, raising=False)
     monkeypatch.setattr(dxp.ledger, "recover_applying", recover_applying)
 
-    async def runs_start(caller: m.Principal, grant_id: str, set: str, run_id: str | None = None) -> m.Run:
+    async def start_if_absent(caller: m.Principal, grant_id: str, set: str,
+                              run_id: str | None = None) -> tuple[m.Run, bool]:
         w.run_starts.append({"caller": caller.id, "grant_id": grant_id, "set": set, "run_id": run_id})
         doc = {"_id": run_id, "agent": "dxp-curator", "initiated_by": caller.id, "grant_id": grant_id,
                "grant_version": 1, "set": set, "kind": "task", "status": "running", "task_id": set[5:]}
+        created = True
         try:
             await db["runs"].insert_one(doc)
         except Exception:  # noqa: BLE001 - insert-if-absent
-            doc = await db["runs"].find_one({"_id": run_id})
-        return m.Run.model_validate({**doc, "id": doc["_id"]})
+            doc, created = await db["runs"].find_one({"_id": run_id}), False
+        return m.Run.model_validate({**doc, "id": doc["_id"]}), created
 
+    async def runs_start(caller: m.Principal, grant_id: str, set: str, run_id: str | None = None) -> m.Run:
+        return (await start_if_absent(caller, grant_id, set, run_id))[0]
+
+    monkeypatch.setattr(dxp.runs, "start_if_absent", start_if_absent, raising=False)
     monkeypatch.setattr(dxp.runs, "start", runs_start)
 
     async def memory_create(team_id, text, tags, source, reviewer, ctx):

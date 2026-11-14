@@ -7,9 +7,11 @@
 - leaves it `queued` while any other run is `running` or `stopping` (AD-16: at most one run);
 - claims it by a conditional update on the task itself (`dispatched_at` unset, or unchanged
   since a dispatch older than the 10-minute stall window), so of two callers only one goes on;
-- creates its run through `runs.start(<authorising Reviewer>, "task-<hex>", "task:<task_id>",
-  run_id=derive("run_", task_id))`, insert-if-absent on the derived run ID;
-- and only that caller calls `start(run_id)` (the API's `.spawn()` of the run function, or a
+- creates its run through `runs.start_if_absent(<authorising Reviewer>, "task-<hex>",
+  "task:<task_id>", run_id=derive("run_", task_id))` (A07+A11), insert-if-absent on the derived
+  run ID, which says whether this call's insert created the run;
+- and only the caller whose insert created it (or, past the stall window, the one restart)
+  calls `start(run_id)` (the API's `.spawn()` of the run function, or a
   direct call from `pipeline.run`'s `finally`).
 
 A derived run that exists while its task is still `queued` past the stall window is started
@@ -73,6 +75,15 @@ async def _caller(task: dict[str, Any]) -> Principal:
     )
 
 
+async def _start_run(caller: Principal, grant_id: str, set: str, run_id: str) -> tuple[Run, bool]:
+    """`runs.start_if_absent` (A07+A11): `(run, created)`, True only for the inserter. Until it
+    is on main, the frozen `runs.start` is used and this claimer counts as the inserter."""
+    start_if_absent = getattr(runs, "start_if_absent", None)
+    if start_if_absent is not None:
+        return await start_if_absent(caller, grant_id, set, run_id=run_id)
+    return await runs.start(caller, grant_id, set, run_id=run_id), True
+
+
 async def dispatch_next(start: StartRun) -> Run | None:
     """Start the oldest queued task if no run is running or stopping: runs.start on
     derive("run_", task_id), insert-if-absent; only the inserter calls start(run_id).
@@ -108,10 +119,11 @@ async def dispatch_next(start: StartRun) -> Run | None:
         return None  # another caller claimed it
 
     try:
-        run = await runs.start(await _caller(task), task["grant_id"], f"task:{task_id}", run_id=run_id)
-        started = start(run_id)
-        if inspect.isawaitable(started):
-            await started
+        run, created = await _start_run(await _caller(task), task["grant_id"], f"task:{task_id}", run_id)
+        if created or stalled:
+            started = start(run_id)
+            if inspect.isawaitable(started):
+                await started
     except Exception:
         log.exception("could not start the run of task %s", task_id)
         await database["tasks"].update_one(

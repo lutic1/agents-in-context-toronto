@@ -92,7 +92,11 @@ async def atlas_world(db, monkeypatch: pytest.MonkeyPatch) -> Any:
     async def memory_create(*args, **kwargs):
         raise NotImplementedError("memory.create (A21+A22)")
 
+    async def start_if_absent(caller, grant_id, set, run_id=None):
+        return await runs_start(caller, grant_id, set, run_id), True
+
     monkeypatch.setattr(dxp.runs, "start", runs_start)
+    monkeypatch.setattr(dxp.runs, "start_if_absent", start_if_absent, raising=False)
     monkeypatch.setattr(dxp.memory, "create", memory_create)
     return {"db": db, "report_id": report_id, "proposal_id": proposal["_id"], "source_ref": source_ref,
             "starts": starts}
