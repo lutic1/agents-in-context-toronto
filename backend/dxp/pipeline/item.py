@@ -32,7 +32,9 @@ from dxp.pipeline import config, progress
 
 log = logging.getLogger("dxp.pipeline")
 
-NO_RESULTS_CLAIM_KIND = "outcome_claim_without_results"
+# The gate's claim-check vocabulary (V7, V22): a record without posted results asks for the
+# memories about performance or results claims (M1 on the demo path).
+NO_RESULTS_CLAIM_KIND = "claim_performed_or_results"
 
 
 @dataclass
@@ -171,7 +173,7 @@ def change_target(change: dict[str, Any]) -> str:
 
 def memory_tags(item: dict[str, Any]) -> dict[str, Any] | None:
     """Memories are matched on claim kind, never assay (V22). A record without posted results
-    asks for the memories about outcome claims without results (M1 on the demo path)."""
+    asks for the memories of claim kind `claim_performed_or_results` (M1 on the demo path)."""
     if item.get("has_results") is True:
         return None
     return {"claim_kind": NO_RESULTS_CLAIM_KIND}

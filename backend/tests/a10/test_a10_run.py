@@ -5,6 +5,7 @@ I1 proves the same flow against the real modules on the Atlas Sandbox.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -78,7 +79,7 @@ async def test_version_id_is_carried_through_every_step(world: World) -> None:
     assert all(d["version_id"] == vid for d in world.args("reports.file"))
     assert next(iter(world.db["reports"].docs.values()))["version_id"] == vid
     processed = world.db["source_items"].docs[ANCHOR]["processed"][SCOPE_ID]
-    assert list(processed) == [vid]
+    assert list(processed) == [vid] and isinstance(processed[vid], datetime)  # processed_at
 
 
 async def test_order_of_steps_recovery_first_and_task_hooks_last(world: World) -> None:
@@ -102,7 +103,7 @@ async def test_extraction_gets_the_seeded_trade_names_only(world: World) -> None
 
 async def test_memories_are_asked_for_by_team_and_claim_kind(world: World) -> None:
     await pipeline.run(RUN_ID)
-    assert world.args("memory.retrieve")[0] == {"team_id": TEAM_ID, "tags": {"claim_kind": "outcome_claim_without_results"}}
+    assert world.args("memory.retrieve")[0] == {"team_id": TEAM_ID, "tags": {"claim_kind": "claim_performed_or_results"}}
     assert world.args("retrieval.related")[0] == {"scope_id": SCOPE_ID, "k": 5, "exclude": [ANCHOR]}
     assert world.args("reports.draft")[0]["memories"][0]["id"] == "mem_m1"
 
@@ -227,12 +228,17 @@ async def test_an_unrecoverable_error_fails_the_run_and_still_dispatches(world: 
     assert world.events == []  # type: ignore[attr-defined]  # the pipeline writes no run event itself
 
 
-async def test_a_task_set_is_not_run_while_task_run_is_off(world: World) -> None:
+async def test_a_task_run_with_task_run_off_fails_and_leaves_the_task_authorised(world: World) -> None:
     world.run["set"] = "task:task_0123456789abcdef"
+    world.run["task_id"] = "task_0123456789abcdef"
+    world.db["tasks"].docs["task_0123456789abcdef"] = {"_id": "task_0123456789abcdef", "status": "authorised"}
     await pipeline.run(RUN_ID)
     assert "tasks.run" not in world.names() and "llm.extract" not in world.names()
-    assert world.run["status"] == "done"
-    assert world.run["failures"] == [{"source_ref": "task:task_0123456789abcdef", "error": "task_run is off"}]
+    assert "runs.finish" not in world.names()
+    assert world.args("runs.fail") == [(RUN_ID, "task_run is off")]
+    assert world.run["status"] == "failed" and world.run["error"] == "task_run is off"
+    assert world.db["tasks"].docs["task_0123456789abcdef"]["status"] == "authorised"
+    assert world.names()[-2:] == ["tasks.recover_authorisations", "tasks.dispatch_next"]
 
 
 async def test_a_task_set_is_handed_to_tasks_run_with_task_run_on(world: World, features: Any) -> None:

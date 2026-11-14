@@ -24,6 +24,7 @@ async def test_processed_marker_and_finding_insert_if_absent(db: Any) -> None:
     await progress.mark_processed(ref, "scope_x", "sv_a10", "run_a10atlas0001")
     item = await db["source_items"].find_one({"_id": ref})
     assert progress.processed(item, "scope_x", "sv_a10") and not progress.processed(item, "scope_x", "sv_other")
+    assert item["processed"]["scope_x"]["sv_a10"].tzinfo is not None  # processed_at, a timestamp
     finding = {"id": "f_a10atlas", "version_id": "sv_a10", "summary": "first"}
     await progress.save_finding(finding, "run_a10atlas0001", None)
     await progress.save_finding({**finding, "summary": "second"}, "run_a10atlas0002", None)

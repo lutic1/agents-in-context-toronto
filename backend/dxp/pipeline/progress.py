@@ -14,7 +14,7 @@ Only Governance writes `runs` (spine layer table), so the run's progress goes th
   cannot recover from (D23).
 
 This module still writes what the layer table gives the ingest filters:
-`source_items.processed.<scope_id>.<version_id>` (set when an item's report is filed, so a
+`source_items.processed.<scope_id>.<version_id>` = processed_at, a timestamp (set when an item's report is filed, so a
 later run skips that version and a changed trial, a new version, V40, is processed again) and
 `findings` (insert-if-absent on the Finding ID, with the run's stamp, AD-17).
 """
@@ -115,7 +115,9 @@ async def run_status(run_id: str) -> str | None:
 async def seeded_names() -> list[str]:
     """The exact seeded FDA trade names for extraction (V34), read once per run from
     `aliases` (A13 seeds `{ _id: normalised name, diagnostic_id, created_mode }`), leaving out
-    any alias a live run created. The verbatim `name` is used when present, else the `_id`."""
+    any alias a live run created. The verbatim `name` is used when present, else the `_id`.
+    They only inform the extraction prompt: a name resolves to a Diagnostic only through
+    `identity.resolve_exact()` (AD-3, V34), inside `llm`."""
     names: list[str] = []
     cursor = store.db()["aliases"].find({"created_mode": {"$ne": "live"}})
     async for doc in cursor:
@@ -156,7 +158,7 @@ async def mark_processed(source_ref: str, scope_id: str | None, version_id: str,
         return
     await store.db()["source_items"].update_one(
         {"_id": source_ref},
-        {"$set": {f"processed.{scope_id}.{version_id}": {"at": now(), "run_id": run_id}}},
+        {"$set": {f"processed.{scope_id}.{version_id}": now()}},  # processed_at (AD-16)
     )
 
 

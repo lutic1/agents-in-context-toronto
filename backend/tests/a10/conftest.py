@@ -10,6 +10,7 @@ notifier that records one Slack post (A09). I1 proves the real modules.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import UTC, datetime
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -67,7 +68,7 @@ def add_source(db: FakeDB, ref: str, *, has_results: bool = False, processed: bo
     vid = version_id_for(ref)
     item = {"_id": ref, "current_version_id": vid, "window": "discovered", "scope_ids": [SCOPE_ID]}
     if processed:
-        item["processed"] = {SCOPE_ID: {vid: {"run_id": "run_old"}}}
+        item["processed"] = {SCOPE_ID: {vid: datetime(2026, 11, 14, 10, 0, tzinfo=UTC)}}
     db["source_items"].docs[ref] = item
     db["source_versions"].docs[vid] = {
         "_id": vid, "source_ref": ref, "raw_text": "record text", "evidence_text": f"evidence of {ref}",

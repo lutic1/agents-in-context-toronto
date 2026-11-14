@@ -9,7 +9,8 @@ starts with `.spawn()`. In order:
 3. One LangGraph run (`pipeline.graph`): the items of the run's `set`, each through
    `pipeline.item.process` (extract, check, retrieve, remember, relate, draft, gate, file,
    notify). A `task:` set is handed to `tasks.run` (A25), only with the backend flag
-   `task_run` on.
+   `task_run` on; with it off such a run ends `failed` ("task_run is off") and the task
+   stays `authorised`.
 4. `runs.finish(run_id)` after the last item (`running` -> `done` once no admission is
    held), then `runs.settle(run_id)` (`stopping` -> `stopped` after a stop). The run is
    `failed` only on an error the pipeline cannot recover from (D23), through `runs.fail`;
@@ -64,11 +65,14 @@ async def _list_items(run_doc: dict[str, Any], info: item.RunInfo) -> list[str]:
 
 
 async def _hand_off_task(run_doc: dict[str, Any], task_id: str, info: item.RunInfo) -> None:
-    """A task's run is executed by A25's `tasks.run`, never while `task_run` is off (V38)."""
+    """A task's run is executed by A25's `tasks.run`, never while `task_run` is off (V38).
+
+    With the flag off nothing is queued or started (AD-29); a `task:` run started anyway ends
+    `failed` with "task_run is off" (through `runs.fail`), and the task is left untouched
+    (`authorised`)."""
     task_id = run_doc.get("task_id") or task_id
     if not feature_enabled("task_run"):
-        await info.tracker.item_failed(f"task:{task_id}", "task_run is off")
-        return
+        raise RunFailed("task_run is off")
     await tasks.run(task_id)
 
 
