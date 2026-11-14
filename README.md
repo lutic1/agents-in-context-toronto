@@ -37,7 +37,7 @@ The agent `dxp-curator` works for one research scope, "Plasma ctDNA genotyping a
 5. **Propose.** The agent files one pending research report: the discovery, its quotes, related evidence, uncertainties, the evidence gap, and one recommended follow-up task. Nothing becomes accepted knowledge yet.
 6. **Notify.** One Slack alert per report links back to the report in DxP. Slack only notifies; approval and rejection happen only in DxP.
 7. **Decide.** Sam approves or rejects in DxP. Approval moves the report's update into accepted knowledge and authorises one follow-up task. That task gets its own narrow grant and passes its own policy gate. A rejection or correction becomes a memory for the next discovery.
-8. **Audit and stop.** Every step can be replayed: what the agent found, which memory changed its wording, what was blocked, and who authorised what. A person can stop any run.
+8. **Audit and stop.** Every step can be replayed: what the agent found, which memory changed its wording, what was blocked, and who authorised what. A person can stop any run. By design, nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo: the agent cannot change accepted knowledge without a human approval. Pending reports can be rejected, memories can be revoked, and history and source versions are never overwritten. As a supporting extra, Sam is planned to be able to revert an approval with a note: the update leaves accepted knowledge, nothing is deleted, and a follow-up task that has not started is cancelled. None of this undoes effects outside DxP: a Slack alert that was sent stays sent, and the audit records it. If the sandbox supports it, the run console and the audit view will update live from an Atlas change stream, and will say "Refreshing every 2 s" whenever they poll instead.
 
 Sam can also request two optional extras for a report: a ten-second ElevenLabs briefing and a HeyGen avatar video. Both use only the report's own text script, and both are checked against Sam's grant before either service is called.
 
@@ -76,9 +76,11 @@ The full design is in `_bmad-output/planning-artifacts/`; its file list is under
 
 **Supporting (cut in this order if time runs short):**
 1. the HeyGen avatar;
-2. the ElevenLabs briefing;
-3. the screen for correcting and revoking memories;
-4. a second discovery item.
+2. reverting an approval;
+3. live updates through Atlas change streams (the screens poll otherwise);
+4. the ElevenLabs briefing;
+5. the screen for correcting and revoking memories;
+6. a second discovery item.
 
 **Stretch:** running the follow-up task. It stays switched off (`task_run`) until its integration checks pass. If it does not run, the demo says "Follow-up task authorised; not run" and claims no follow-up results.
 
@@ -149,6 +151,7 @@ Unverified dependencies, each with a fallback (details in `_bmad-output/planning
 | OD2 | The live ClinicalTrials.gov API still shows the expected demo trial (NCT04712877) as updated since the scan cursor, recruiting, with no results | Luis, 10:45 | Any in-scope trial updated since the cursor; the same policies apply |
 | OD3 | ElevenLabs key and quota | Luis, before 10:45 | The briefing is hidden |
 | OD4 | Organiser clearance: prepared data, logo, Slack channel volume | Luis, 9:00 to 10:45 | Live fetches, the text wordmark, a team channel if needed |
+| OD5 | Reopened: change streams work on the Atlas Sandbox tier, and a long-lived streaming response works on Modal and through the web app's proxy | Gregorio, checked at 10:45 with OD1, decided by 11:45 | The screens poll and say "Refreshing every 2 s"; live updates are not shown |
 | OD6 | `mongodump` and `mongorestore` work against the sandbox, for the reset before each take | Luis, by 12:20 | Reset by rerunning the setup, which takes longer |
 | OD7 | HeyGen needs a paid plan or funded API wallet; render time can range from minutes to many hours | Luis and Vlad, one timed render at 10:45, decided by 12:00 | The report shows "Avatar unavailable" and the loop is unaffected; the avatar is the first thing cut |
 

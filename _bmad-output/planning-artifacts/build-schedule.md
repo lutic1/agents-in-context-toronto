@@ -15,7 +15,7 @@ sources:
 
 # DxP build schedule for Saturday
 
-This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md`, which wins over every earlier planning document. Within it, decisions V25 to V32 (section 10, the review of PR #8) win over V1 to V24, and V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V47 (section 12 and later: the review of the branch, the build rules and Gregorio's lane; approved by Luis (14 Nov)) win over V1 to V37. The schedule adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 cut line, the V29 media rule, the V30 float and the V31 levers. The readiness fixes D1 to D57 and the Slack decisions S1 to S13 still apply wherever that proposal does not replace them. The PR cards, with start and merge requirements and owned files, are in `development-plan.md`.
+This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md`, which wins over every earlier planning document. Within it, decisions V25 to V32 (section 10, the review of PR #8) win over V1 to V24, and V33 to V37 (section 11, the registry check) win over V25 to V27, and V38 to V48 (section 12 and later: the review of the branch, the build rules, Gregorio's lane and the Statement 1 additions; approved by Luis (14 Nov)) win over V1 to V37; V48 wins over V1 to V47 where they differ. The schedule adopts the section 7 cuts as the baseline, except that A24 and A25 are split again (V28), and it applies the V28 cut line, the V29 media rule, the V30 float and the V31 levers. The readiness fixes D1 to D57 and the Slack decisions S1 to S13 still apply wherever that proposal does not replace them. The PR cards, with start and merge requirements and owned files, are in `development-plan.md`.
 
 **Every time below is a forecast, not a validated run.** Cycle times come from `epics.md`; merge times are an assumption (about 10 minutes each). The milestones are where the day checks the forecast, and each has a fallback.
 
@@ -31,21 +31,23 @@ This schedule follows `sprint-change-proposal-2026-11-14-discovery-agent.md`, wh
 
 ## The result in one paragraph
 
-The core loop ends at I3, "approval, promotion, authorisation and audit", 14:45 to 15:00; follow-up task execution (A25) is off the core path and is stretch (V28, V39); approval authorises the task and, only with the backend flag `task_run` on, queues it to start by itself (V38). The rehearsal runs 15:00 to 16:10. **That leaves 20 minutes of hard float at the 16:30 freeze. This is the only float figure in the plan (V30), and it is a forecast, conditional on the merge milestones (V36): the L2 proof at 12:30 and the 13:00 desk decision among them. If they are missed, the emergency path applies instead.** It rests on two levers, both treated as risks with a proof step and a fallback (V31): **L1**, only A06, A08, A19+A20 and A21+A22 (the last two Gregorio's, V47) start at 10:45 as drafts, each with a 20-minute rebase budget after the contract freeze; **L2**, Vlad's desk merges A05, A13, A14 and A09 only, once each is green in CI and passed by Luis's review agent and the contract keeper. With both, Luis's desk merges back to back from 12:55, the last core merge (A21+A22) lands at 14:05, I1 step 2 runs 14:05 to 14:20 and the discovery loop 14:20 to 14:45, with its first green pass forecast at 14:35. The follow-up task joins as I3b (15:00 to 15:15) only if A25 is merged by 14:30 and the loop is green by 14:30; it then uses 15 of the 20 minutes. On this forecast the loop is green at 14:35, so A25 joins only if the day runs ahead of the forecast; otherwise it is cut. If L1 or L2 fails by 13:00, the plan goes to one desk and applies the cut line at once: the **emergency path** fits the core with one rehearsal pass and no float.
+The core loop ends at I3, "approval, promotion, authorisation and audit", 14:45 to 15:00; follow-up task execution (A25) is off the core path and is stretch (V28, V39); approval authorises the task and, only with the backend flag `task_run` on, queues it to start by itself (V38). The rehearsal runs 15:00 to 16:10. **That leaves 20 minutes of hard float at the 16:30 freeze. This is the only float figure in the plan (V30), and it is a forecast, conditional on the merge milestones (V36): the L2 proof at 12:30 and the 13:00 desk decision among them. If they are missed, the emergency path applies instead.** It rests on two levers, both treated as risks with a proof step and a fallback (V31): **L1**, only A06, A08, A19+A20 and A21+A22 (the last two Gregorio's, V47) start at 10:45 as drafts, each with a 20-minute rebase budget after the contract freeze; **L2**, Vlad's desk merges A05, A13, A14 and A09 only, once each is green in CI and passed by Luis's review agent and the contract keeper. With both, Luis's desk merges back to back from 12:55, the last core merge (A21+A22) lands at 14:05, I1 step 2 runs 14:05 to 14:20 and the discovery loop 14:20 to 14:45, with its first green pass forecast at 14:35. The follow-up task joins as I3b (15:00 to 15:15) only if A25 is merged by 14:30 and the loop is green by 14:30; it then uses 15 of the 20 minutes. On this forecast the loop is green at 14:35, so A25 joins only if the day runs ahead of the forecast; otherwise it is cut. If L1 or L2 fails by 13:00, the plan goes to one desk and applies the cut line at once: the **emergency path** fits the core with one rehearsal pass and no float. **V48** adds two supporting PRs of Gregorio's, behind flags and off the core path: A27 (live run updates through change streams; merged on desk L by 14:45) and A26 (revert an approval; by 15:00), each checked inside rehearsal pass 1 (S5, S4) at no extra time; and the rollback line in the pitch, which is never cut.
 
 ## Timeline
 
 | Time | What |
 |---|---|
 | 9:00 to 10:45 | Doors, breakfast, kick-off. No coding. Luis confirms the deadline, sandbox access and the clearance items (OD4), records them in `docs/clearance.md` |
-| 10:45 | Hacking starts. A01, A02, A03 (generating the three DxP keys into `.env`, D48), B01, and the four draft PRs (lever L1): A06 and A08 (Luis), A19+A20 and A21+A22 (Gregorio, V47; until 11:45 only the parts that do not depend on the contract: pure functions and their tests, and the index definitions). Gregorio checks the sandbox for Vector Search and Automated Embedding, or a cleared Voyage key (OD1); Luis and Gregorio decide by 11:45. Luis queries the live ClinicalTrials.gov API, chooses the cursor and verifies the demo anchor in the response: update date after the cursor, status and results (OD2, V36). NCT04712877 is the expected candidate only. The HeyGen account check (V29, OD7) runs alongside, off the critical path: nothing waits on it |
+| 10:45 | Hacking starts. A01, A02, A03 (generating the three DxP keys into `.env`, D48), B01, and the four draft PRs (lever L1): A06 and A08 (Luis), A19+A20 and A21+A22 (Gregorio, V47; until 11:45 only the parts that do not depend on the contract: pure functions and their tests, and the index definitions). Gregorio checks the sandbox for Vector Search and Automated Embedding, or a cleared Voyage key (OD1), and, reopened by V48, change streams on the sandbox tier and a long-lived streaming response on Modal and through a Vercel proxy (OD5); Luis and Gregorio decide both by 11:45. Luis queries the live ClinicalTrials.gov API, chooses the cursor and verifies the demo anchor in the response: update date after the cursor, status and results (OD2, V36). NCT04712877 is the expected candidate only. The HeyGen account check (V29, OD7) runs alongside, off the critical path: nothing waits on it |
 | 11:00 | A04 deploy starts |
-| 11:45 | A01 merged; contracts frozen; the contract keeper posts the diff; A06, A08, A19+A20 and A21+A22 rebase (20-minute budget each, V47). Every other Luis PR starts, and Gregorio's A25. `DXP_EMBEDDING` decided (OD1). Vlad's spend checked |
+| 11:45 | A01 merged; contracts frozen (including the V48 stubs for the revert and stream routes); the contract keeper posts the diff; A06, A08, A19+A20 and A21+A22 rebase (20-minute budget each, V47). Every other Luis PR starts, and Gregorio's A25. `DXP_EMBEDDING` decided (OD1); `live_stream` go or no-go decided (OD5, V48). Vlad's spend checked |
 | 12:05 | End of the L1 rebase budget for A06, A08, A19+A20 and A21+A22 |
 | 12:10 | B01 merged; B04 (two builders), B02 and B03 start; A04 merges at 12:20 |
 | 12:30 | A03 merged; B06 starts, and B08 only if the HeyGen account check passed. The L2 proof step opens on desk V |
-| 12:55 to 14:15 | Luis's desk merges without a gap: A06, A24, A07+A11, A08, A10, A19+A20, A21+A22 (last core merge, 14:05), then A25 (stretch). Vlad's desk merges A05 (first proof merge), A13 (second proof merge), A14, A09, then B04 |
+| 12:55 to 14:45 | Luis's desk merges back to back to 14:15: A06, A24, A07+A11, A08, A10, A19+A20, A21+A22 (last core merge, 14:05), then A25 (stretch), then A27 (14:25 to 14:35, by 14:45) and A26 (14:35 to 14:45, by 15:00), both supporting (V48), behind any I1 fix PR. Vlad's desk merges A05 (first proof merge), A13 (second proof merge), A14, A09, then B04 |
 | 13:00 | L1 and L2 decision: keep both, or switch to the emergency path |
+| 13:15 | A26 starts (A24 merged; V48) |
+| 13:25 | A27 starts (A07+A11 merged; V48), only if OD5 passed |
 | 13:35 to 14:05 | I1 step 1 on the sandbox: grant, policy and scope seed; FDA seed; prior collection (13:35 to 13:55); embeddings and indexes once A19+A20 is in (13:55 to 14:05) |
 | 14:05 to 14:20 | I1 step 2: the setup run on NCT05715229, Sam's correction through the deployed report page creates M1, the snapshot |
 | **14:20 to 14:45** | **I1 discovery loop; first green pass forecast 14:35** |
@@ -53,7 +55,7 @@ The core loop ends at I3, "approval, promotion, authorisation and audit", 14:45 
 | 14:00 to 14:55 | Vlad's desk merges B07, B02, B06 (by 14:45), B03, B08 (by 15:00) |
 | **14:45 to 15:00** | **I3: approval, promotion, task authorisation and audit;** S1 (briefing) and S3 (memory correct and revoke) checked |
 | 15:00 to 15:15 | I3b (stretch), only if the 14:30 gate passed: the queued follow-up task starts by itself and is gated |
-| 15:00 to 16:10 | A16: reset, pass 1 = core acceptance 15:10 to 15:35 (S2 avatar checked just before), reset, pass 2 15:45 to 16:00, reset for the video 16:00 to 16:10. If I3b ran: 15:15 to 16:25 |
+| 15:00 to 16:10 | A16: reset, pass 1 = core acceptance 15:10 to 15:35 (S2 avatar checked just before; S5 live stream checked while the run is live and S4 revert after the audit step, inside the pass, V48), reset, pass 2 15:45 to 16:00, reset for the video 16:00 to 16:10. If I3b ran: 15:15 to 16:25 |
 | 16:30 | Code freeze. 20 minutes of hard float if the merge milestones held (15 of them used if I3b ran); none on the emergency path |
 | 16:30 to 16:55 | R1: record the 60-second video and submit; add the video link to the README |
 | 16:55 to 17:10 | Reset for the live demo |
@@ -75,6 +77,8 @@ Cycle times from `epics.md` (agent cycle time for each story; a bundle runs its 
 | A07+A11 | 1.2 h (9.5, 9.6), with 9.1 in parallel | 11:45 | 13:00 |
 | A24 | 1.2 h (10.8) | 11:45 | 13:00 |
 | A25 | 1.2 h (10.9); Gregorio (V47) | 11:45 | 13:00 |
+| A26 | 1.2 h (10.13); Gregorio (V48); starts when A24 is merged | 13:15 | 14:25 |
+| A27 | 1.0 h (9.12); Gregorio (V48); starts when A01 and A07+A11 are merged | 13:25 | 14:25 |
 | A13 | 1.5 h (1.2 plus the snapshot script) | 11:45 | 13:15 |
 | A14 | 1.5 h (2.3 value review, A18 read model) | 11:45 | 13:15 |
 | A09 | 1.75 h (9.4, slightly simpler with Slack) | 11:45 | 13:30 |
@@ -93,7 +97,7 @@ Integration time: I1 step 1 about 30 minutes (data about 20 minutes, then the in
 
 ## The merge queue
 
-Luis's desk (desk L), one merge at a time, about 10 minutes each. It holds 12 merges: 11 core and A25 (stretch).
+Luis's desk (desk L), one merge at a time, about 10 minutes each. It holds 14 merges: 11 core, A25 (stretch), and A27 and A26 (supporting, V48).
 
 | Slot | PR | Ready | Waited | Why it is here |
 |---|---|---|---|---|
@@ -110,8 +114,11 @@ Luis's desk (desk L), one merge at a time, about 10 minutes each. It holds 12 me
 | 13:45 to 13:55 | A19+A20 | 13:45 | 0 | first of the two late bundles, so the index build starts at 13:55 |
 | 13:55 to 14:05 | A21+A22 | 13:45 | 10 min | merges after A19+A20; **last core merge** |
 | 14:05 to 14:15 | A25 | 13:00 | 65 min | stretch (V39); merges after A24, A07+A11 and A19+A20; must be merged by 14:30 to join I3b |
+| 14:15 to 14:25 | idle, or the first I1 fix PR | | | I1 fix PRs always go first |
+| 14:25 to 14:35 | A27 | 14:25 | 0 | supporting (V48); must merge by 14:45, else cut (`live_stream` off) |
+| 14:35 to 14:45 | A26 | 14:25 | 10 min | supporting (V48); must merge by 15:00, else cut (`revert` off) |
 
-From 12:55 to 14:15 the desk is saturated: eight merges back to back. **Any merge that takes 20 minutes instead of 10 moves every later slot, I1 step 2 and the loop by 10 minutes,** and the minutes come out of the 20 minutes of hard float.
+From 12:55 to 14:15 the desk is saturated: eight merges back to back. A27 and A26 come after the last core merge and never move a core slot; an I1 fix PR goes before them. **Any merge that takes 20 minutes instead of 10 moves every later slot, I1 step 2 and the loop by 10 minutes,** and the minutes come out of the 20 minutes of hard float.
 
 Vlad's desk (desk V), his own PRs and four of Luis's leaf PRs (lever L2, V31). Vlad merges a Luis PR only when it is already green in CI and passed by Luis's review agent and the contract keeper. His look is a scope and secrets check, not a back-end review; the back-end review is the agent's. A failing CI or a conflict sends the PR back to its author and never waits on desk V.
 
@@ -143,7 +150,7 @@ Fix PRs from I1, I3 and A16 go first in the owning desk's queue.
 
 ### The emergency path (one desk, cut line applied)
 
-One desk, Luis's, merges every remaining PR, Vlad's included. The V28 cut line is applied at once: A25, B06 and B08 are out (flags `task_run`, `briefing` and `avatar` off; their files stay A01's stubs). That takes three merges off the queue. Forecast, with the switch at 13:00:
+One desk, Luis's, merges every remaining PR, Vlad's included. The V28 cut line is applied at once: A25, B06 and B08 are out, and since V48 A26 and A27 too (flags `task_run`, `briefing`, `avatar`, `revert` and `live_stream` off; their files stay A01's stubs; the screens poll, labelled). That takes five merges off the queue. The pitch's rollback line stays. Forecast, with the switch at 13:00:
 
 | Slot | PR |
 |---|---|
@@ -206,6 +213,8 @@ The longest chain runs through the merge queue: A19+A20 and A21+A22 (Gregorio's 
 | B04 (Vlad, two builders) → merged 13:55 → deployed about 14:00 | 14:00 | I1 step 2 (Sam's correction through the UI, V15) at 14:05 | near-critical; a late B04 moves step 2 one for one |
 | I1 loop first green pass | 14:35 | the end of the I1 slot, 14:45; the I3b gate at 14:30 | on forecast, the I3b gate is missed |
 | A25 | merged 14:15 | the I3b gate at 14:30 | stretch (V39) |
+| A27 (V48) | merged 14:35 | its 14:45 cut rule, then S5 in pass 1 | supporting; behind I1 fix PRs on desk L |
+| A26 (V48) | merged 14:45 | its 15:00 cut rule, then S4 in pass 1 | supporting; behind I1 fix PRs on desk L |
 | Rehearsal end | 16:10 | freeze 16:30 | **20 minutes of hard float, the only float; conditional on the merge milestones (V36)** |
 | I1 step 1 data (A03, A05, A06, A08, A13 merged by 13:35) | 13:55 | the index build at 13:55 | critical |
 | A06 draft | ready 12:55 | its slot 12:55 | critical (head of the queue) |
@@ -241,17 +250,18 @@ What A16 rehearses, R1 records and the live demo shows. The wording rules of V33
 8. Sam approves: "Approved: 1 update accepted. Follow-up task authorised; its findings will be pending review." with `task_run` on, or "Approved: 1 update accepted. Follow-up task authorised; not run." with it off (V38). No assay record changes (V35); the update targets the scope's evidence collection, with no Diagnostic link (V43).
 9. Only if I3b ran (stretch, V39): the queued follow-up task starts by itself (no button, V38); it is gated, answers the gap (at most 5 records searched; "No matching results found among the records searched" is valid, shown with the query, the number of records searched and the limit, V42), and its findings stay pending. If it did not run, the narration says "Follow-up task authorised; not run" and claims no completed follow-up work (V39).
 10. The Audit view answers: "What did the agent find, which memory changed its wording, what was blocked, and who authorised the follow-up?"
+10a. The rollback story (V48, never cut), said at the stop in step 7 and again here: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." Pending reports can be rejected; memories can be revoked; history and source versions are never overwritten; and, only if S4 passed, an approval can be reverted (in the live demo "Revert approval" may be shown here if time allows; never in the 60-second video). The agent "cannot change accepted knowledge without a human approval"; nothing claims automatic rollback of external effects: the Slack alert that was sent stays sent, and the audit records it. The live label on the console reads "Live (change stream)" only if S5 passed; otherwise "Refreshing every 2 s", and the narration does not name change streams.
 11. Close (V32): the cursor and the Team's memories accumulate; this is one turn of team-specific, longitudinal intelligence on the diagnostics a team follows.
 
 **Rehearsal source check (V44), in A16 pass 1.** One person takes one complete report and its briefing or narration script and (a) reads them side by side with the exact source version the report used (its stored `version_id`), confirming that every claim is supported by that version; then (b), separately, compares that version with the live ClinicalTrials.gov record for the anchor. A difference in (b) is recorded as "changed since the run", not as an error in the report. The video is not recorded until both checks pass.
 
 ## Who does what
 
-**Luis (up to 44 agents, the product's keys):** A01 to A10 with the bundles, A13, A14, A16, A24, I1 and I3 (with I3b); merges the 12 PRs on desk L, Gregorio's three among them, in the planned order; R1 with Vlad; the live-demo reset; `docs/clearance.md`; runs the review agent on Vlad's lane.
+**Luis (up to 44 agents, the product's keys):** A01 to A10 with the bundles, A13, A14, A16, A24, I1 and I3 (with I3b); merges the 14 PRs on desk L, Gregorio's five among them, in the planned order; R1 with Vlad; the live-demo reset; `docs/clearance.md`; runs the review agent on Vlad's lane.
 
 **Vlad (up to 22 agents, Sonnet 5.5 at high effort):** B01, B02, B03, B04 (two builders), B06, B07, B08; merges his lane and four of Luis's leaf PRs on desk V (L2, under the V31 conditions); R1 with Luis.
 
-**Gregorio (V47; his own agents on a Claude Max plan, deep back-end coding):** A19+A20 and A21+A22 (drafts from 10:45, L1) and A25 (stretch); the OD1 check at 10:45, decided with Luis by 11:45. His agents review his PRs first; desk L merges them, and the contract keeper checks any contract change.
+**Gregorio (V47; his own agents on a Claude Max plan, deep back-end coding):** A19+A20 and A21+A22 (drafts from 10:45, L1) and A25 (stretch); since V48, A26 (revert an approval, from 13:15) and A27 (live stream, from 13:25), both supporting; the OD1 and OD5 checks at 10:45, decided with Luis by 11:45. His agents review his PRs first; desk L merges them, and the contract keeper checks any contract change.
 
 - Vlad's PRs need the Atlas Sandbox connection string; Luis shares it through `.env`, never in the repository. Vlad's lane needs no Slack, ElevenLabs or HeyGen key: those calls run in the back end on Modal.
 - If B04 is late, Luis's agents add a third builder to it at 13:15; it is on the critical path. B02 and B03 are core for the rehearsal: if either is not merged by 14:45, Luis's agents take it over.
@@ -282,6 +292,8 @@ What A16 rehearses, R1 records and the live demo shows. The wording rules of V33
 | A21+A22 | Gregorio | Reviewer memory (draft, L1, V47) | 10:45 | 13:45 | 14:05 (L) | critical (last core merge) |
 | B07 | Vlad | README, submission text, video script | 12:45 | 14:00 | 14:10 (V) | off the critical path |
 | A25 | Gregorio | Follow-up task execution | 11:45 | 13:00 | 14:15 (L) | stretch (V39); joins I3b only if merged by 14:30 and the loop is green by 14:30 |
+| A27 | Gregorio | Live run updates through change streams (`live_stream` flag, V48) | 13:25 | 14:25 | 14:35 (L) | supporting; out if not merged by 14:45 or OD5 failed; S5 in pass 1 |
+| A26 | Gregorio | Revert an approval (`revert` flag, V48) | 13:15 | 14:25 | 14:45 (L) | supporting; out if not merged by 15:00; S4 in pass 1 |
 | B02 | Vlad | Run console | 12:10 | 14:15 | 14:25 (V) | needed by A16 pass 1 |
 | B06 | Vlad | ElevenLabs briefing, on demand (`briefing` flag) | 12:30 | 14:25 | 14:35 (V) | supporting; out if not merged by 14:45 |
 | B03 | Vlad | Audit view with V14 | 12:10 | 14:35 | 14:45 (V) | needed by A16 pass 1 |
@@ -293,7 +305,7 @@ What A16 rehearses, R1 records and the live demo shows. The wording rules of V33
 | R1 | Luis and Vlad | Record and submit | 16:30 | | 16:55 | critical |
 | Reset | Luis | Reset for the live demo | 16:55 | | 17:10 | critical |
 
-Cut and not scheduled: A12, A15, B05, A17. Folded: A18 into A14, A23 into A06, I2 into A16 pass 1. Split again (V28): A24 and A25.
+Cut and not scheduled: A12, A15, B05, A17. Folded: A18 into A14, A23 into A06, I2 into A16 pass 1. Split again (V28): A24 and A25. Added (V48): A26 and A27, supporting.
 
 ## Dependencies for the integrations
 
@@ -310,6 +322,8 @@ Cut and not scheduled: A12, A15, B05, A17. Folded: A18 into A14, A23 into A06, I
 | S1 briefing | B06 merged by 14:45, a filed report | |
 | S2 avatar | B08 merged by 15:00, a filed report (its script is core, V41), a HeyGen render that finished (OD7) | |
 | S3 memory correct and revoke | A21+A22, B04's memory panel, I3 | |
+| S4 revert (V48) | A26 merged by 15:00, B04's button (or its follow-up PR), an approved report in A16 pass 1 | the core; A25 |
+| S5 live stream (V48) | OD5 passed, A27 merged by 14:45, B02 and B03 stream consumption and B02's proxy, a live run in A16 pass 1 | the core; any polling screen |
 
 ## Milestones and fallback triggers
 
@@ -317,7 +331,7 @@ Cuts are triggered by a missed milestone, not decided in advance. No core PR is 
 
 | By | Check | If missed |
 |---|---|---|
-| 10:45 | Cursor chosen; the demo anchor verified in the live API response: update date after the cursor, status, results (OD2, V36; NCT04712877 is the expected candidate); sandbox Vector Search and Automated Embedding checked by Gregorio (OD1, V47); the HeyGen account check (paid plan or funded wallet, key works, no watermark; V29, OD7), off the critical path | OD2: the anchor is whichever in-scope early-stage trial the scan really returns; its headline, gap and narration follow V33 from its own fields, with no claim about which assay it studies; tell B07 and A16. OD1: Luis and Gregorio set `DXP_EMBEDDING` to `voyage` (if cleared) or `none` by 11:45, before A19+A20 freezes its config. HeyGen check fails: B08 is not built; Vlad's B08 builders move to B04 |
+| 10:45 | Cursor chosen; the demo anchor verified in the live API response: update date after the cursor, status, results (OD2, V36; NCT04712877 is the expected candidate); sandbox Vector Search and Automated Embedding checked by Gregorio (OD1, V47); change streams on the sandbox tier and a long-lived streaming response on Modal and through a Vercel proxy checked by Gregorio (OD5, reopened by V48); the HeyGen account check (paid plan or funded wallet, key works, no watermark; V29, OD7), off the critical path | OD2: the anchor is whichever in-scope early-stage trial the scan really returns; its headline, gap and narration follow V33 from its own fields, with no claim about which assay it studies; tell B07 and A16. OD1: Luis and Gregorio set `DXP_EMBEDDING` to `voyage` (if cleared) or `none` by 11:45, before A19+A20 freezes its config. HeyGen check fails: B08 is not built; Vlad's B08 builders move to B04. OD5 fails: A27 is not built, `live_stream` stays off and the screens poll, labelled |
 | 11:45 | A01 merged, contracts frozen; the A06, A08, A19+A20 and A21+A22 drafts start their rebase (V47); Vlad's spend checked | Hold other merges; everything slips one for one. Spend above $50 an hour: cap Vlad's builders, stop B08 |
 | 12:05 | A06, A08, A19+A20 and A21+A22 rebased inside their 20-minute budgets (L1, V47) | L1 has failed: the drafts keep building, and the 13:00 decision takes the emergency path |
 | 12:20 | A04: deployed on the sandbox; every secret set (`DXP_BASE_URL`, `SLACK_WEBHOOK_URL`, `ELEVENLABS_API_KEY`, `HEYGEN_API_KEY`); OD1 and OD6 results recorded | One agent fixes the deploy; the build continues locally against the sandbox. Without `DXP_BASE_URL` the notifier refuses to start |
@@ -331,11 +345,11 @@ Cuts are triggered by a missed milestone, not decided in advance. No core PR is 
 | 14:20 | M1 created by Sam through the UI and the snapshot taken (OD6) | If `mongodump` fails, record it: every reset reruns the setup, about 30 minutes with Sam's correction, so A16 drops pass 2 and its reset |
 | **14:30** | **I3b gate (stretch): A25 merged and the loop green** | **A25 is cut:** the backend flag `task_run` stays off (`DXP_FEATURES`); the task stays authorised and the report shows "Follow-up task authorised; not run"; I3 ends at 15:00 |
 | **14:35** | **Loop first green pass (I1), with the V35 and V37 assertions: discovery of the anchor → the proposed link of the record's "FoundationOne CDx" mention to the plasma scope blocked by check 2 (guaranteed; the "showed" claim block recorded if draft 1 writes it, V21) → report filing the one allowed update (the trial added to the scope's evidence collection), the intervention wording verbatim, the ambiguity in uncertainties, a relationship with two checked quotes, the gap and M1's effect from the two gated drafts → Slack alert whose link opens the report** | Stop all supporting work; everyone fixes the loop. Cut B08 (flag `avatar` off) |
-| 14:45 | I1 slot ends green; B06 merged | Not green: cut B06 (flag `briefing` off) and, if the second discovery item is what fails and A25 is still in, demo the first only. B06 not merged: it drops out |
-| **15:00** | **I3: approval, promotion, task authorisation and audit; S1 and S3 checked; B08 merged** | Memory correct or revoke fails: cut the memory correction and revoke UI (flag `memory_edit` off; creation and use stay). B08 not merged: it drops out. I3 itself not green: the rehearsal starts late, minute for minute out of the hard float |
+| 14:45 | I1 slot ends green; B06 merged; A27 merged (V48) | Not green: cut B06 (flag `briefing` off) and, if the second discovery item is what fails and A25 is still in, demo the first only. B06 not merged: it drops out. A27 not merged: `live_stream` stays off; the screens poll, labelled |
+| **15:00** | **I3: approval, promotion, task authorisation and audit; S1 and S3 checked; B08 and A26 merged (V48)** | Memory correct or revoke fails: cut the memory correction and revoke UI (flag `memory_edit` off; creation and use stay). B08 not merged: it drops out. A26 not merged: `revert` stays off and the pitch omits "an approval can be reverted". I3 itself not green: the rehearsal starts late, minute for minute out of the hard float |
 | 15:10 | S2: an on-demand HeyGen render reached `ready` on the sandbox | Flag `avatar` off |
 | 15:15 | I3b passed (only if it ran) | Flag `task_run` off; the rehearsal starts at once |
-| 15:35 | A16 pass 1, core acceptance, passed, including the V44 source check (15:50 if I3b ran) | Rehearse and record only what passed; drop pass 2 and use its slot for one fix and a rerun |
+| 15:35 | A16 pass 1, core acceptance, passed, including the V44 source check (15:50 if I3b ran); S4 and S5 checked inside it (V48) | Rehearse and record only what passed; drop pass 2 and use its slot for one fix and a rerun. S4 fails: `revert` off. S5 fails: `live_stream` off. Neither is fixed during the rehearsal |
 | **16:10** | **Rehearsal ended and the sandbox reset for the video** (16:25 if I3b ran) | Use the remaining minutes only for the reset; never fix during it |
 | 16:30 | Code freeze | R1 records what works on the reset sandbox; the video names only behaviour shown |
 | 16:55 | Submitted (R1) | Submit what exists |
@@ -347,18 +361,22 @@ Cuts are triggered by a missed milestone, not decided in advance. No core PR is 
 
 ### Supporting cut order
 
-If a milestone slips, cut in this order. Nothing else may be cut. Follow-up task execution (A25) is no longer in this list: it is stretch (V39) and joins only through the 14:30 I3b gate.
+If a milestone slips, cut in this order (V48, replacing V39's). Nothing else may be cut. The rollback line in the pitch is never cut. Follow-up task execution (A25) is no longer in this list: it is stretch (V39) and joins only through the 14:30 I3b gate. Trade-off, kept as set: A26 and A27 answer the statement's own words ("roll back", "change streams") and arguably matter more to the judges than B06, which is cut after them.
 
 1. **B08, the HeyGen avatar.** Flag `avatar` off; the player is hidden; `briefing.render_avatar` stays A01's stub if B08 never merged.
-2. **B06, the ElevenLabs briefing.** Flag `briefing` off; the player is hidden; `briefing.generate` stays A01's stub if B06 never merged. Also out if not merged by 14:45.
-3. **The memory correct and revoke screen.** Flag `memory_edit` off. Memory creation (M1) and use (its effect in the report) stay: they are core.
-4. **A second discovery item.** The demo shows the anchor (expected NCT04712877) only. Stop is core, so this cut is allowed only while A25 is in and stop can be shown on the task's run; if A25 is already cut, the second item stays and carries the stop.
+2. **A26, revert an approval.** Flag `revert` off in both settings; the button is hidden; the route stays A01's stub if A26 never merged. Also out if not merged by 15:00 or S4 fails.
+3. **A27, the live stream.** Flag `live_stream` off in both settings; the screens poll every 2 seconds and say "Refreshing every 2 s". Also out if OD5 fails, if not merged by 14:45, or if S5 fails.
+4. **B06, the ElevenLabs briefing.** Flag `briefing` off; the player is hidden; `briefing.generate` stays A01's stub if B06 never merged. Also out if not merged by 14:45.
+5. **The memory correct and revoke screen.** Flag `memory_edit` off. Memory creation (M1) and use (its effect in the report) stay: they are core.
+6. **A second discovery item.** The demo shows the anchor (expected NCT04712877) only. Stop is core, so this cut is allowed only while A25 is in and stop can be shown on the task's run; if A25 is already cut, the second item stays and carries the stop.
 
 Each cut leaves every core dependency intact:
 
 | Cut | What refers to it | Why core still works |
 |---|---|---|
 | B08 | The report page's avatar player and its "Render avatar" button | Hidden by flag; the route stays A01's 501 if B08 never merged; nothing calls HeyGen automatically (V29) |
+| A26 (V48) | B04's "Revert approval" button; the pitch's "an approval can be reverted" | Hidden by flag; the route stays a stub or answers 404; nothing core calls it; the pitch keeps its other three points |
+| A27 (V48) | B02's and B03's `EventSource`, the live label | The screens poll every 2 seconds, as the core always did, and the label says "Refreshing every 2 s" |
 | B06 | The briefing player and its "Generate briefing" button | Hidden by flag; the script stays on every report as text (core, V41) |
 | Memory correct and revoke screen | B04's memory panel controls | Hidden by flag; the routes exist and are supporting; M1 creation and retrieval are untouched |
 | A25, task execution (stretch, not a supporting cut) | A24's queueing and `tasks.dispatch_next()` (inactive while `task_run` is off); A10's `task:` handoff; B02's "Follow-up task" label | Backend flag `task_run` off: the task is authorised, never queued, and the report shows "Follow-up task authorised; not run"; `tasks.run` stays A01's stub if A25 never merged; no `task:` run is started. There is no start button to hide (V38) |
@@ -385,30 +403,32 @@ Extra agents only help if two of them never edit the same file. A01 creates the 
 | `retrieval/embed.py`, `retrieval/indexes.py`, `retrieval/related.py`, `reports/relate.py`, `reports/draft.py`, `reports/file.py`, `reports/script.py` (V41), `llm/prompts/relate.*`, `llm/prompts/report.*`, `api/routes_reports.py` | A19+A20 (Gregorio, V47) |
 | `memory/store.py`, `memory/retrieve.py`, `api/routes_memories.py` | A21+A22 (Gregorio, V47) |
 | `reports/decide.py`, `tasks/authorise.py`, `tasks/dispatch.py` (V38), `gate/grants.py`, `api/routes_report_decision.py` | A24 |
+| `reports/revert.py`, `ledger/revert.py`, `tasks/cancel.py`, `gate/grant_expiry.py`, `api/routes_report_revert.py` | A26 (Gregorio, V48) |
+| `search/stream.py`, `api/routes_run_stream.py` | A27 (Gregorio, V48) |
 | `tasks/run.py` | A25 (Gregorio, V47) |
 | `docs/demo-and-reset.md` | A16 |
-| `backend/tests/<id>/` | the PR with that ID (A24: `tests/a24/`, A25: `tests/a25/`, I1: `tests/i1/`, I3 and I3b: `tests/i3/`) |
+| `backend/tests/<id>/` | the PR with that ID (A24: `tests/a24/`, A25: `tests/a25/`, A26: `tests/a26/`, A27: `tests/a27/`, I1: `tests/i1/`, I3 and I3b: `tests/i3/`) |
 | `docs/clearance.md` | Luis |
 | `web/` including `package.json`, `lib/api.ts`, `lib/features.ts`, `lib/format.ts`, `components/shell/`; not the paths below | B01 |
-| `web/app/runs/page.tsx`, `web/app/runs/[run_id]/page.tsx`, `web/components/run-console/` | B02 |
+| `web/app/runs/page.tsx`, `web/app/runs/[run_id]/page.tsx`, `web/components/run-console/`, `web/components/live-source/` and the streaming proxy `web/app/api/stream/[run_id]/route.ts` (V48) | B02 |
 | `web/app/runs/[run_id]/audit/`, `web/components/audit/` | B03 |
 | `web/app/reports/` (not the `briefing/` and `avatar/` folders), `web/app/diagnostics/`, `web/components/report/`, `web/components/report-decision/`, `web/components/memory-panel/` | B04 |
 | `briefing/audio.py`, `api/routes_briefing.py`, `web/app/reports/[report_id]/briefing/` | B06 |
 | `briefing/avatar.py`, `api/routes_avatar.py`, `web/app/reports/[report_id]/avatar/` | B08 |
 | `README.md`, `docs/video-script.md`, `docs/submission.md` | B07 (R1 adds only the video link) |
 
-Checked for this change: no file has two owners. A24 and A25 share no file: A24 writes the task, its grant and the queue entry and starts the task's run through `tasks.dispatch_next()` (V38); A25's `tasks/run.py` is reached only through that run and A10's handoff, so A24 never calls it, and no client can start a `task:` run. Removed with the cuts: `search/changes.py`, `routes_changes.py` (A12), `search/graph.py`, `routes_graph.py` (A15), the impact pages and graph components (B05), `gate/drafts.py`, `routes_policy_drafts.py` (A17), `ledger/decide.py` (superseded, V8), the old `api/briefing.py` and `routes_audio.py` (9.10), `web/app/review/` (replaced by the report page). B06 and B08 share no file, and neither builds the script: both read `report.script`, built by A19+A20's `reports/script.py` (V41).
+Checked for this change: no file has two owners. A24 and A25 share no file: A24 writes the task, its grant and the queue entry and starts the task's run through `tasks.dispatch_next()` (V38); A25's `tasks/run.py` is reached only through that run and A10's handoff, so A24 never calls it, and no client can start a `task:` run. Removed with the cuts: `search/changes.py`, `routes_changes.py` (A12), `search/graph.py`, `routes_graph.py` (A15), the impact pages and graph components (B05), `gate/drafts.py`, `routes_policy_drafts.py` (A17), `ledger/decide.py` (superseded, V8), the old `api/briefing.py` and `routes_audio.py` (9.10), `web/app/review/` (replaced by the report page). B06 and B08 share no file, and neither builds the script: both read `report.script`, built by A19+A20's `reports/script.py` (V41). A26 and A27 (V48) own only new files: A26 edits no A24 file (its route calls `reports.revert()` and `tasks.cancel_for_report()` in its own files), and A27 writes nothing; the revert button stays in B04's files and the stream consumption in B02's and B03's.
 
 ## Agent roles
 
 - **Builders:** one or more per PR as in `development-plan.md`. A06 and A19+A20 have three each; B04 has two.
 - **Reviewers:** one agent per open PR: acceptance criteria, the six required behaviours, D1, owned files only, secrets (Slack webhook, Anthropic, ElevenLabs, HeyGen, Voyage keys), `.env` values, tokens and PubMed text. For the four PRs merged on desk V, this agent's pass is the back-end review.
 - **Contract keeper:** watches `models.py`, the signature stubs and the generated types; at 11:45 posts the A01 diff for the A06, A08, A19+A20 and A21+A22 drafts (V47); passes every PR merged on desk V; states the rebase cost of any contract change after 11:45.
-- **Integrator:** runs I1, I3, I3b and S1 to S3, and from 13:35 keeps the smoke test green in `DXP_DB=dxp_smoke` with the fake Slack, ElevenLabs and HeyGen senders, so merges post nothing and render nothing.
+- **Integrator:** runs I1, I3, I3b and S1 to S5 (S4 and S5 inside A16 pass 1, V48), and from 13:35 keeps the smoke test green in `DXP_DB=dxp_smoke` with the fake Slack, ElevenLabs and HeyGen senders, so merges post nothing and render nothing.
 
 ## Done rule
 
-A story is done only when its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox. A merged PR that has not passed I1, I3, I3b (for A25), A16 pass 1 or its own S check is not done. The demo and video stories (8.2, 8.4) are not done until the V44 source check has passed, and the video and demo claim no completed follow-up work unless the task ran in that take (V39).
+A story is done only when its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox. A merged PR that has not passed I1, I3, I3b (for A25), A16 pass 1 or its own S check (S4 for A26, S5 for A27) is not done. The demo and video stories (8.2, 8.4) are not done until the V44 source check has passed, and the video and demo claim no completed follow-up work unless the task ran in that take (V39).
 
 ## Not modelled
 
@@ -430,7 +450,7 @@ A story is done only when its PRs have merged and its acceptance criteria pass o
 | OD2 | The demo anchor. On 14 Nov the API v2 returned NCT04712877 with `lastUpdatePostDate` 2026-11-12, RECRUITING, `hasResults` false, but the record-history page showed a latest update of 17 July 2024, so the date is unverified (V36) | Luis | 10:45, by a live API query for the scan; the cursor goes into A03's `gate/seed_data/` by 11:45 | The anchor is whichever in-scope early-stage trial is actually updated after the cursor, verified in the response; NCT04712877 is the expected candidate only. The framing follows V33 from that trial's own fields; Luis tells B07 and A16 which trial |
 | OD3 | ElevenLabs key and quota | Luis | Key in `.env` before 10:45; in the Modal secret by 12:20 (A04) | B06 builds against a fake; without the key the player says "unavailable" and the script stays as text (V29) |
 | OD4 | Organiser clearance (D1, D57): the submission deadline, coding before 10:45, prepared `data/` and the logo, and the Slack channel's volume (one alert per report in `#all-mango-db-hackathon` across setup, tuning, I1, I3, rehearsals, the video and the live demo) | Luis | 9:00 to 10:45 | Plan for a 17:00 deadline, no coding before 10:45, live fetches, the text wordmark and `#all-mango-db-hackathon`. Luis records the answers in `docs/clearance.md`. If the channel is not acceptable, the webhook points at a team channel and A03 renames the grant's destination before the seed |
-| OD5 | Change streams on the sandbox | — | — | **Closed:** no longer needed (A12 cut); screens poll |
+| OD5 | **Reopened (V48).** Change streams on the Atlas Sandbox tier, and a long-lived streaming response on Modal (`@modal.asgi_app` with a `StreamingResponse`, and Modal's request time limit) and through a Vercel streaming proxy | Gregorio (with Luis) | Checked at 10:45 with OD1; decided by 11:45 | Plan for polling. If it passes, A27 is built from 13:25; if it fails, A27 is not built, `live_stream` stays off and the Run console and the Audit view say "Refreshing every 2 s" |
 | OD6 | `mongodump` and `mongorestore` work against the sandbox | Luis | Checked by A04 by 12:20; proven at the I1 snapshot, 14:15 to 14:20 | Each reset reruns the setup, about 30 minutes including Sam's correction, so A16 drops pass 2 and R1's reset may not fit before 17:15 |
 | OD7 | HeyGen needs a paid plan or a funded API wallet (from US$5; the free plan is watermarked and non-commercial); render time is 1 to 5 minutes per the API docs, but the regular queue can average just under 24 hours on weekdays | Luis (account and key), Vlad (B08) | Account check at 10:45, off the critical path (V29); key in the Modal secret by 12:20 | Check fails: B08 is not built. On the day, one render is requested from the "Render avatar" button for the demo report only, as soon as it is filed; the report is opened last on camera; if it is not ready, the player says "Rendering" or "unavailable", the script stays as text, and nothing waits |
 

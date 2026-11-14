@@ -2,7 +2,7 @@
 title: Sprint Change Proposal, restore the discovery-agent vision
 status: approved
 approved_by: Luis
-approved: 2026-11-14 (V1 to V45, including the V45 memory-creation recovery limitation)
+approved: 2026-11-14 (V1 to V45, including the V45 memory-creation recovery limitation; V47 and V48 approved by Luis)
 created: 2026-11-14
 scope: major
 supplements: sprint-change-proposal-2026-11-13.md, readiness-fixes-2026-11-14.md, sprint-change-proposal-2026-11-14-slack.md
@@ -308,7 +308,7 @@ If a milestone slips, cut in this order: the avatar video (B08), the briefing (B
 | OD3 | ElevenLabs key and quota | The briefing is hidden |
 | OD7 | HeyGen needs a paid plan or a funded API wallet (from US$5); the free plan is watermarked and licensed for non-commercial use only. Render time: the API docs say 1 to 5 minutes for most videos, but HeyGen's help centre says the regular queue can average just under 24 hours on weekdays (faster at weekends, priority for higher tiers). The demo report's video must finish during the run | Trigger the render as soon as the report is filed and open the report last on camera. If it is not ready, the report shows "Rendering" or "Avatar unavailable" and the loop is unaffected. Measure one render at 10:45 to decide |
 | OD4 | Organiser clearance items from D1 and D57 (prepared data, logo, Slack channel volume) | As in D1 and D57 |
-| OD5 | Change streams on the sandbox | No longer needed (cut) |
+| OD5 | Change streams on the sandbox | No longer needed (cut). *(Note, V48: reopened. Change streams on the sandbox tier and a long-lived streaming response on Modal and through the Vercel proxy, checked by Gregorio at 10:45 with OD1, decided by 11:45; fallback: polling only, labelled.)* |
 | OD6 | `mongodump` and `mongorestore` against the sandbox for the reset | Reset by rerunning the setup, which takes longer |
 
 ## 9. Handoff
@@ -539,3 +539,53 @@ A review of the V25 to V37 branch produced these decisions. They win over V1 to 
   - **OD1 check at 10:45.** Gregorio checks whether the Atlas Sandbox supports Vector Search and Automated Embedding, or whether a Voyage key is cleared. Luis and Gregorio decide by 11:45. The fallback is unchanged.
   - **Timings are not changed.** The ready and merge forecasts stay as they are until the 12:30 proof step shows real numbers. If the bundles land earlier, the loop may pass before 14:30, which would let I3b run.
   - **Merge risk.** More open draft PRs mean more rebases at 11:45. The 20-minute budget and the 13:00 fallback still apply.
+
+- **V48. Answer Problem Statement 1 in full: the rollback story, revert an approval, and change streams for live updates (approved by Luis).** Problem Statement 1 asks for "MongoDB Atlas as the identity, policy and audit layer (collections, schema validation, change streams)" and "How do you stop or roll back an agent mid-run?". Until now change streams were cut (screens poll, OD5 closed) and run reversal (FR46) was stretch with no PR. Three additions close the gap. They win over V1 to V47 where they differ.
+  - **1. The rollback story in the pitch (core, never cut, no PR).**
+    - The narration and the submission text say: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." The supporting points:
+      - pending reports can be rejected;
+      - memories can be revoked;
+      - history and source versions are never overwritten;
+      - an approval can be reverted (item 2, said only when A26 is merged and its check S4 passed).
+    - It goes into the 3-minute demo script and the 60-second video script (Stories 8.2 and 8.4, the A16 and B07 cards, the build-schedule demo order, EXPERIENCE Flows 1 and 2, PRD SM-2 and SM-4), and into the README's "Audit and stop" step, worded as planned behaviour.
+    - **Wording rule.** Say the agent "cannot change accepted knowledge without a human approval". Never claim automatic rollback of external effects: a Slack message that was sent stays sent, and the audit records it.
+  - **2. Revert an approval (supporting, Story 10.13, PR A26, owner Gregorio, flag `revert`).** It narrows FR46: "scoped reversal of a run" becomes the reversal of one approval, and FR46 moves from stretch to supporting.
+    - **Action.** A Reviewer action kind `revert_report`, gated under `sam@v1` (destination `ledger`; check 4 `n/a`, as for every human kind). A03 seeds it in `sam@v1`'s actions from the start, so no grant changes during the day.
+    - **Route.** `POST /reports/<report_id>/revert { note }`. The note is required: without it the route returns 400 before the gate. It lives in new files owned by A26: `api/routes_report_revert.py` (the route) and `reports/revert.py`. No A24 file is edited. The route calls `reports.recover_reverting()`, then `reports.revert()`, then `tasks.cancel_for_report()`, the same orchestration pattern as the decision route (`reports` still imports nothing from `tasks`). A report that is not `accepted` (or already `reverting` or `reverted`) is returned unchanged with 409 and no new Decision.
+    - **Allowed.** On an allowed `revert_report` Decision:
+      - the report is claimed by a conditional update `accepted` → `reverting`, storing `revert { decision_id, request_id, by, at, note, step: "pending" }`, so an interrupted revert can be finished by `reports.recover_reverting()` (at the next revert call and the API start hook);
+      - the report's accepted update is undone through the ledger: for each applied proposal of the report, a reverse proposal (`derive("p_", proposal_id, "revert")`, `op: remove`, `reverts_proposal_id`) is filed and applied with the same pending → applying → applied guard, as a guarded `$unset` of `source_items.collections.<scope_id>` that matches only while the entry still names the original `proposal_id`; it emits `value_reverted` (`ledger/revert.py`, A26);
+      - the report is marked `reverted`, with `reverted_by`, `reverted_at` and the note, and emits `report_reverted`;
+      - its accepted relationships are marked `reverted`;
+      - the Decision is recorded with the Reviewer stamp, `run_id: null` and `cause { report_id, origin_run_id }`.
+    - **History is never deleted.** The original approval Decision, the applied proposal and the source version stay. The reverse proposal is a new document. The audit shows both decisions under "After the run".
+    - **The follow-up task** (`tasks/cancel.py`, A26, the `tasks` module stays the only writer of `tasks`):
+      - still `authorised` or `queued`: a conditional update to `cancelled`, then its task grant is expired early. Grants are never edited in place (AD-18), so the expiry is the grant's next version, `task-<hex>@v2` with `status: expired` and `expires_at` = now, written by `gate/grant_expiry.py` (A26); check 1 reads the latest version and blocks any later step. If `dispatch_next()` wins the race and the task is already `running`, the next rule applies;
+      - `running`: stop is requested on its run through the normal stop control (`runs.stop()`); the task ends `stopped` as usual;
+      - `done`: its findings stay pending, and the response and the page say so.
+    - **Retries.** Idempotent. The allowed Decision ID is derived, `derive("dec_", "-", "revert_report", "-", report_id)`, insert-if-absent, like `authorise_task` (V45). A second revert finds the report `reverted` (or finishes a `reverting` one) and returns the current state and the same Decision. The derived reverse proposal ID and the ledger guard make a repeated apply a no-op.
+    - **Blocked.** A blocked Decision is recorded and nothing changes; the report stays `accepted`. Because the Decision ID is derived, a blocked revert is final for that report on Saturday, as a blocked task step is (V45).
+    - **Scope.** It reverts only DxP's own accepted knowledge. It never unsends Slack and never deletes media.
+    - **Screen (B04, Vlad).** A "Revert approval" button on the report page, shown only when the `revert` flag is on, the report is `accepted` and the signed-in principal's `actions` include `revert_report`. It opens a confirm step with a required note. After a revert the page reads "Approval reverted by Sam at {time}: 1 update removed from accepted knowledge." and the task line says what happened to the task.
+    - **Flag.** `revert` in `DXP_FEATURES` (the route returns 404 when it is off) and in `NEXT_PUBLIC_DXP_FEATURES` (the button is hidden).
+    - **Tests** (`backend/tests/a26/`): revert after approval; a double revert; a revert with a queued task (the task is `cancelled` and its grant expired, so check 1 blocks it); a blocked revert; and the audit shows both decisions.
+    - **Schedule.** Starts when A24 is merged (about 13:15); must merge by 15:00 on desk L; checked as S4 during rehearsal pass 1.
+  - **3. Change streams for live updates (supporting, Story 9.12, PR A27, owner Gregorio, flag `live_stream`).** FR42 returns as supporting, through A27.
+    - **Backend.** A server-sent events route, `GET /runs/<run_id>/stream` (`api/routes_run_stream.py` and `search/stream.py`, A27). It opens an Atlas change stream (`watch()`) on the `events` collection, filtered to inserts for that run, and pushes each new event. Each message's SSE `id` is the change stream's resume token, so a reconnecting `EventSource` sends `Last-Event-ID` and the route resumes from it. The stream sends a heartbeat every 15 seconds and ends itself before the hosting time limit; the client reconnects and resumes. A token that can no longer be resumed sends `event: reset`, and the client re-reads the run once and reconnects.
+    - **Front end (B02 and B03, Vlad).** The Run console and the Audit view use `EventSource` when the `live_stream` flag is on, and fall back to the existing 2-second polling on any error or when the flag is off. The browser never holds `X-DxP-Key`, so the stream goes through a small Next.js streaming proxy route that adds the key server-side and passes `Last-Event-ID` through. The UI labels its source honestly: "Live (change stream)" or "Refreshing every 2 s".
+    - **Optional.** The task dispatcher may also be woken by a change stream on `tasks` (an insert or an update to `queued`). If built, it is A27's own file and only calls `tasks.dispatch_next()`; the existing callers (the decision route, the run end, the sweep, the start hook) stay the guarantee. Not scheduled.
+    - **OD5 reopened.** Confirm that change streams work on the Atlas Sandbox tier, and that a long-lived streaming response works on Modal (`@modal.asgi_app` with a `StreamingResponse`, and Modal's request time limit) and through the Vercel proxy. Owner Gregorio, at 10:45 with OD1, decided with Luis by 11:45. Fallback: polling only, and the label says so.
+    - **Flag.** `live_stream` in `DXP_FEATURES` (the route returns 404 when it is off) and in `NEXT_PUBLIC_DXP_FEATURES` (the screens poll).
+    - **Tests** (`backend/tests/a27/`): one event reaches the stream within a few seconds; a reconnect with `Last-Event-ID` misses and repeats nothing; another run's events never appear; flag off returns 404.
+    - **Schedule.** Starts when A01 (11:45) and A07+A11 (events and runs, 13:25) are on main; must merge by 14:45 on desk L; checked as S5 during rehearsal pass 1. The B02 and B03 consumption is built inside those PRs while they are open (both build against the route A01 registers, which returns 501 until A27 lands, so they fall back to polling), otherwise as a small follow-up PR to their files.
+  - **Supporting cut order** (replaces V39's):
+    1. the avatar (B08);
+    2. revert (A26);
+    3. live stream (A27);
+    4. the briefing (B06);
+    5. the memory correct and revoke screen;
+    6. a second discovery item.
+
+    Item 1 (the pitch line) is never cut. Follow-up task execution (A25) stays stretch. Trade-off, kept as Luis set it: revert and the live stream answer the statement's own words ("roll back", "change streams") and so arguably matter more to the judges than the ElevenLabs briefing, which is cut after them.
+  - **Emergency path.** If L1 or L2 fails by 13:00, A26 and A27 are out with A25, B06 and B08.
+  - **Story numbers.** Story 9.11 already exists (cut), so the live-stream story is Story 9.12. Revert is Story 10.13, in Epic 10 beside the approval it reverses (10.8).
