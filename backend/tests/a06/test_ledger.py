@@ -340,3 +340,39 @@ async def test_the_ledger_writes_no_finding(world):
     await ledger.file("f_seed", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_tissue,
                                  "evidence": EVIDENCE, "check": GOOD}, "baseline", w.seed_ctx())
     assert await w.count("findings") == 0
+
+
+async def test_reject_report_proposals_rejects_only_pending_ones_of_that_report_once(world):
+    w = world
+    adm = await w.admit()
+    ctx_a = w.run_ctx(adm, report_id="rep_a")
+    [scope_p] = await ledger.file_detailed("f_anchor", scope_change(), "live", ctx_a)
+    [bio_p] = await ledger.file_detailed("f_bio", {"field": "biomarkers", "value": "EGFR", "diagnostic_id": w.dx_f1l,
+                                                   "evidence": EVIDENCE, "check": GOOD}, "live", ctx_a)
+    [applied_p] = await ledger.file_detailed("f_alk", {"field": "biomarkers", "value": "ALK", "diagnostic_id": w.dx_f1l,
+                                                       "evidence": EVIDENCE, "check": GOOD}, "live", ctx_a)
+    await ledger.apply(applied_p.proposal_id)
+    [other_p] = await ledger.file_detailed("f_other", {"field": "biomarkers", "value": "KRAS",
+                                                       "diagnostic_id": w.dx_f1l, "evidence": EVIDENCE, "check": GOOD},
+                                           "live", w.run_ctx(adm, report_id="rep_b"))
+    rej = await w.evaluate(w.reviewer_ctx(), {"kind": "decide_report", "destination": "ledger",
+                                              "target": {"report_id": "rep_a", "scope_id": SCOPE_ID}})
+    applied_before = await w.db["proposals"].find_one({"_id": applied_p.proposal_id})
+
+    n = await ledger.reject_report_proposals("rep_a", rej.decision_id, "Not relevant to the scope.", None)
+    assert n == 2
+    for pid in (scope_p.proposal_id, bio_p.proposal_id):
+        p = await w.db["proposals"].find_one({"_id": pid})
+        assert p["status"] == "rejected" and p["reason"] == "Not relevant to the scope."
+        assert p["rejected_by_decision_id"] == rej.decision_id and p["decided_by"] == "sam" and p["decided_at"]
+    assert await w.db["proposals"].find_one({"_id": applied_p.proposal_id}) == applied_before
+    assert (await w.db["proposals"].find_one({"_id": other_p.proposal_id}))["status"] == "pending"
+    events = [e async for e in w.db["events"].find({"type": "proposal_rejected"})]
+    assert sorted(e["proposal_id"] for e in events) == sorted([scope_p.proposal_id, bio_p.proposal_id])
+    assert all(e["decision_id"] == rej.decision_id and e["stamp"]["kind"] == "reviewer" for e in events)
+
+    assert await ledger.reject_report_proposals("rep_a", rej.decision_id, "Not relevant to the scope.", None) == 0
+    assert await w.count("events", {"type": "proposal_rejected"}) == 2
+    # a rejected proposal can no longer be applied
+    p = await ledger.apply(bio_p.proposal_id)
+    assert p.status == "rejected"

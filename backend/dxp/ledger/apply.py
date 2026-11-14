@@ -349,6 +349,53 @@ async def apply_raw(
     return await _complete(proposal, review, session)
 
 
+async def reject_report_proposals(report_id: str, decision_id: str, note: str, session: Any) -> int:
+    """Reject every ``pending`` proposal of a rejected report (AD-29; the ledger is the only
+    writer of ``proposals``, AD-1). Returns how many it rejected.
+
+    Called by A24 inside the report-decision transaction (``session``). Each move is a
+    conditional update on ``status: "pending"``, so an ``applying`` or ``applied``
+    proposal is never touched and a retry changes nothing and returns 0. Each rejection
+    emits one ``proposal_rejected`` event (``dedupe_key = "proposal_rejected|<p_id>"``)
+    with the rejecting decision's stamp.
+    """
+    db = deps.db()
+    decision = await db["decisions"].find_one({"_id": decision_id}, session=session) or {}
+    decided_by = decision.get("initiated_by") or (decision.get("stamp") or {}).get("principal")
+    pending = [
+        p async for p in db["proposals"].find({"report_id": report_id, "status": "pending"}, session=session)
+    ]
+    rejected = 0
+    for p in pending:
+        now = deps.now()
+        res = await db["proposals"].update_one(
+            {"_id": p["_id"], "report_id": report_id, "status": "pending"},
+            {"$set": {"status": "rejected", "reason": note, "rejected_by_decision_id": decision_id,
+                      "decided_by": decided_by, "decided_at": now}},
+            session=session,
+        )
+        if not res.modified_count:
+            continue
+        rejected += 1
+        await deps.emit_event(
+            {
+                "type": "proposal_rejected",
+                "dedupe_key": f"proposal_rejected|{p['_id']}",
+                "mode": p.get("mode"),
+                "run_id": None,
+                "stamp": decision.get("stamp") or p.get("stamp"),
+                "decision_id": decision_id,
+                "action_id": decision.get("action_id"),
+                "diagnostic_id": p.get("diagnostic_id"),
+                "proposal_id": p["_id"],
+                "report_id": report_id,
+                "field": p.get("field"),
+            },
+            session=session,
+        )
+    return rejected
+
+
 async def recover_applying() -> None:
     """Finish every proposal stuck in ``applying`` (D26, D27). Runs at API start, at the
     start of every run and on every decision call."""

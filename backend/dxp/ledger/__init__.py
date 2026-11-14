@@ -10,7 +10,12 @@ and ``revert.py`` to A26. ``ledger`` imports ``gate`` and nothing from ``reports
 
 from __future__ import annotations
 
-from dxp.ledger.apply import apply, apply_with, recover_applying
+from dxp.ledger.apply import (
+    apply,
+    apply_with,
+    recover_applying,
+    reject_report_proposals,
+)
 from dxp.ledger.file import ensure_diagnostic, file, file_detailed
 from dxp.ledger.revert import recover_reverting, revert_proposal
 from dxp.ledger.types import Change, Filed, LedgerCtx
@@ -25,6 +30,7 @@ __all__ = [
     "file",
     "file_detailed",
     "recover_applying",
+    "reject_report_proposals",
     "recover_reverting",
     "review_value",
     "revert_proposal",
