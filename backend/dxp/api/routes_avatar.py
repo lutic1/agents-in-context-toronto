@@ -30,6 +30,10 @@ async def render_avatar(report_id: str, request: Request, response: Response) ->
     request is a 200 with the blocked Decision (D5), never an error."""
     _require_flag()
     principal = await require_principal(request)
+    if principal.kind != "person":
+        # Before the report lookup and the gate: an agent key must never produce a Decision stamped
+        # `reviewer`, and nothing is recorded.
+        raise ApiError(403, "forbidden", "Only a Reviewer can start the avatar.")
     report = await avatar_module.get_report(report_id)
     if report is None:
         raise ApiError(404, "not_found", "Report not found.")

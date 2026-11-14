@@ -37,6 +37,25 @@ def test_flag_off_is_404_and_nothing_runs(api_client, reviewer, fake_gate, live,
     assert fake_gate.calls == [] and live.calls == [] and media_store.media == []
 
 
+# --- reviewer only ---------------------------------------------------------------
+
+
+def test_an_agent_principal_gets_403_and_records_nothing(api_client, monkeypatch, fake_gate, live, media_store) -> None:
+    from dxp.api import auth
+    from dxp.api.models import Principal
+
+    agent = Principal(id="agent_1", name="Agent", kind="agent", actions=["generate_avatar_video"])
+
+    async def resolve_actor(api_key: str) -> Principal:
+        return agent
+
+    monkeypatch.setattr(auth, "resolve_actor", resolve_actor)
+    response = post(api_client)
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
+    assert fake_gate.calls == [] and live.calls == [] and media_store.media == []
+
+
 # --- not accepted ----------------------------------------------------------------
 
 
