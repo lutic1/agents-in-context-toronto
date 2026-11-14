@@ -12,8 +12,8 @@ starts with `.spawn()`. In order:
    `task_run` on.
 4. `runs.finish(run_id)` after the last item (`running` -> `done` once no admission is
    held), then `runs.settle(run_id)` (`stopping` -> `stopped` after a stop). The run is
-   `failed` only on an error the pipeline cannot recover from (D23); an item's error is a
-   failure line and the run goes on.
+   `failed` only on an error the pipeline cannot recover from (D23), through `runs.fail`;
+   an item's error is a failure line (`runs.record_progress`) and the run goes on.
 5. `finally`, after every run however it ended: `tasks.recover_authorisations()` (V45), then
    `tasks.dispatch_next(start)` (V38), which does nothing while `task_run` is off; when it
    starts a queued task, `start` runs it next in this same call.
@@ -81,7 +81,6 @@ async def run(run_id: str) -> None:
     """Scan, extract, retrieve, relate, remember, draft, gate, file, notify; runs.finish after the
     last item; hands a task: run to tasks.run; calls tasks.dispatch_next in its finally."""
     tracker = progress.Progress(run_id)
-    ctx = None
     try:
         ctx = await runs.context(run_id, config.agent_key())
         await ledger.recover_applying()
@@ -111,7 +110,7 @@ async def run(run_id: str) -> None:
         code = str(exc) if isinstance(exc, RunFailed) else type(exc).__name__
         log.error("run failed run=%s error=%s", run_id, code)
         try:
-            await tracker.mark_failed(code, getattr(ctx, "stamp", None))
+            await tracker.mark_failed(code)
         except Exception:  # noqa: BLE001
             log.error("could not mark run %s failed", run_id)
     finally:

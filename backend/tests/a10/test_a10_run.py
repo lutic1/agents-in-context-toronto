@@ -223,7 +223,8 @@ async def test_an_unrecoverable_error_fails_the_run_and_still_dispatches(world: 
     assert world.run["status"] == "failed" and world.run["error"] == "RuntimeError"
     assert "runs.finish" not in world.names()
     assert world.names()[-2:] == ["tasks.recover_authorisations", "tasks.dispatch_next"]
-    assert [e["type"] for e in world.events] == ["run_status_changed"]  # type: ignore[attr-defined]
+    assert world.args("runs.fail") == [(RUN_ID, "RuntimeError")]
+    assert world.events == []  # type: ignore[attr-defined]  # the pipeline writes no run event itself
 
 
 async def test_a_task_set_is_not_run_while_task_run_is_off(world: World) -> None:
@@ -270,3 +271,23 @@ async def test_hook_failures_never_mask_each_other(world: World, monkeypatch: py
     monkeypatch.setattr(dxp.tasks, "recover_authorisations", boom)
     await pipeline.run(RUN_ID)
     assert world.names()[-1] == "tasks.dispatch_next" and world.run["status"] == "done"
+
+
+async def test_the_pipeline_never_writes_runs_directly(world: World) -> None:
+    """Only Governance writes `runs` (spine layer table): progress goes through runs.record_progress."""
+    import copy
+
+    before = copy.deepcopy(world.db["runs"].docs)
+    world.scan_refs = [ANCHOR, SECOND]
+    world.extract_fail = {SECOND}
+    calls: list[Any] = []
+    real_update = world.db["runs"].update_one
+
+    async def spy(*args: Any, **kwargs: Any) -> Any:
+        calls.append(args)
+        return await real_update(*args, **kwargs)
+
+    world.db["runs"].update_one = spy  # type: ignore[method-assign]
+    await pipeline.run(RUN_ID)
+    assert calls == [] and before  # every change came through the faked runs functions
+    assert "runs.record_progress" in world.names()

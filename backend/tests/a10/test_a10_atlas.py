@@ -1,7 +1,7 @@
-"""A10 on the Atlas Sandbox: the run's own progress writes in a fresh test database.
+"""A10 on the Atlas Sandbox: the pipeline's own writes (processed marker, Findings) in a fresh test database.
 
 Runs only with MONGODB_URI set (a `dxp_test_<hex>` database, never `dxp`); skipped otherwise.
-The modules the run calls are proved against Atlas in I1.
+Run progress goes through A07+A11's runs functions; the modules the run calls are proved in I1.
 """
 
 from __future__ import annotations
@@ -13,28 +13,6 @@ import pytest
 from dxp.pipeline import progress
 
 pytestmark = pytest.mark.atlas
-
-
-async def test_progress_writes_counts_failures_and_failed_status(db: Any) -> None:
-    run_id = "run_a10atlas0001"
-    await db["runs"].delete_many({"_id": run_id})
-    await db["runs"].insert_one({"_id": run_id, "agent": "dxp-curator", "initiated_by": "sam", "grant_id": "lbdx",
-                                 "grant_version": 1, "policy_set_version": "ps_0000000000000001", "team_id": "t",
-                                 "set": "discover", "kind": "discover", "status": "running",
-                                 "started_at": progress.now(), "counts": {}})
-    tracker = progress.Progress(run_id)
-    await tracker.total(2)
-    await tracker.step("clinicaltrials.gov:NCT1", "extract")
-    await tracker.item_done("clinicaltrials.gov:NCT1", early_research=True)
-    await tracker.item_failed("clinicaltrials.gov:NCT2", "extract: RuntimeError")
-    await tracker.recount()
-    run = await db["runs"].find_one({"_id": run_id})
-    assert run["counts"]["total"] == 2 and run["counts"]["done"] == 1 and run["counts"]["failed"] == 1
-    assert run["counts"]["early_research"] == 1 and run["counts"]["reports"] == 0
-    assert run["active"] == [] and run["failures"][0]["error"] == "extract: RuntimeError"
-    assert await tracker.mark_failed("RuntimeError") is True
-    assert await tracker.mark_failed("RuntimeError") is False  # conditional: once
-    assert (await db["runs"].find_one({"_id": run_id}))["status"] == "failed"
 
 
 async def test_processed_marker_and_finding_insert_if_absent(db: Any) -> None:

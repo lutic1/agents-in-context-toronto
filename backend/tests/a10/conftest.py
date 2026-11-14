@@ -152,8 +152,26 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         if run["status"] == "stopping" and held() == 0:
             run["status"] = "stopped"
 
-    for name, fn in {"context": context, "admit": admit, "release": release, "finish": finish, "settle": settle}.items():
-        monkeypatch.setattr(dxp.runs, name, fn)
+    # A07+A11's progress functions (not on main yet): merge counts, replace active and failures.
+    async def record_progress(run_id: str, *, counts: dict[str, int], active_items: list[Any],
+                              failure_lines: list[Any]) -> None:
+        log("runs.record_progress", run_id)
+        assert "not_admitted" not in counts, "not_admitted belongs to runs.admit"
+        run = db["runs"].docs[run_id]
+        run.setdefault("counts", {}).update(counts)
+        run["active"] = list(active_items)
+        run["failures"] = list(failure_lines)
+
+    async def fail(run_id: str, error: str) -> None:
+        log("runs.fail", (run_id, error))
+        run = db["runs"].docs[run_id]
+        if run["status"] in ("running", "stopping"):
+            run["status"] = "failed"
+            run["error"] = error
+
+    for name, fn in {"context": context, "admit": admit, "release": release, "finish": finish, "settle": settle,
+                     "record_progress": record_progress, "fail": fail}.items():
+        monkeypatch.setattr(dxp.runs, name, fn, raising=False)
 
     async def recover_applying() -> None:
         log("ledger.recover_applying")

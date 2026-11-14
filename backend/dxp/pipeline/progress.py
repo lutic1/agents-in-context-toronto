@@ -1,15 +1,22 @@
-"""What the run function writes about its own progress (Story 1.7, AD-16, AD-21, D23).
+"""What the run function records about its own progress (Story 1.7, AD-16, AD-21, D23).
 
-- `runs`: `counts`, `active` (the item and step in progress) and `failures` (one line per
-  failed item, a code and never source text). `counts.not_admitted` is `runs.admit`'s
-  (AD-21); the outcome counts (`allowed`, `blocked`, `filed`, `reports`, `unknown`) are
-  recounted from `decisions`, `proposals`, `reports` and `actions` for this run, so they are
-  right however many workers wrote them.
-- `runs.status` = `failed`, only on an error the pipeline cannot recover from (D23), by a
-  conditional update on `running` or `stopping`, with one `run_status_changed` event.
-- `source_items.processed.<scope_id>.<version_id>`: set when an item's report is filed, so a
-  later run skips that version and a changed trial (a new version, V40) is processed again.
-- `findings`: insert-if-absent on the Finding ID, with the run's stamp (AD-17).
+Only Governance writes `runs` (spine layer table), so the run's progress goes through two
+`runs` functions added by A07+A11 (coded against these signatures; A10 merges after them):
+
+- `runs.record_progress(run_id, *, counts, active_items, failure_lines)`: `counts` holds the
+  keys this run owns (`total`, `done`, `failed`, `early_research` and the outcome counts
+  `allowed`, `blocked`, `filed`, `reports`, `unknown`, recounted from `decisions`,
+  `proposals`, `reports` and `actions` for this run); never `not_admitted`, which is
+  `runs.admit`'s (AD-21). `active_items` is the whole list of `{ source_ref, step }` in
+  progress and `failure_lines` the whole list of `{ source_ref, error }` (codes, never source
+  text); each call sends the full current values, so a repeat is harmless.
+- `runs.fail(run_id, error)`: `running | stopping` -> `failed`, only on an error the pipeline
+  cannot recover from (D23).
+
+This module still writes what the layer table gives the ingest filters:
+`source_items.processed.<scope_id>.<version_id>` (set when an item's report is filed, so a
+later run skips that version and a changed trial, a new version, V40, is processed again) and
+`findings` (insert-if-absent on the Finding ID, with the run's stamp, AD-17).
 """
 
 from __future__ import annotations
@@ -17,9 +24,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from dxp import store
+from dxp import runs, store
 
 RUN_ENDED = ("done", "stopped", "failed")
+OUTCOME_COUNTS = ("allowed", "blocked", "filed", "reports", "unknown")
 
 
 def now() -> datetime:
@@ -27,69 +35,67 @@ def now() -> datetime:
 
 
 class Progress:
-    """Progress writes for one run. `active` is kept in memory and written whole, which is
-    safe because one run's items share one event loop."""
+    """Progress of one run, kept in memory and sent whole through `runs.record_progress`.
+    Safe because one run's items share one event loop."""
 
     def __init__(self, run_id: str) -> None:
         self.run_id = run_id
+        self.counts: dict[str, int] = {"total": 0, "done": 0, "failed": 0, "early_research": 0}
         self._active: dict[str, str] = {}
+        self.failures: list[dict[str, str]] = []
 
-    async def _set(self, update: dict[str, Any]) -> None:
-        await store.db()["runs"].update_one({"_id": self.run_id}, update)
+    @property
+    def active(self) -> list[dict[str, str]]:
+        return [{"source_ref": ref, "step": s} for ref, s in self._active.items()]
+
+    async def _record(self) -> None:
+        await runs.record_progress(
+            self.run_id,
+            counts=dict(self.counts),
+            active_items=self.active,
+            failure_lines=[dict(f) for f in self.failures],
+        )
 
     async def total(self, count: int) -> None:
-        await self._set({"$set": {"counts.total": count}})
+        self.counts["total"] = count
+        await self._record()
 
     async def step(self, source_ref: str, step: str | None) -> None:
         if step is None:
             self._active.pop(source_ref, None)
         else:
             self._active[source_ref] = step
-        active = [{"source_ref": ref, "step": s} for ref, s in self._active.items()]
-        await self._set({"$set": {"active": active}})
+        await self._record()
 
     async def item_done(self, source_ref: str, *, early_research: bool = False) -> None:
-        inc = {"counts.done": 1}
+        self.counts["done"] += 1
         if early_research:
-            inc["counts.early_research"] = 1
-        await self._set({"$inc": inc})
+            self.counts["early_research"] += 1
         await self.step(source_ref, None)
 
     async def item_failed(self, source_ref: str, error: str) -> None:
-        await self._set({"$inc": {"counts.failed": 1}, "$push": {"failures": {"source_ref": source_ref, "error": error}}})
+        self.counts["failed"] += 1
+        self.failures.append({"source_ref": source_ref, "error": error})
         await self.step(source_ref, None)
 
     async def recount(self) -> None:
-        """Outcome counts from the stored documents of this run (idempotent)."""
+        """Outcome counts from the stored documents of this run (reads only; idempotent)."""
         db = store.db()
         run = {"run_id": self.run_id}
-        counts = {
-            "counts.allowed": await db["decisions"].count_documents({**run, "outcome": "allowed"}),
-            "counts.blocked": await db["decisions"].count_documents({**run, "outcome": "blocked"}),
-            "counts.filed": await db["proposals"].count_documents(run),
-            "counts.reports": await db["reports"].count_documents(run),
-            "counts.unknown": await db["actions"].count_documents({**run, "kind": "notify_slack", "status": "unknown"}),
-        }
-        await self._set({"$set": counts})
-
-    async def mark_failed(self, error: str, stamp: Any = None) -> bool:
-        """running | stopping -> failed (D23). Returns True when this call changed it."""
-        result = await store.db()["runs"].update_one(
-            {"_id": self.run_id, "status": {"$in": ["running", "stopping"]}},
-            {"$set": {"status": "failed", "finished_at": now(), "error": error}},
-        )
-        if not result.modified_count:
-            return False
-        await store.emit_event(
+        self.counts.update(
             {
-                "type": "run_status_changed",
-                "dedupe_key": f"run_status_changed|{self.run_id}|failed",
-                "run_id": self.run_id,
-                "stamp": _plain(stamp),
-                "status": "failed",
+                "allowed": await db["decisions"].count_documents({**run, "outcome": "allowed"}),
+                "blocked": await db["decisions"].count_documents({**run, "outcome": "blocked"}),
+                "filed": await db["proposals"].count_documents(run),
+                "reports": await db["reports"].count_documents(run),
+                "unknown": await db["actions"].count_documents({**run, "kind": "notify_slack", "status": "unknown"}),
             }
         )
-        return True
+        await self._record()
+
+    async def mark_failed(self, error: str) -> None:
+        """D23: through `runs.fail`, which owns the conditional update and its event."""
+        await runs.fail(self.run_id, error)
 
 
 def _plain(value: Any) -> Any:
