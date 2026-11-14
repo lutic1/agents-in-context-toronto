@@ -18,6 +18,7 @@ const KIND_NAMES: Record<ActionKind, string> = {
   resolve_notification: "Resolve Slack alert",
   revert_report: "Revert approval",
   decide_proposal: "Decide proposal",
+  answer_question: "Answer interview question",
 };
 
 export function kindName(kind: string): string {
