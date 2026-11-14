@@ -15,7 +15,7 @@ from dxp.briefing.avatar import HttpLiveAvatarClient, LiveAvatarError
 
 from dxp.briefing.avatar import DXP_AVATAR_ID, DXP_VOICE_ID, SANDBOX_AVATAR_ID, voice_id
 
-from .conftest import AVATAR_ID, FAKE_KEY, REPORT_ID, SECRET_TOKEN
+from .conftest import ACTION_ID, AVATAR_ID, FAKE_KEY, REPORT_ID, SECRET_TOKEN
 
 KEY_HEADERS = {"X-DxP-Key": "test-dxp-api-key"}
 URL = f"/api/v1/reports/{REPORT_ID}/avatar"
@@ -54,6 +54,7 @@ def test_an_agent_principal_gets_403_and_records_nothing(api_client, monkeypatch
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
     assert fake_gate.calls == [] and live.calls == [] and media_store.media == []
+    assert media_store.actions == {}  # no Decision, so no action either
 
 
 # --- not accepted ----------------------------------------------------------------
@@ -359,3 +360,138 @@ def test_no_web_code_starts_listening_or_uses_push_to_talk() -> None:
     assert offenders == []
     # the mic is blocked for every page (#45)
     assert "microphone=()" in (web / "next.config.ts").read_text()
+
+
+# --- the AD-20 lifecycle (V71) --------------------------------------------------
+
+
+def test_allowed_goes_queued_dispatching_delivered_with_no_token_in_the_action(
+    api_client, reviewer, fake_gate, live, media_store, caplog
+) -> None:
+    with caplog.at_level(logging.DEBUG):
+        response = post(api_client)
+    body = response.json()
+    assert body["session_token"] == SECRET_TOKEN
+    assert media_store.history == [(ACTION_ID, "dispatching"), (ACTION_ID, "delivered")]
+    action = media_store.actions[ACTION_ID]
+    assert action["status"] == "delivered"
+    assert action["result"] == {"media_id": body["media"]["id"], "provider_video_id": "sess_fake_1"}
+    assert SECRET_TOKEN not in json.dumps(action, default=str) and FAKE_KEY not in json.dumps(action, default=str)
+    assert len(live.calls) == 1
+
+
+def test_the_settled_result_fits_the_contract_shape(media_store) -> None:
+    from dxp.api.models import AvatarResult
+
+    AvatarResult.model_validate({"media_id": "media_x", "provider_video_id": "sess_fake_1"})
+
+
+@pytest.mark.parametrize("status", [400, 401, 402, 403, 422, 429])
+def test_a_provider_4xx_settles_failed(api_client, reviewer, fake_gate, live, media_store, status) -> None:
+    live.fail(status)
+    body = post(api_client).json()
+    assert body["session_token"] is None and body["media"]["status"] == "unavailable"
+    assert media_store.history == [(ACTION_ID, "dispatching"), (ACTION_ID, "failed")]
+    assert media_store.actions[ACTION_ID]["status"] == "failed"
+    assert len(live.calls) == 1
+
+
+@pytest.mark.parametrize("status", [None, 500, 502, 503, 200])
+def test_a_timeout_network_error_or_5xx_settles_unknown_and_is_never_retried(
+    api_client, reviewer, fake_gate, live, media_store, status
+) -> None:
+    live.fail(status)  # None: a timeout or network error; 200: an unreadable answer
+    body = post(api_client).json()
+    assert body["session_token"] is None and body["media"]["status"] == "unavailable"
+    assert media_store.history == [(ACTION_ID, "dispatching"), (ACTION_ID, "unknown")]
+    assert media_store.actions[ACTION_ID]["status"] == "unknown"
+    assert len(live.calls) == 1  # no retry
+    # asking again never re-sends an unknown action
+    post(api_client)
+    assert len(live.calls) == 1 and media_store.actions[ACTION_ID]["status"] == "unknown"
+
+
+def test_an_unexpected_exception_settles_unknown(api_client, reviewer, fake_gate, live, media_store, monkeypatch) -> None:
+    async def boom(**kwargs):
+        raise RuntimeError("socket exploded")
+
+    monkeypatch.setattr(live, "create_session_token", boom)
+    post(api_client)
+    assert media_store.actions[ACTION_ID]["status"] == "unknown"
+
+
+def test_a_missing_key_settles_failed_and_makes_no_call(api_client, reviewer, fake_gate, live, media_store, monkeypatch) -> None:
+    monkeypatch.delenv("LIVEAVATAR_API_KEY")
+    body = post(api_client).json()
+    assert body["media"]["status"] == "unavailable" and body["session_token"] is None
+    assert live.calls == []
+    assert media_store.history == [(ACTION_ID, "dispatching"), (ACTION_ID, "failed")]
+
+
+def test_a_blocked_request_creates_and_settles_no_action(api_client, reviewer, fake_gate, live, media_store) -> None:
+    fake_gate.block("generate_avatar_video", "destination_action")
+    post(api_client)
+    assert media_store.actions == {} and media_store.history == []
+
+
+def test_a_second_request_cannot_claim_a_claimed_action(api_client, reviewer, fake_gate, live, media_store) -> None:
+    media_store.actions[ACTION_ID] = {"_id": ACTION_ID, "kind": "generate_avatar_video", "status": "dispatching", "result": None}
+    body = post(api_client).json()
+    assert body["session_token"] is None and body["media"]["status"] == "unavailable"
+    assert live.calls == [] and media_store.media == []  # the other worker owns it: nothing is sent
+    assert media_store.actions[ACTION_ID]["status"] == "dispatching"  # and it is not touched
+
+
+def test_a_repeat_after_delivered_never_calls_the_provider_again(api_client, reviewer, fake_gate, live, media_store) -> None:
+    assert post(api_client).json()["session_token"] == SECRET_TOKEN
+    again = post(api_client).json()
+    assert again["session_token"] is None
+    assert len(live.calls) == 1
+
+
+async def test_the_claim_and_settle_are_conditional_on_the_previous_status(media_store) -> None:
+    media_store.actions[ACTION_ID] = {"_id": ACTION_ID, "status": "queued", "result": None}
+    assert await media_store.settle_action(ACTION_ID, "delivered") is False  # not claimed yet
+    assert await media_store.claim_action(ACTION_ID) is True
+    assert await media_store.claim_action(ACTION_ID) is False  # a second worker cannot claim it
+    assert await media_store.settle_action(ACTION_ID, "unknown") is True
+    assert await media_store.settle_action(ACTION_ID, "delivered") is False  # settled once
+    assert media_store.actions[ACTION_ID]["status"] == "unknown"
+
+
+async def test_the_mongo_store_claim_is_a_conditional_update(monkeypatch) -> None:
+    """The real store's claim and settle, against an in-memory stand-in for the `actions` collection."""
+    from dxp import store as dxp_store
+
+    docs: dict[str, dict] = {"act_x": {"_id": "act_x", "status": "queued", "stamp": None}}
+    events: list[dict] = []
+
+    class Res:
+        def __init__(self, n: int) -> None:
+            self.modified_count = n
+
+    class Coll:
+        async def update_one(self, flt, update):
+            doc = docs.get(flt["_id"])
+            if doc is None or doc["status"] != flt["status"]:
+                return Res(0)
+            doc.update(update["$set"])
+            return Res(1)
+
+        async def find_one(self, flt):
+            return docs.get(flt["_id"])
+
+    async def emit(event, **kw):
+        events.append(event)
+        return 1
+
+    monkeypatch.setattr(dxp_store, "collection", lambda name: Coll())
+    monkeypatch.setattr(dxp_store, "emit_event", emit)
+    real = avatar.MongoAvatarStore()
+    assert await real.claim_action("act_x") is True
+    assert await real.claim_action("act_x") is False
+    assert docs["act_x"]["claimed_at"] is not None
+    assert await real.settle_action("act_x", "delivered", {"media_id": "m", "provider_video_id": "s"}) is True
+    assert await real.settle_action("act_x", "failed") is False
+    assert docs["act_x"]["status"] == "delivered" and docs["act_x"]["observed_at"] is not None
+    assert [e["status"] for e in events] == ["dispatching", "delivered"]

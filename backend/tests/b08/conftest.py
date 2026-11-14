@@ -46,6 +46,8 @@ class MemoryStore:
     def __init__(self) -> None:
         self.reports: dict[str, dict[str, Any]] = {}
         self.media: list[dict[str, Any]] = []
+        self.actions: dict[str, dict[str, Any]] = {}
+        self.history: list[tuple[str, str]] = []  # (action_id, status) in order
 
     async def get_report(self, report_id: str) -> dict[str, Any] | None:
         return self.reports.get(report_id)
@@ -53,6 +55,22 @@ class MemoryStore:
     async def insert_media(self, doc: dict[str, Any]) -> None:
         if not any(d["_id"] == doc["_id"] for d in self.media):
             self.media.append(dict(doc))
+
+    async def claim_action(self, action_id: str) -> bool:
+        action = self.actions.get(action_id)
+        if action is None or action["status"] != "queued":
+            return False
+        action["status"] = "dispatching"
+        self.history.append((action_id, "dispatching"))
+        return True
+
+    async def settle_action(self, action_id: str, status: str, result: dict[str, Any] | None = None) -> bool:
+        action = self.actions.get(action_id)
+        if action is None or action["status"] != "dispatching":
+            return False
+        action.update(status=status, result=result)
+        self.history.append((action_id, status))
+        return True
 
     async def latest_media(self, report_id: str) -> dict[str, Any] | None:
         found = [d for d in self.media if d["report_id"] == report_id]
@@ -93,6 +111,29 @@ def avatar_env(monkeypatch: pytest.MonkeyPatch, live: FakeLiveAvatar, media_stor
 
 
 SAM = Principal(id="sam", name="Sam", kind="person", actions=["generate_avatar_video"])
+
+
+ACTION_ID = "act_0000000000000b08"
+
+
+@pytest.fixture
+def fake_gate(fake_gate, media_store: MemoryStore, monkeypatch: pytest.MonkeyPatch):
+    """The shared fake gate, plus what the real one does on an allowed Decision: insert the action
+    `queued` (insert-if-absent, AD-20) and point the Decision at it."""
+    inner = fake_gate.evaluate
+
+    async def evaluate(ctx: Any, action: Any) -> Any:
+        decision = await inner(ctx, action)
+        if decision.outcome != "allowed":
+            return decision
+        media_store.actions.setdefault(ACTION_ID, {"_id": ACTION_ID, "kind": action.kind, "status": "queued", "result": None})
+        return decision.model_copy(update={"action_id": ACTION_ID})
+
+    fake_gate.evaluate = evaluate  # type: ignore[method-assign]
+    import dxp.gate
+
+    monkeypatch.setattr(dxp.gate, "evaluate", evaluate)
+    return fake_gate
 
 
 @pytest.fixture

@@ -15,6 +15,12 @@ What the backend does, and no more:
 4. The token goes back only in `AvatarResponse.session_token` (with `session_expires_at`), the contract
    from A01. It is never stored, logged, traced, or put in `Media` or any document.
 5. It records a `media` document `{ report_id, status, decision_id, provider, ... }` without the token.
+6. AD-20 lifecycle (V71: `generate_avatar_video` writes its own `actions` status, conditionally). The
+   action the gate inserted `queued` is claimed `queued -> dispatching` by a conditional update, and only
+   the worker whose update matched calls LiveAvatar. It is then settled, each step conditional on
+   `dispatching`: `delivered` with `result { media_id, provider_video_id = session_id }` (never the
+   token); `failed` for a missing key or a definite provider rejection (4xx); `unknown` for a timeout,
+   a network error, a 5xx or an unreadable answer, never retried.
 
 Nothing here runs unless a Reviewer asks (V29), and nothing waits on it. A missing key or a provider
 failure leaves the media `unavailable` and the response without a token.
@@ -78,7 +84,7 @@ def voice_id() -> str:
 DEFAULT_MAX_SESSION_SECONDS = 180
 REQUEST_TIMEOUT_SECONDS = 15.0
 
-UnavailableReason = Literal["blocked", "no_key", "provider_error"]
+UnavailableReason = Literal["blocked", "no_key", "provider_error", "not_claimed"]
 
 
 
@@ -170,6 +176,8 @@ class AvatarStore(Protocol):
     async def get_report(self, report_id: str) -> dict[str, Any] | None: ...
     async def insert_media(self, doc: dict[str, Any]) -> None: ...
     async def latest_media(self, report_id: str) -> dict[str, Any] | None: ...
+    async def claim_action(self, action_id: str) -> bool: ...
+    async def settle_action(self, action_id: str, status: str, result: dict[str, Any] | None = None) -> bool: ...
 
 
 class MongoAvatarStore:
@@ -193,6 +201,51 @@ class MongoAvatarStore:
 
         found = await store.collection("media").find({"report_id": report_id}).sort("created_at", -1).limit(1).to_list(length=1)
         return found[0] if found else None
+
+    # The gate's `mark_action` settles DxP-state actions only (queued to done or failed), so these two
+    # conditional updates are B08's own (V71, an exception to V65): AD-20 claim and settle.
+
+    async def claim_action(self, action_id: str) -> bool:
+        """`queued` to `dispatching`, conditional: only the worker whose update matched calls LiveAvatar."""
+        from dxp import store
+
+        res = await store.collection("actions").update_one(
+            {"_id": action_id, "status": "queued"}, {"$set": {"status": "dispatching", "claimed_at": _now()}}
+        )
+        if not res.modified_count:
+            return False
+        await self._emit(action_id, "dispatching")
+        return True
+
+    async def settle_action(self, action_id: str, status: str, result: dict[str, Any] | None = None) -> bool:
+        """`dispatching` to `delivered`, `failed` or `unknown`, conditional on `dispatching`."""
+        from dxp import store
+
+        res = await store.collection("actions").update_one(
+            {"_id": action_id, "status": "dispatching"},
+            {"$set": {"status": status, "result": result, "observed_at": _now()}},
+        )
+        if not res.modified_count:
+            return False
+        await self._emit(action_id, status)
+        return True
+
+    async def _emit(self, action_id: str, status: str) -> None:
+        from dxp import store
+
+        act = await store.collection("actions").find_one({"_id": action_id}) or {}
+        await store.emit_event(
+            {
+                "type": "action_status_changed",
+                "dedupe_key": f"action_status_changed|{action_id}|{status}",
+                "mode": act.get("mode"),
+                "run_id": act.get("run_id"),
+                "stamp": act.get("stamp"),
+                "decision_id": act.get("decision_id"),
+                "action_id": action_id,
+                "status": status,
+            }
+        )
 
 
 _store_override: AvatarStore | None = None
@@ -316,17 +369,29 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
     if decision.outcome != "allowed":
         return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="blocked")
 
-    # 2. Allowed: mint the token, or record why the avatar is unavailable.
+    # 2. Allowed: claim the action (AD-20), then mint the token and settle what was observed.
+    action_id = decision.action_id
+    if action_id:
+        try:
+            claimed = await store.claim_action(action_id)
+        except Exception:  # noqa: BLE001 - not claimed means nothing is sent
+            log.warning("Could not claim the avatar action for %s", report_id)
+            claimed = False
+        if not claimed:
+            # Another worker holds it or it is already settled: never sent twice.
+            return AvatarOutcome(_transient_media(report_id, decision, script_hash), decision, reason="not_claimed")
+
     token: SessionToken | None = None
     expires_at: datetime | None = None
     reason: UnavailableReason | None = None
+    settle_as: str | None = None  # "failed" (definite) or "unknown" (ambiguous); None once delivered
     api_key = os.environ.get(KEY_ENV, "").strip()
     is_sandbox = os.environ.get(SANDBOX_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
     # Sandbox accepts only its own free avatar; otherwise DxP's avatar unless the env overrides it.
     avatar_id = SANDBOX_AVATAR_ID if is_sandbox else (os.environ.get(AVATAR_ID_ENV, "").strip() or DXP_AVATAR_ID)
     max_seconds = _max_seconds()
     if not api_key:
-        reason = "no_key"
+        reason, settle_as = "no_key", "failed"  # nothing was sent
     else:
         try:
             minted_at = _now()
@@ -339,9 +404,12 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
             # The status only: never the response body, the headers or the key.
             log.warning("LiveAvatar did not issue a session token (status %s)", exc.status)
             reason = "provider_error"
+            # A 4xx is a definite rejection. A timeout, a network error, a 5xx or an unreadable 200 may
+            # have created a session: ambiguous, so `unknown`, never retried.
+            settle_as = "failed" if exc.status is not None and 400 <= exc.status < 500 else "unknown"
         except Exception:  # noqa: BLE001 - a provider failure never reaches the report or the loop
             log.warning("LiveAvatar session token request failed unexpectedly")
-            reason = "provider_error"
+            reason, settle_as = "provider_error", "unknown"
 
     # 3. Record the media: report_id, status, decision_id, provider. The token is not stored.
     doc: dict[str, Any] = {
@@ -361,6 +429,16 @@ async def start_avatar_session(report_id: str, ctx: RunContext) -> AvatarOutcome
         await store.insert_media(doc)
     except Exception:  # noqa: BLE001 - failing to record must not lose a minted token or break the report
         log.warning("Could not record the avatar media for %s", report_id)
+
+    # 4. Settle the action, conditional on `dispatching`. The result never carries the token.
+    if action_id:
+        try:
+            if token is not None:
+                await store.settle_action(action_id, "delivered", {"media_id": doc["_id"], "provider_video_id": token.session_id})
+            else:
+                await store.settle_action(action_id, settle_as or "unknown")
+        except Exception:  # noqa: BLE001 - a settle failure must not lose a minted token
+            log.warning("Could not settle the avatar action for %s", report_id)
     return AvatarOutcome(media_model(doc), decision, token.session_token if token else None, expires_at, reason)
 
 
