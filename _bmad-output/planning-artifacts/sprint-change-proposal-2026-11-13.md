@@ -8,6 +8,8 @@ scope: major
 
 # Sprint Change Proposal: DxP becomes a governed agent
 
+> **Later decision:** `sprint-change-proposal-2026-11-14-discovery-agent.md` (V1 to V20) restores the discovery-agent vision and wins over this file wherever they differ. Its PR set, timeline and milestones are in `development-plan.md` and `build-schedule.md`; the timeline, pull request table, milestones and demo below are superseded by them and kept for history.
+
 > Later decisions: `readiness-fixes-2026-11-14.md` (D1 to D57, including the final audit D41 to D57) supplements this proposal and wins where the two differ. `sprint-change-proposal-2026-11-14-slack.md` (S1 to S13) replaces GitHub with Slack `#all-mango-db-hackathon` as the external system and wins on anything about it; this proposal has been updated to match. The timeline and PR table below follow `development-plan.md` and `build-schedule.md` after D57 and the Slack change.
 
 ## 1. Issue summary
@@ -113,6 +115,8 @@ Risk: the 14:30 target for the first loop leaves 30 minutes before core acceptan
 
 ### Timeline
 
+**Superseded** by `build-schedule.md` after the discovery-agent proposal (I1 now ends 14:45, I3 runs 14:45 to 15:15, I2 is folded into the rehearsal). Kept for history.
+
 | Time | What |
 |---|---|
 | 9:00 to 10:45 | Doors, breakfast, kick-off. No coding. Luis confirms the deadline, sandbox access, the prepared-material rules and whether `data/` and the logo are cleared, with organisers, and records the answer in `docs/clearance.md` |
@@ -134,6 +138,8 @@ Risk: the 14:30 target for the first loop leaves 30 minutes before core acceptan
 | 17:15 | Live 3-minute demo for judging |
 
 ### Pull requests
+
+**Superseded** by `development-plan.md` after the discovery-agent proposal: A12, A15, A17 and B05 are cut; A18 is folded into A14, A23 into A06; A07 with A11, A19 with A20, A21 with A22 and A24 with A25 are bundled; I2 is folded into the rehearsal, and I3 and B08 are added. Kept for history.
 
 Luis owns the critical path (contract, ledger and gate, runs and stop, extraction, the Slack notifier, integration). Vlad owns the screens, the web skeleton, the stretch audio and the submission package, with Luis's review agent on Vlad's lane.
 

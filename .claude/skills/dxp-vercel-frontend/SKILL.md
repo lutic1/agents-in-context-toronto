@@ -7,7 +7,7 @@ description: Next.js 16 App Router front end (TypeScript, React 19) for DxP on V
 
 > **Architecture precedence.** `_bmad-output/planning-artifacts/architecture/architecture-agents-in-context-toronto-2026-11-13/ARCHITECTURE-SPINE.md` overrides this skill wherever the two differ: collection names, ID formats, the review queue, how a batch runs, live updates and environment variable names. Event rule: everything in this skill is reference documentation. Do not copy code from it into the project; write new code during the event.
 >
-> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. Baseline loading, PubMed, memory, Learned rules, Alerts, Tavily scans and the old three-minute recorded video (the 3-minute live demo is in scope) are deferred; ignore those parts of this skill.
+> Saturday scope is `_bmad-output/planning-artifacts/development-plan.md`. The comprehensive Baseline load, PubMed, the Agent Memory preview SDK, Learned-rule enforcement, Alerts, Tavily and scheduled scans, and the old three-minute recorded video are deferred; ignore those parts of this skill. In scope: on-demand ClinicalTrials.gov discovery, a small prior collection loaded in baseline mode, Atlas Vector Search, reviewer memory as Atlas collections, the ElevenLabs briefing and the HeyGen avatar (see `sprint-change-proposal-2026-11-14-discovery-agent.md`).
 
 ## Verified
 

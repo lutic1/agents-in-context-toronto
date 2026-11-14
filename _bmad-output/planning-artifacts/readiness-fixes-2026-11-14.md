@@ -286,7 +286,7 @@ A final independent audit, made after the Slack change, returned "ready with min
   - The background task in `routes_runs.py` then calls `actions.mark_unknown(action_id, "abandoned_in_flight")` for `dispatching` actions, and `actions.mark_failed(action_id, "abandoned_before_send")` for `queued` ones. Finally it calls `runs.settle(run_id)`.
   - These names are used everywhere. The name `mark_abandoned` is retired.
 - **D44. Action shape, exactly as AD-14.**
-  - `result { http_status, response_body, posted_at, link_urls { review_url, diagnostic_url } }`.
+  - `result { http_status, response_body, posted_at, link_urls { report_url, diagnostic_url } }`.
   - `resolution { outcome, note, decision_id, by, at }`.
 
 ### Seed data and the gate

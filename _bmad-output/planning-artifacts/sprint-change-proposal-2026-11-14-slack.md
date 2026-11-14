@@ -9,6 +9,8 @@ supplements: sprint-change-proposal-2026-11-13.md, readiness-fixes-2026-11-14.md
 
 # Slack replaces GitHub as the external system
 
+> **Later decision:** `sprint-change-proposal-2026-11-14-discovery-agent.md` (V1 to V20) wins over this file wherever they differ; S1 to S13 still apply where it does not replace them (it sends one alert per report, linking to `/reports/<report_id>`, V11).
+
 ## Trigger
 
 Luis tested a Slack incoming webhook that posts to `#all-mango-db-hackathon`. It posts a Block Kit alert for a new diagnostic. Slack is now the external system in the demo, and GitHub is removed as a planned integration.

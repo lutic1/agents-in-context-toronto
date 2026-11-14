@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-13-2026 23:40
-last_updated: 11-14-2026 05:30
+last_updated: 11-14-2026 08:00
 project: DxProvida (DxP)
 project_key: NOKEY
 tracking_system: file-system
@@ -116,10 +116,28 @@ development_status:
   9-10-spoken-audit-briefing: backlog
   9-11-rejection-drafts-a-policy-for-explicit-approval: backlog
   epic-9-retrospective: optional
+
+  epic-10: backlog
+  10-1-discovery-scan-of-clinicaltrials-gov-within-one-research-sco: backlog
+  10-2-embeddings-and-vector-search-retrieval-of-related-evidence: backlog
+  10-3-relationship-classification-with-quotes-from-both-sides: backlog
+  10-4-research-report-filed-as-a-pending-proposal: backlog
+  10-5-reviewer-memory-store-with-correct-and-revoke: backlog
+  10-6-memory-retrieval-and-its-visible-effect-in-reports: backlog
+  10-7-claim-accuracy-policies-block-unsupported-claims-before-fili: backlog
+  10-8-approval-promotes-the-report-and-authorises-one-follow-up-ta: backlog
+  10-9-the-follow-up-task-runs-under-its-own-grant-and-gate: backlog
+  10-10-report-page-with-decisions-and-the-memory-panel: backlog
+  10-11-ten-second-elevenlabs-briefing-inside-the-report: backlog
+  10-12-heygen-avatar-explaining-the-finding: backlog
+  epic-10-retrospective: optional
+
+# Who builds each story, its PR IDs and its scope (core, supporting, stretch, deferred; cut and superseded stories are deferred).
+# Cards: _bmad-output/planning-artifacts/development-plan.md. Deferred stories are not built on Saturday.
 owners:
   1-1-api-contract-stub-schema-route-and-record-read-model:
     owner: "Luis"
-    prs: "A01, A18"
+    prs: "A01, A14"
     scope: core
   1-2-fda-authorised-lung-diagnostics-and-synthetic-teams-seeded-t:
     owner: "Luis"
@@ -127,7 +145,7 @@ owners:
     scope: core
   1-3-browse-diagnostics-and-open-a-record-with-its-evidence:
     owner: "Vlad"
-    prs: "B01, B04"
+    prs: "A14, B04"
     scope: core
   1-4-fetch-the-selected-trials-into-mongodb:
     owner: "Luis"
@@ -175,7 +193,7 @@ owners:
     scope: core
   2-3-accept-edit-or-reject-a-proposed-change-keeping-the-history:
     owner: "Luis"
-    prs: "A14, A06"
+    prs: "A14"
     scope: core
   2-4-review-screen:
     owner: "Vlad"
@@ -247,12 +265,12 @@ owners:
     scope: deferred
   5-1-graph-api-built-from-the-ledger-s-edges:
     owner: "Luis"
-    prs: "A15"
-    scope: supporting
+    prs: ""
+    scope: deferred
   5-2-graph-view-with-click-through:
     owner: "Vlad"
-    prs: "B05"
-    scope: supporting
+    prs: ""
+    scope: deferred
   5-3-highlight-what-changed-since-the-last-visit:
     owner: "Luis"
     prs: ""
@@ -283,7 +301,7 @@ owners:
     scope: core
   8-2-rehearse-the-live-run:
     owner: "Luis"
-    prs: "I2, A16"
+    prs: "A16"
     scope: core
   8-3-submission-package:
     owner: "Vlad"
@@ -295,7 +313,7 @@ owners:
     scope: core
   9-1-runs-and-identity:
     owner: "Luis"
-    prs: "A01, A07"
+    prs: "A01, A07+A11"
     scope: core
   9-2-grants-and-versioned-policies-in-atlas:
     owner: "Luis"
@@ -303,7 +321,7 @@ owners:
     scope: core
   9-3-policy-gate-before-every-action:
     owner: "Luis"
-    prs: "A06, I1"
+    prs: "A06"
     scope: core
   9-4-external-action-a-slack-alert-for-diagnostic-evidence:
     owner: "Luis"
@@ -311,11 +329,11 @@ owners:
     scope: core
   9-5-stop-control:
     owner: "Luis"
-    prs: "A07"
+    prs: "A07+A11"
     scope: core
   9-6-audit-reconstruction:
     owner: "Luis"
-    prs: "A11"
+    prs: "A07+A11"
     scope: core
   9-7-run-console:
     owner: "Vlad"
@@ -327,38 +345,92 @@ owners:
     scope: core
   9-9-live-action-feed-through-change-streams:
     owner: "Luis"
-    prs: "A12"
-    scope: supporting
+    prs: ""
+    scope: deferred
   9-10-spoken-audit-briefing:
     owner: "Vlad"
-    prs: "B06"
-    scope: stretch
+    prs: ""
+    scope: deferred
   9-11-rejection-drafts-a-policy-for-explicit-approval:
     owner: "Luis"
-    prs: "A17"
-    scope: stretch
+    prs: ""
+    scope: deferred
+  10-1-discovery-scan-of-clinicaltrials-gov-within-one-research-sco:
+    owner: "Luis"
+    prs: "A05, B02, I1"
+    scope: core
+  10-2-embeddings-and-vector-search-retrieval-of-related-evidence:
+    owner: "Luis"
+    prs: "A19+A20"
+    scope: core
+  10-3-relationship-classification-with-quotes-from-both-sides:
+    owner: "Luis"
+    prs: "A19+A20"
+    scope: core
+  10-4-research-report-filed-as-a-pending-proposal:
+    owner: "Luis"
+    prs: "A19+A20, I1"
+    scope: core
+  10-5-reviewer-memory-store-with-correct-and-revoke:
+    owner: "Luis"
+    prs: "A21+A22, I1"
+    scope: core
+  10-6-memory-retrieval-and-its-visible-effect-in-reports:
+    owner: "Luis"
+    prs: "A21+A22, I1"
+    scope: core
+  10-7-claim-accuracy-policies-block-unsupported-claims-before-fili:
+    owner: "Luis"
+    prs: "A06, I1"
+    scope: core
+  10-8-approval-promotes-the-report-and-authorises-one-follow-up-ta:
+    owner: "Luis"
+    prs: "A24+A25, I3"
+    scope: core
+  10-9-the-follow-up-task-runs-under-its-own-grant-and-gate:
+    owner: "Luis"
+    prs: "A24+A25, B02, I3"
+    scope: core
+  10-10-report-page-with-decisions-and-the-memory-panel:
+    owner: "Vlad"
+    prs: "B04, I3"
+    scope: core
+  10-11-ten-second-elevenlabs-briefing-inside-the-report:
+    owner: "Vlad"
+    prs: "B06"
+    scope: supporting
+  10-12-heygen-avatar-explaining-the-finding:
+    owner: "Vlad"
+    prs: "B08"
+    scope: supporting
 
 # Open items
 action_items:
+  - epic: 10
+    action: "Decide L1 (four long PRs start at 10:45 as drafts) and L2 (Vlad merges A05, A13, A14, A09); without both the loop slips past 15:15 (proposal V23)"
+    owner: "Luis"
+    status: open
+  - epic: 10
+    action: "OD1: confirm Atlas Sandbox Vector Search and Automated Embedding, or a cleared Voyage key; otherwise related retrieval is text search, labelled honestly"
+    owner: "Luis"
+    status: open
+  - epic: 10
+    action: "OD2: at 10:45 set the scan cursor and confirm the live API still returns NCT04712877 updated after it, RECRUITING, without results"
+    owner: "Luis"
+    status: open
+  - epic: 10
+    action: "OD3 and OD7: ElevenLabs key and quota; HeyGen paid plan or wallet and one timed render at 10:45 (if not finished by 12:00, B08 is not built)"
+    owner: "Luis"
+    status: open
   - epic: 8
-    action: "Confirm with organisers 9:00 to 10:45: the 17:00 deadline, no coding
-      before 10:45, how to present prepared material, and whether the prepared data/
-      files and logo are cleared (record in docs/clearance.md)"
+    action: "OD4: organiser confirmations 9:00 to 10:45 (17:00 deadline, no coding before 10:45, prepared material, data/logo clearance, Slack channel volume) recorded in docs/clearance.md"
     owner: "Luis"
     status: open
   - epic: 9
-    action: "When Atlas Sandbox access arrives: confirm change streams, and that mongodump/mongorestore
-      work against it for the demo reset"
-    owner: "Luis"
-    status: open
-  - epic: 9
-    action: "Keep SLACK_WEBHOOK_URL only in .env and the Modal secret; set DXP_BASE_URL
-      to the production URL during A04 and confirm both Slack alert links resolve"
+    action: "OD6: confirm mongodump/mongorestore against the Atlas Sandbox for the reset; keep SLACK_WEBHOOK_URL and all keys only in .env and the Modal secret; set DXP_BASE_URL and check the report link"
     owner: "Luis"
     status: open
   - epic: 8
-    action: "A story is done only when all its PRs have merged and its acceptance
-      criteria pass on the integrated build on the Atlas Sandbox (I1, then I2); until
-      then it stays review"
+    action: "A story is done only when all its PRs have merged and its acceptance criteria pass on the integrated build on the Atlas Sandbox (I1, I3, rehearsal pass 1); until then it stays review"
     owner: "Luis and Vlad"
     status: open

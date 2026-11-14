@@ -1,6 +1,6 @@
 # DxP
 
-DxP is an agent that keeps a pharma team's diagnostic evidence current, and it cannot change a record or act in another system without a named identity, a scoped grant, a policy check before the action, and an audit trail a reviewer can replay.
+DxP is a proactive research agent for diagnostics teams: it discovers new clinical trials, connects them to the evidence the team already holds, remembers reviewer corrections and proposes useful follow-up work, and it cannot act without a named identity, a scoped grant, a policy check before every action and an audit trail a reviewer can replay.
 
 Built for **Agents in Context Toronto: a MongoDB Hackathon** (Cerebral Valley), Problem Statement 1, "Agents You Can Audit".
 
@@ -11,20 +11,22 @@ Built for **Agents in Context Toronto: a MongoDB Hackathon** (Cerebral Valley), 
 
 ## What DxP does
 
-DxP is for diagnostics teams in pharmaceutical companies. It reads public evidence about lung cancer diagnostic tests (clinical trials and the FDA list of companion diagnostics) and proposes updates to the team's records, each backed by a quote from the source.
+DxP works for one research scope, "Plasma ctDNA genotyping assays in advanced NSCLC", owned by a pharma diagnostics team. It reads public evidence (ClinicalTrials.gov and the FDA list of companion diagnostics) and keeps its collection, embeddings, reviewer memory, grants, policies and audit trail in MongoDB Atlas.
 
-The governed agent is the product. Every run follows the same loop:
+The governed discovery loop:
 
-1. **Identity.** Each run has a `run_id`, the agent that executes it and the person who started it, resolved on the server from the caller's key.
-2. **Authority.** A grant stored in MongoDB Atlas names what the agent may do, for which team, in which destination, until when.
-3. **Policy check before the action.** Hand-written, versioned policies are checked before every action. A blocked action changes nothing and calls nothing; the decision is still recorded.
-4. **Action.** An allowed change to a record is filed as a pending proposal, and DxP posts a Slack alert (Block Kit) to `#all-mango-db-hackathon` with links back to the proposal in DxP. A human reviewer approves or rejects it in DxP, never in Slack; Slack only notifies.
-5. **Audit.** Every decision, allowed or blocked, can be replayed later: who authorised it, under which grant and policy version, with what evidence.
-6. **Stop.** A person can stop a run at any time. Nothing new starts after a stop; work already admitted finishes and is shown as in flight.
+1. **Discover.** The agent searches ClinicalTrials.gov for trials in the scope updated since its last scan.
+2. **Relate.** Atlas Vector Search finds related evidence; each link is labelled supports, contradicts, extends or new question, with a checked quote from both sides. A similarity score is shown but never used as evidence.
+3. **Remember.** The agent retrieves the team's reviewer corrections and shows what each one changed. A memory is attributable, can be corrected or revoked, and never changes permissions.
+4. **Gate.** Explicit policies are checked before every action; for example, the agent cannot say an assay produced results unless the source reports them. A blocked action changes nothing and is still recorded.
+5. **Propose.** The agent files one pending research report: the discovery, quotes, related evidence, uncertainties and one recommended next task. Nothing becomes accepted knowledge yet.
+6. **Notify.** One Slack alert per report links back to the report in DxP. Approval and rejection happen only in DxP.
+7. **Brief.** A ten-second ElevenLabs briefing and a short HeyGen avatar video explain the report, both from the same script built only from the report's evidence (supporting, behind flags).
+8. **Decide.** Approval promotes the report's updates into accepted knowledge and authorises one follow-up task, which runs under its own narrow grant and policy gate. A rejection or a correction becomes a memory for the next discovery.
 
-The screens only inspect the agent: a run console, an audit view, a record and review screen, and a view of what a run touched.
+Every step can be replayed in the audit: what the agent found, which memory changed its wording, what was blocked, and who authorised the follow-up. A person can stop any run.
 
-DxP tracks evidence about diagnostic tests. It is not a clinical decision tool and gives no medical advice.
+DxP supports research review. It is not a clinical decision tool and gives no medical advice.
 
 ## Status
 
@@ -43,6 +45,7 @@ The event rules allow only work built during the event to be highlighted. This t
 | `data/` and `scripts/data/`: open data downloaded and fetch scripts written before the event. They are not used on Saturday unless an organiser clears them in writing. The build fetches its own data during the event | |
 | Logo images in `_bmad-output/planning-artifacts/ux-designs/`. Not used unless an organiser clears them; the interface uses a text wordmark, "DxP" | |
 | The Slack incoming webhook for `#all-mango-db-hackathon`, created and tested before the event. `SLACK_WEBHOOK_URL` lives only in `.env` and the Modal secret and is never committed. Any script used for that test is not reused; the notifier is written during the event | |
+| The ElevenLabs and HeyGen accounts, if created before the event. `ELEVENLABS_API_KEY` and `HEYGEN_API_KEY` live only in `.env` and the Modal secret and are never committed. Every briefing and avatar video is generated during the event from a report's own fields; no clip is made beforehand | |
 | The BMad sprint-planning status script (`.claude/skills/bmad-sprint-planning/scripts/sprint_plan.py`), modified before the event so it never recommends deferred stories | |
 
 ## Open questions for the organisers
@@ -51,12 +54,23 @@ To confirm on Saturday between 9:00 and 10:45:
 
 - The submission deadline (the guide says 17:00), and whether any coding may start before 10:45.
 - How to present prepared material, and whether the prepared data in `data/` and the logo images may be used.
-- Atlas Sandbox access, and whether it supports change streams.
+- Whether one Slack alert per report in `#all-mango-db-hackathon` is acceptable for that channel.
 
 ## Open items
 
-- Set `DXP_BASE_URL` to the production URL and confirm the Slack alert's links back to DxP resolve (owner Luis, during A04).
-- Keep `SLACK_WEBHOOK_URL` only in `.env` and the Modal secret.
+Unverified dependencies, each with a fallback (details in `_bmad-output/planning-artifacts/build-schedule.md`):
+
+| # | Dependency | Owner, due | Fallback |
+|---|---|---|---|
+| OD1 | The Atlas Sandbox supports Vector Search and Automated Embedding, or a Voyage AI key is cleared | Luis, when sandbox access arrives; decided by 11:45 | Text search, labelled "related by text search", never "Vector Search" |
+| OD2 | The live ClinicalTrials.gov API still shows NCT04712877 updated after the scan cursor, recruiting, without results | Luis, 10:45 | Any in-scope trial updated since the cursor; the claim policy applies the same way |
+| OD3 | ElevenLabs key and quota | Luis, before 10:45 | The briefing is hidden |
+| OD4 | Organiser clearance: prepared data, logo, Slack channel volume | Luis, 9:00 to 10:45 | Live fetches, the text wordmark, a team channel if needed |
+| OD5 | Change streams on the sandbox | — | Closed: not needed, screens poll |
+| OD6 | `mongodump` and `mongorestore` work against the sandbox, for the reset before each take | Luis, by 12:20; proven at 14:15 | Reset by rerunning the setup, which takes longer |
+| OD7 | HeyGen needs a paid plan or funded API wallet; render time can range from minutes to many hours | Luis and Vlad, one timed render at 10:45, decided by 12:00 | The report shows "Rendering" or "Avatar unavailable" and the loop is unaffected; the avatar is the first thing cut |
+
+Also: set `DXP_BASE_URL` to the production URL and confirm the Slack alert's links resolve (Luis, during the deploy); keep `SLACK_WEBHOOK_URL` and every API key only in `.env` and the Modal secret.
 
 ## Ground rules
 
