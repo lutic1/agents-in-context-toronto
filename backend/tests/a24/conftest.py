@@ -100,6 +100,7 @@ class World:
     spawned: list[str] = field(default_factory=list)
     memories: list[dict[str, Any]] = field(default_factory=list)
     memory_fails: int = 0
+    rejected_by_ledger: list[str] = field(default_factory=list)
     gate_fail_kinds: dict[str, str] = field(default_factory=dict)
 
     def one(self, collection: str, **flt: Any) -> list[dict[str, Any]]:
@@ -229,6 +230,19 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     async def recover_applying() -> None:
         return None
 
+    async def reject_report_proposals(report_id: str, decision_id: str, note: str | None, session: Any = None) -> list[str]:
+        from dxp.store import emit_event
+
+        rejected = []
+        for p in await db["proposals"].find({"report_id": report_id, "status": "pending"}).to_list():
+            await db["proposals"].update_one({"_id": p["_id"], "status": "pending"},
+                                             {"$set": {"status": "rejected", "reason": note, "decision_id": decision_id}})
+            await emit_event({"type": "proposal_rejected", "dedupe_key": f"proposal_rejected|{p['_id']}"})
+            rejected.append(p["_id"])
+        w.rejected_by_ledger.extend(rejected)
+        return rejected
+
+    monkeypatch.setattr(dxp.ledger, "reject_report_proposals", reject_report_proposals, raising=False)
     monkeypatch.setattr(dxp.ledger, "apply_with", apply_with, raising=False)
     monkeypatch.setattr(dxp.ledger, "recover_applying", recover_applying)
 

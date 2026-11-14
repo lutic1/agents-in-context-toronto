@@ -13,8 +13,8 @@
   its relationships become `accepted`, the report becomes `accepted` and `report_decided` is
   emitted. A crash after the claim is finished by `recover_accepting()`; the task step is
   finished by `tasks.recover_authorisations()` (A24, `tasks/authorise.py`).
-- **Reject.** In one transaction the report and its pending proposals become `rejected` with
-  the note; nothing is promoted and no task is authorised. The memory is created by the
+- **Reject.** In one transaction the report becomes `rejected` with the note and the ledger
+  rejects its pending proposals (`ledger.reject_report_proposals`, A06); nothing is promoted and no task is authorised. The memory is created by the
   route through `memory.create()` (AD-28), not here.
 - A report that is not `pending` is returned unchanged with its existing Decisions.
 
@@ -409,7 +409,7 @@ async def finish_accepting(report_id: str) -> dict[str, Any] | None:
 
 
 async def _reject(report: dict[str, Any], decision: dict[str, Any], reviewer_id: str, note: str | None) -> bool:
-    """`pending` -> `rejected` for the report and its pending proposals, in one transaction."""
+    """`pending` -> `rejected` for the report, and its pending proposals through the ledger, in one transaction."""
     holder: dict[str, bool] = {}
 
     async def work(session: Any) -> None:
@@ -430,26 +430,8 @@ async def _reject(report: dict[str, Any], decision: dict[str, Any], reviewer_id:
         holder["rejected"] = bool(res.modified_count)
         if not res.modified_count:
             return
-        for proposal_id in report.get("proposal_ids") or []:
-            changed = await db()["proposals"].update_one(
-                {"_id": proposal_id, "status": "pending"},
-                {"$set": {"status": "rejected", "reason": note, "decided_by": reviewer_id, "decided_at": at}},
-                session=session,
-            )
-            if changed.modified_count:
-                await store.emit_event(
-                    {
-                        "type": "proposal_rejected",
-                        "dedupe_key": f"proposal_rejected|{proposal_id}",
-                        "mode": "live",
-                        "run_id": None,
-                        "stamp": decision.get("stamp"),
-                        "decision_id": decision["_id"],
-                        "proposal_id": proposal_id,
-                        "report_id": report["_id"],
-                    },
-                    session=session,
-                )
+        # The ledger is the only writer of proposals (AD-1): it rejects them in this transaction.
+        await ledger.reject_report_proposals(report["_id"], decision["_id"], note, session=session)
         await _emit_decided(report, "rejected", reviewer_id, decision["_id"], session)
 
     await in_transaction(work)

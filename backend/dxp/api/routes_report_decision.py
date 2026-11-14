@@ -101,20 +101,21 @@ def decision_message(report: dict[str, Any], task: dict[str, Any] | None, accept
     return None
 
 
-def _memory_tags(report: dict[str, Any]) -> dict[str, Any]:
-    """`tags.assay` from the report (its first name mention); `tags.claim_kind`: the request has
-    no claim kind field, so a report on a trial with no posted results is tagged with the gate's
-    claim-check name `claim_performed_or_results` (M1, V22; A10 retrieves on it) and any other
-    `reviewer_correction` (open question for Luis)."""
+DEFAULT_CLAIM_KIND = "reviewer_correction"
+
+
+def _memory_tags(report: dict[str, Any], claim_kind: str | None) -> dict[str, Any]:
+    """`tags.assay` from the report (its first name mention); `tags.claim_kind` is the Reviewer's
+    choice from the request (`claim_performed_or_results`, `claim_planned` or
+    `claim_preclinical`), else `reviewer_correction`. Never inferred from the trial (V22)."""
     mentions = (report.get("discovery") or {}).get("mentions") or []
-    has_results = (report.get("discovery") or {}).get("has_results")
     return {
         "assay": mentions[0].get("name") if mentions else None,
-        "claim_kind": "claim_performed_or_results" if has_results is False else "reviewer_correction",
+        "claim_kind": claim_kind or DEFAULT_CLAIM_KIND,
     }
 
 
-async def _create_memory(report: dict[str, Any], text: str, reviewer: m.Principal) -> tuple[m.Memory | None, Any]:
+async def _create_memory(report: dict[str, Any], text: str, reviewer: m.Principal, claim_kind: str | None) -> tuple[m.Memory | None, Any]:
     """memory.create() for a reject or a correction, at most once per report (V46)."""
     decision_id = report.get("decision_id") or (report.get("approval") or {}).get("decision_id")
     grant = await rd.reviewer_grant(reviewer.id)
@@ -132,7 +133,7 @@ async def _create_memory(report: dict[str, Any], text: str, reviewer: m.Principa
         created, decision = await memory.create(
             report["team_id"],
             text,
-            _memory_tags(report),
+            _memory_tags(report, claim_kind),
             m.MemorySource(decision_id=decision_id, report_id=report["_id"]),
             reviewer,
             ctx,
@@ -203,7 +204,9 @@ async def decide_report(report_id: str, body: m.ReportDecisionRequest, request: 
     elif report.get("status") in ("accepted",) and approval_for(report).get("correction"):
         memory_text = approval_for(report)["correction"]
     if memory_text and not report.get("memory_id"):
-        created, memory_decision = await _create_memory(report, memory_text, reviewer)
+        created, memory_decision = await _create_memory(
+            report, memory_text, reviewer, getattr(body, "claim_kind", None)  # optional field (A01)
+        )
         in_hand.append(rd.as_doc(memory_decision))
         report = await rd.get_report(report_id)
     memory_model = created or await _memory_for(report)

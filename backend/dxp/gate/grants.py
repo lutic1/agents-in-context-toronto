@@ -3,7 +3,7 @@
 `issue_task_grant()` is the only runtime grant writer. After an allowed `authorise_task`
 Decision, inside `tasks.authorise()`'s one transaction, it inserts `task-<hex>@v1`:
 
-- principal `dxp-curator`, `key_hash: null`, `granted_by` the authorising Reviewer,
+- kind `agent`, principal `dxp-curator`, `key_hash: null`, `granted_by` the authorising Reviewer,
   `acting_for`, `team_id` and `scope` (`scope_id`, `diagnostic_ids`) copied from the agent
   grant `lbdx` (latest version), `startable_by` the Reviewer;
 - actions `search_source` and `file_related_evidence` only, destinations
@@ -27,7 +27,7 @@ from dxp.api.models import Decision, Grant, Task
 
 AGENT_GRANT = "lbdx"
 TASK_PRINCIPAL = "dxp-curator"
-TASK_GRANT_KIND = "task"  # A24 card and the contract list; the A03 validator accepts it for a task grant only
+TASK_GRANT_KIND = "agent"  # AD-18, ruled by Luis: the task grant authorises the agent dxp-curator
 TASK_ACTIONS = ["search_source", "file_related_evidence"]
 TASK_DESTINATIONS = ["source:clinicaltrials.gov", "ledger"]
 TASK_MAX_RESULTS = 5

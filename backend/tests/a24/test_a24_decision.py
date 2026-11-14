@@ -111,6 +111,7 @@ def test_approve_promotes_once_and_authorises_the_task_not_run(world, client) ->
     assert grant["destinations"] == ["source:clinicaltrials.gov", "ledger"]
     assert grant["limits"] == {"max_results": 5} and grant["key_hash"] is None
     assert grant["scope"]["scope_id"] == SCOPE_ID and grant["startable_by"] == ["sam"]
+    assert grant["kind"] == "agent"
     assert grant["principal"] == "dxp-curator" and grant["granted_by"] == "sam" and grant["task_id"] == TASK_ID
     assert grant["expires_at"] - grant["created_at"] == timedelta(hours=1)
 
@@ -203,11 +204,14 @@ def test_reject_creates_the_memory_and_promotes_nothing(world, client) -> None:
     report = world.report()
     assert report["status"] == "rejected" and report["note"] == note
     assert world.db.data["proposals"][PROPOSAL_ID]["status"] == "rejected"
+    assert world.rejected_by_ledger == [PROPOSAL_ID]  # through the ledger, not reports
     assert world.applied == [] and world.db.all("tasks") == []
     assert world.db.data["source_items"][SOURCE_REF]["collections"] == {}
     (mem,) = world.memories
     assert mem["text"] == note and mem["author"] == "sam"
-    assert mem["tags"]["claim_kind"] == "claim_performed_or_results"
+    # no claim kind in the request: never inferred from the trial (it has no posted results here)
+    assert mem["tags"]["claim_kind"] == "reviewer_correction"
+    assert mem["tags"]["assay"] == "FoundationOne CDx"
     assert report["memory_id"] == mem["memory_id"]
     assert body["memory"]["id"] == mem["memory_id"]
     assert body["message"] == "Rejected: no update accepted; no task authorised. Memory saved."
@@ -241,3 +245,18 @@ def test_task_routes(world, client) -> None:
     assert client.get(f"/api/v1/tasks/{TASK_ID}", headers=headers).json()["status"] == "authorised"
     assert client.get("/api/v1/tasks/task_0000000000000000", headers=headers).status_code == 404
     assert client.get("/api/v1/tasks?report_id=rep_x", headers=headers).json()["items"] == []
+
+
+def test_memory_claim_kind_is_the_reviewers_choice() -> None:
+    routes = importlib.import_module("dxp.api.routes_report_decision")
+    report = {"discovery": {"has_results": False, "mentions": []}}
+    assert routes._memory_tags(report, "claim_performed_or_results") == {
+        "assay": None, "claim_kind": "claim_performed_or_results"}
+    assert routes._memory_tags(report, None)["claim_kind"] == "reviewer_correction"
+
+
+def test_reports_decide_writes_no_proposal() -> None:
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[2] / "dxp/reports/decide.py").read_text()
+    assert 'db()["proposals"].update' not in source and "reject_report_proposals" in source
