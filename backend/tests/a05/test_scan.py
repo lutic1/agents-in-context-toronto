@@ -57,12 +57,14 @@ async def test_allowed_scan_queries_stores_and_advances(fakedb, events, fake_run
                                     "source_refs": refs, "count": 3}
     scan = fake_runs.scans[RUN_ID]  # through runs.record_scan, never a direct runs write
     assert scan["cursor_from"] == "2026-11-11" and scan["cursor_to"] == "2026-11-13" and scan["source_refs"] == refs
-    assert scan["order"] == {"rule": "priority_refs first, then last_update_post_date descending",
-                             "priority_refs": ["NCT04712877"]}
+    assert scan["count"] == 3 and scan["complete"] and scan["cursor_advanced"]
     assert "scan" not in fakedb["runs"].docs[RUN_ID]
     assert [c[1] for c in fake_actions.calls] == ["dispatching", "delivered"]
     (fin,) = events.of("scan_finished")
     assert fin["cursor_from"] == "2026-11-11" and fin["cursor_to"] == "2026-11-13" and fin["cursor_advanced"]
+    assert fin["source_refs"] == refs
+    assert fin["order"] == {"rule": "priority_refs first, then last_update_post_date descending",
+                            "priority_refs": ["NCT04712877"]}
 
 
 async def test_blocked_scan_makes_no_request(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:

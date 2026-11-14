@@ -156,8 +156,12 @@ class FakeRuns:
     released: list[str] = field(default_factory=list)
     scans: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    async def record_scan(self, run_id: str, scan: dict[str, Any]) -> None:
+    async def record_scan(self, run_id: str, scan: dict[str, Any]) -> bool:
+        extra = set(scan) - {"cursor_from", "cursor_to", "query", "source_refs", "count", "cursor_advanced", "complete"}
+        if extra:
+            raise ValueError(f"Run.scan keys not allowed: {sorted(extra)}")  # as A07+A11's record_scan
         self.scans[run_id] = scan
+        return True
 
     async def admit(self, run_id: str, item_key: str) -> Admission | None:
         if not self.admitting:
@@ -191,6 +195,8 @@ class FakeActions:
 
     async def record_source_result(self, action_id: str, *, status: str, result: dict[str, Any] | None) -> bool:
         self.calls.append((action_id, status, result))
+        if result is not None and set(result) != {"http_status", "cursor_from", "cursor_to", "source_refs", "count"}:
+            raise ValueError(f"result keys refused: {sorted(result)}")  # as A09's record_source_result
         for prev in _NEXT[status]:
             res = await self.db["actions"].update_one(
                 {"_id": action_id, "status": prev}, {"$set": {"status": status, "result": result}})

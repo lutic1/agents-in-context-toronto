@@ -23,8 +23,8 @@
 
 `search_source` is a read: a timeout or error is `failed` and raises `ScanError`; the cursor is
 unchanged. The returned source refs are in last-update order, newest first, with the verified
-scope's `priority_refs` first (the anchor verified at 10:45, for DXP_DEMO_PACE); the order used is
-recorded in `Run.scan`.
+scope's `priority_refs` first (the anchor verified at 10:45, for DXP_DEMO_PACE); `Run.scan.source_refs`
+holds them in that order, and `scan_finished` also records the ordering rule and the priority list.
 
 Writers: `runs.scan` only through `runs.record_scan()` (A07+A11) and the action's status and result
 only through `actions.record_source_result()` (A09); this module writes source items, source
@@ -275,8 +275,8 @@ async def run_scan(
         )
         await runs.record_scan(
             ctx.run_id,
-            {"scope_id": scope_id, "cursor_from": cursor, "cursor_to": outcome.cursor_to, "query": query,
-             "source_refs": outcome.source_refs, "order": {"rule": ORDER_RULE, "priority_refs": priority},
+            {"cursor_from": cursor, "cursor_to": outcome.cursor_to, "query": query,
+             "source_refs": outcome.source_refs, "count": len(outcome.source_refs),
              "complete": outcome.complete, "cursor_advanced": outcome.cursor_advanced},
         )
         await _emit(
@@ -284,6 +284,7 @@ async def run_scan(
             scope_id=scope_id, decision_id=decision.id, action_id=outcome.action_id,
             cursor_from=cursor, cursor_to=outcome.cursor_to, cursor_advanced=outcome.cursor_advanced,
             complete=outcome.complete, count=len(outcome.source_refs), changed_refs=outcome.changed_refs,
+            source_refs=outcome.source_refs, order={"rule": ORDER_RULE, "priority_refs": priority},
         )
         return outcome
     finally:
