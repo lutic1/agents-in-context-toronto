@@ -2,7 +2,7 @@
 
 Script for the 60-second submission video (Story 8.4, recorded by R1 from 16:30 to 16:50, submitted by 16:55). Timings follow V17 as amended by V25 to V48. If two decisions disagree, the higher number wins (V48 over V1 to V47; V38 to V47 over everything earlier; V33 to V37 over V25 to V27).
 
-Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), proposed V70, revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is proposed V70, approved by Luis together with the "Interview this evidence" page, and replaces the earlier pre-rendered video (B08). It is optional, behind its flag, and it is the first supporting cut (V28); the interview page is cut after it. It is never part of the 60 seconds.
+Facts not known yet are markers that start with the word PENDING inside double square brackets. Resolve each one in the pre-recording checklist, and never record with such a marker unresolved. Narration is written for the case where every supporting feature is optional: nothing here needs the briefing, the LiveAvatar (HeyGen), V70, revert, the live stream or the follow-up task run. LiveAvatar is a live, interactive avatar that would speak only the report's verified script. It is V70, approved by Luis together with the "Interview this evidence" page, and replaces the earlier pre-rendered video (B08). Both are optional, behind their flags (`avatar`, `interview`), and claimed only if their own check passed (V39). LiveAvatar is the first supporting cut (V28); the interview page is cut after it. Neither is part of the 60 seconds, and this script adds no narration for either.
 
 ## Fixed rules for every take
 
@@ -11,7 +11,7 @@ Facts not known yet are markers that start with the word PENDING inside double s
 3. **Follow-up work (V39).** Narrate completed follow-up work only if the task actually ran in this take. Otherwise say "Follow-up task authorised; not run" and nothing more about it.
 4. **The rollback line (V48, never cut).** Segment 5 says, word for word: "Nothing the agent does is accepted until a human approves, so stopping it mid-run never leaves accepted knowledge to undo." The agent "cannot change accepted knowledge without a human approval" is a caption (see segment 5), because the spoken line fills its window. Never claim any automatic rollback of external effects: a Slack alert that was sent stays sent.
 5. **Only what passed (D1, V29).** Show only behaviour that passed on the integrated build, built on 14 November. Never show a key, the Slack webhook address, `.env`, the Modal or Vercel secret pages, or browser developer tools.
-6. **Capability names.** Name a MongoDB capability only if it was proven on the sandbox. Say "Vector Search" only if the report's retrieval method was Vector Search; if it fell back, the screen reads "Related by text search" and the tag reads "Atlas Search (text)". Say "change streams" only if the console label read "Live (change stream)" on this take; otherwise do not name them. [[PENDING: retrieval method on this take, Vector Search or text search (OD1)]] [[PENDING: whether the console label reads "Live (change stream)" (S5, OD5)]]
+6. **Capability names.** Name a MongoDB capability only if it was proven on the sandbox. Say "Vector Search" only if the report's retrieval method was Vector Search, and say "Automated Embedding" or "semantic" only if that was confirmed on the team sandbox (OD1 is not confirmed yet); if it fell back, the screen reads "Related by text search" and the tag reads "Atlas Search (text)". Say "change streams" only if the console label read "Live (change stream)" on this take; otherwise do not name them. [[PENDING: retrieval method on this take, Vector Search or text search (OD1)]] [[PENDING: whether the console label reads "Live (change stream)" (S5, OD5)]]
 7. **Timing and captions (measured, not counted).** A word cap does not predict read-aloud time: acronyms (ctDNA, NSCLC, DxP), long words and punctuation slow speech. Every segment is therefore timed with macOS `say`, as follows.
    - **Calibration.** A 105-word plain-prose control takes 42.46 s at `say -r 77` (41.83 s at `-r 78`; `say` moves in steps, so no rate gives exactly 42.00 s). The slower rate, 77, is used so the figures err on the long side.
    - **Measurement.** Each narration below is timed at `say -r 77` (default voice, plain text exactly as written, `afinfo` estimated duration). Each segment must end at least 0.5 s inside its window; the figure is recorded next to each narration and in the timeline table. Re-time after any edit: write the narration to a text file, run `say -r 77 -f <file> -o <file>.aiff`, and read the duration with `afinfo`.
@@ -179,7 +179,7 @@ Deviation from the Story 8.4 wording, recorded here so a reviewer does not fail 
 Complete all items before R1 presses record. Do not skip the source check.
 
 ### Facts to resolve
-- [ ] Anchor trial confirmed from the 10:45 check, with its update date, status and results (OD2). Segments 2 and 3 match its own fields. (V49: NCT04712877, updated 2026-11-12; status and results still to confirm on the day)
+- [ ] Anchor trial confirmed from the 10:45 check, with its update date, status and results (OD2). Segments 2 and 3 match its own fields. (V49: NCT04712877, updated 2026-11-12; status and results still to confirm on the day.) The scan now excludes treatment trials (#60); the anchor is unaffected, so confirm the run's recorded query carries the exclusion and the anchor is still the first item in the feed.
 - [ ] Retrieval method on the sandbox: Vector Search or text search (OD1). Tags and narration match. [[PENDING: retrieval method (OD1)]]
 - [ ] Variant A or B chosen from the `task_run` state, and the task's run is shown only if it actually ran in this take. [[PENDING: variant for this take (task_run state)]]
 - [ ] Live label read: "Live (change stream)" or "Refreshing every 2 s". Change streams are named only for the first. [[PENDING: label on the console (S5)]]
@@ -201,7 +201,7 @@ Complete all items before R1 presses record. Do not skip the source check.
 - [ ] Second tab: Slack `#all-mango-db-hackathon`, signed in, nothing else showing.
 - [ ] Screen 1440 x 900, browser zoom 100%. The report's header, first related item, M1 chip and decisions bar fit without scrolling, or the bar is sticky.
 - [ ] No key, webhook address, `.env`, secret page or developer tools can appear in any frame, including notifications and tab titles.
-- [ ] The briefing and LiveAvatar (HeyGen), proposed V70, are not part of the 60 seconds.
+- [ ] The briefing, LiveAvatar (HeyGen), V70, and the "Interview this evidence" page are not part of the 60 seconds.
 
 ### Wording check
 - [ ] No narration, caption or on-screen text says the trial "uses", "used" or "studies" either assay name, or implies how any assay performs.
