@@ -38,10 +38,17 @@ _DIGITS = re.compile(r"\d+")
 # Claim wording in a quote. The gate's claim checks decide; these only tag what to send.
 _NEGATED_RESULTS = re.compile(r"\b(?:no|not|without|none|yet\s+to|awaiting|pending)\b[^.;:]{0,40}\b(?:results?|data)\b", re.IGNORECASE)
 _PERFORMED = re.compile(
-    r"\b(?:performed|detected|detects?|detection|showed|shows?|shown|demonstrat\w+|results?|sensitivity|specificity|concordance|"
-    r"accuracy|agreement|outperform\w*|yielded|positive\s+percent|negative\s+percent|limit\s+of\s+detection)\b",
+    r"\b(?:performed|perform\w*|detected|detects?|detection|showed|shows?|shown|demonstrat\w+|results?|sensitiv\w*|specific\w*|concordance|"
+    r"accura\w*|agreement|outperform\w*|yielded|positive\s+percent|negative\s+percent|limit\s+of\s+detection|"
+    r"identif\w*|classif\w*|achiev\w*|auc|ppv|npv|predict\w*|valid\w*|recover\w*|observed|response|responses|survival|improv\w*|"
+    r"caught|found|genotyp\w*\s+(?:the|a|all)|was\s+used|were\s+used|uses?|stud(?:y|ies)\s+(?:the|a|an)|evaluated|measured|reliab\w*|"
+    r"correctly|missed|false\s+(?:positive|negative)s?|true\s+(?:positive|negative)s?|prevalence|reduc\w*|increas\w*|outcomes?\s+(?:was|were))\b"
+    # A percentage or a ratio ("12 of 14") is a figure from a result, whatever verb is around it.
+    r"|\d+(?:\.\d+)?\s*(?:%|percent\b)|\b\d+\s+of\s+(?:the\s+)?\d+\b",
     re.IGNORECASE,
 )
+# A record name with a verb that says what was done with it: "used", "studied", "tested" (V37).
+_NAME_VERB = re.compile(r"\b(?:use[sd]?|using|stud(?:y|ies|ied|ying)|evaluat\w*|test(?:s|ed|ing)?|measur\w*|assess\w*|analy[sz]\w*|profil\w*)\b", re.IGNORECASE)
 _PLANNED = re.compile(
     r"\b(?:planned|plans?|will|anticipated|expected|estimated|not\s+yet\s+recruiting|recruit\w*|enrol\w*|ongoing|completed|terminated|withdrawn)\b",
     re.IGNORECASE,
@@ -50,7 +57,6 @@ _PRECLINICAL = re.compile(
     r"\b(?:cell[\s-]lines?|xenografts?|mouse|mice|murine|rats?|animals?|in\s+vitro|in\s+vivo|preclinical|zebrafish|organoids?|pdx)\b",
     re.IGNORECASE,
 )
-_ACTIVE_STATUSES = frozenset({"NOT_YET_RECRUITING", "RECRUITING"})
 
 
 @dataclass
@@ -76,10 +82,17 @@ def default_quote_check(quote: str, raw_text: str) -> bool | Awaitable[bool]:
     return _normalise(quote) in _normalise(raw_text)
 
 
-def claim_tags(text: str) -> list[str]:
-    """Which claim kinds a quote's wording touches (a negated "no results" is not a claim)."""
+def claim_tags(text: str, names: list[str] | None = None) -> list[str]:
+    """Which claim kinds a quote's wording touches. It fails closed: any performance or result wording,
+    any figure that is a percentage or a ratio, and any record name next to a verb that says what was
+    done with it is tagged claim_performed_or_results. A negated "no results" is not a claim."""
     kinds: list[str] = []
-    if _PERFORMED.search(_NEGATED_RESULTS.sub(" ", text)):
+    performed = _PERFORMED.search(_NEGATED_RESULTS.sub(" ", text)) is not None
+    if not performed and names:
+        performed = any(
+            name.lower() in text.lower() and _NAME_VERB.search(re.sub(re.escape(name), " ", text, flags=re.IGNORECASE)) for name in names
+        )
+    if performed:
         kinds.append("claim_performed_or_results")
     if _PLANNED.search(text):
         kinds.append("claim_planned")
@@ -89,16 +102,17 @@ def claim_tags(text: str) -> list[str]:
 
 
 def claim_guard_blocks(card: Card, report: dict[str, Any]) -> bool:
-    """A local floor under the gate's claim check: a discovery quote that states a performance or a
-    result is not used while the trial is recruiting (or not yet) and has no posted results. Stricter
-    than the gate, never looser; the gate still decides what passes."""
+    """A local floor under the gate's claim check (V7, AD-19): a quote that states a performance or a
+    result is not used unless the report's discovery has posted results (`has_results` true), whatever
+    the trial status. A related record's own results are not on the report, so a related quote with
+    that wording is never used here. The gate still decides everything that passes."""
+    from dxp.interview.cards import mention_names
+
+    if "claim_performed_or_results" not in claim_tags(card.text, mention_names(report)):
+        return False
     if card.field != "discovery":
-        return False
-    discovery = report.get("discovery") or {}
-    if discovery.get("has_results") is True:
-        return False
-    status = str(discovery.get("trial_status") or "").upper().replace(" ", "_")
-    return status in _ACTIVE_STATUSES and "claim_performed_or_results" in claim_tags(card.text)
+        return True
+    return (report.get("discovery") or {}).get("has_results") is not True
 
 
 def _lead_in_ok(sentence: Sentence, names: list[str]) -> str | None:
@@ -157,7 +171,7 @@ async def verify_answer(
         problem = _lead_in_ok(sentence, names)
         if problem:
             problems.append(f"{label}: {problem}")
-        for kind in claim_tags(card.text):
+        for kind in claim_tags(card.text, names):
             claims.append(
                 ClaimCheck(claim_kind=kind, text=card.text[:300], passed=False, detail=f"{label}, {card.quote_id}: tagged by the interview lane; the gate decides")
             )

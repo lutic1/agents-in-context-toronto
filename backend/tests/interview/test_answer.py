@@ -381,7 +381,7 @@ async def test_names_are_introduced_as_named_in_the_record(store, fake_llm, fake
 Q_PERFORMED = "FoundationOne CDx showed 94% concordance with tissue testing."
 
 
-def _with_performance_quote(has_results: bool, status: str) -> None:
+def _with_performance_quote(has_results: bool, status: str | None):
     report = make_report()
     report["discovery"]["trial_status"] = status
     report["discovery"]["has_results"] = has_results
@@ -389,13 +389,83 @@ def _with_performance_quote(has_results: bool, status: str) -> None:
     return report
 
 
-async def test_a_performance_quote_on_a_recruiting_trial_without_results_is_not_used(store, fake_llm, fake_gate, ctx) -> None:
-    store.reports[REPORT_ID] = _with_performance_quote(False, "RECRUITING")
+@pytest.mark.parametrize("status", ["RECRUITING", "NOT_YET_RECRUITING", "ACTIVE_NOT_RECRUITING", "TERMINATED", "COMPLETED", "WITHDRAWN", "SUSPENDED", "UNKNOWN", None])
+async def test_a_performance_quote_without_posted_results_is_not_used_whatever_the_status(status, store, fake_llm, fake_gate, ctx) -> None:
+    store.reports[REPORT_ID] = _with_performance_quote(False, status)
     store.raw[VERSION_ID] = RAW_TEXT + " " + Q_PERFORMED
     fake_llm.ids = [quote_id(Q_PERFORMED)]
     response = await service.answer_question(REPORT_ID, "How well does FoundationOne CDx perform?", ctx)
     assert response.answer == texts.NOT_IN_RECORD
     assert Q_PERFORMED not in response.answer
+
+
+async def test_a_completed_trial_with_posted_results_may_quote_its_performance(store, fake_llm, fake_gate, ctx) -> None:
+    store.reports[REPORT_ID] = _with_performance_quote(True, "COMPLETED")
+    store.raw[VERSION_ID] = RAW_TEXT + " " + Q_PERFORMED
+    fake_llm.ids = [quote_id(Q_PERFORMED)]
+    response = await service.answer_question(REPORT_ID, "How well does FoundationOne CDx perform?", ctx)
+    assert Q_PERFORMED in response.answer
+
+
+# Result wording the first word list missed. Each is sent to the gate as claim_performed_or_results,
+# and each is withheld while the discovery has no posted results.
+PERFORMANCE_QUOTES = [
+    "The assay identified 12 of 14 EGFR mutations in plasma.",
+    "The test correctly classified 92% of samples.",
+    "ctDNA assay achieved an AUC of 0.94",
+    "PPV was 88% and NPV 97%.",
+    "The assay is highly sensitive for EGFR variants in plasma.",
+    "Tumour response was observed in 40% of patients.",
+    "The assay was validated in 300 patients.",
+    "ctDNA was recovered from 80% of samples.",
+    "Blood-based testing predicted relapse 6 months earlier",
+    "FoundationOne Liquid was used to genotype the cohort.",
+    "FoundationOne CDx studies the tumour genome.",
+    "The assay detected EGFR variants with 95% sensitivity.",
+    "FoundationOne CDx was tested on 60 plasma samples.",
+]
+
+
+def _report_with(quote: str, has_results: bool, status: str | None):
+    report = make_report()
+    report["discovery"]["trial_status"] = status
+    report["discovery"]["has_results"] = has_results
+    report["discovery"]["quotes"].append({"text": quote, "quote_found": True, "version_id": VERSION_ID})
+    return report
+
+
+@pytest.mark.parametrize("quote", PERFORMANCE_QUOTES)
+@pytest.mark.parametrize("status", ["RECRUITING", "TERMINATED"])
+async def test_result_wording_is_withheld_without_posted_results(quote, status, store, fake_llm, fake_gate, ctx) -> None:
+    store.reports[REPORT_ID] = _report_with(quote, False, status)
+    store.raw[VERSION_ID] = RAW_TEXT + " " + quote
+    fake_llm.ids = [quote_id(quote)]
+    response = await service.answer_question(REPORT_ID, f"What does the record say about this: {quote}", ctx)
+    assert response.answer == texts.NOT_IN_RECORD
+    assert quote not in response.model_dump_json()
+    assert fake_gate.calls[0][1].claims == [], "nothing was cited, so nothing is claimed"
+
+
+@pytest.mark.parametrize("quote", PERFORMANCE_QUOTES)
+async def test_result_wording_reaches_the_gate_as_a_performed_claim(quote, store, fake_llm, fake_gate, ctx) -> None:
+    store.reports[REPORT_ID] = _report_with(quote, True, "COMPLETED")
+    store.raw[VERSION_ID] = RAW_TEXT + " " + quote
+    fake_llm.ids = [quote_id(quote)]
+    response = await service.answer_question(REPORT_ID, f"What does the record say about this: {quote}", ctx)
+    assert quote in response.answer
+    assert "claim_performed_or_results" in [c.claim_kind for c in fake_gate.calls[0][1].claims]
+
+
+@pytest.mark.parametrize("quote", PERFORMANCE_QUOTES[:6])
+async def test_a_related_quote_with_result_wording_is_never_used(quote, store, fake_llm, fake_gate, ctx) -> None:
+    report = make_report()
+    report["discovery"]["has_results"] = True
+    report["related"][0]["related_quote"]["text"] = quote
+    store.reports[REPORT_ID] = report
+    store.raw[RELATED_VERSION_ID] = f"Brief summary. {quote} Second line."
+    fake_llm.ids = [quote_id(quote, RELATED_REF, RELATED_VERSION_ID, "related")]
+    response = await service.answer_question(REPORT_ID, f"What does the related record say about this: {quote}", ctx)
+    assert response.answer == texts.NOT_IN_RECORD
 
 
 async def test_a_performance_quote_is_tagged_for_the_gate_when_results_exist(store, fake_llm, fake_gate, ctx) -> None:
@@ -429,7 +499,7 @@ async def test_a_negated_results_quote_is_not_a_performance_claim(store, fake_ll
 
 
 async def test_preclinical_wording_is_tagged(store, fake_llm, fake_gate, ctx) -> None:
-    quote = "Assay validated in mouse xenograft models and cell lines."
+    quote = "Work in mouse xenograft models and cell lines is described."
     report = make_report()
     report["discovery"]["quotes"].append({"text": quote, "quote_found": True, "version_id": VERSION_ID})
     store.reports[REPORT_ID] = report
