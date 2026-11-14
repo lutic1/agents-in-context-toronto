@@ -139,6 +139,9 @@ def test_openapi_publishes_the_epic_10_and_v48_shapes() -> None:
     assert "reverted" in schemas["Relationship"]["properties"]["status"]["enum"]
     assert {"op", "reverts_proposal_id"} <= set(schemas["Proposal"]["properties"])
     assert set(schemas["TaskResult"]["properties"]) >= {"answer", "with_posted_results", "query", "searched_count", "limit"}
+    assert "claim_kind" in schemas["ReportDecisionRequest"]["properties"]
+    assert "reason" in schemas["ReportApproval"]["properties"]
+    assert {"condition_aliases", "priority_refs"} <= set(schemas["Scope"]["properties"])
 
 
 def test_types_ts_is_generated_from_the_current_schema() -> None:
