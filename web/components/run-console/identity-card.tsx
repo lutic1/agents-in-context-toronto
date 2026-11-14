@@ -6,10 +6,11 @@ import { ShieldCheck } from "lucide-react";
 import { CapabilityTag } from "@/components/live-source";
 import { CopyId } from "@/components/run-console/copy-id";
 import { kindName } from "@/components/run-console/names";
+import { PersonName } from "@/components/run-console/person-name";
 import { StopControl } from "@/components/run-console/stop-control";
 import type { AuditEntry, Grant, Run, Task } from "@/components/run-console/types";
 import { SyntheticBadge } from "@/components/shell/badges";
-import { displayName, formatDate, formatDateTime, formatGrant, formatPolicySetParts, formatTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatGrant, formatPolicySetParts, formatTime } from "@/lib/format";
 
 type Props = {
   run: Run;
@@ -65,7 +66,7 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
           .{" "}
           {task ? (
             <>
-              Authorised by {displayName(run.initiated_by)} at {formatTime(task.created_at)}.
+              Authorised by <PersonName id={run.initiated_by} /> at {formatTime(task.created_at)}.
             </>
           ) : null}
         </p>
@@ -85,9 +86,9 @@ export function IdentityCard({ run, grant, teamSynthetic, policyCount, task, ent
         </Field>
 
         <Field label="Started by">
-          {displayName(run.initiated_by)}
+          <PersonName id={run.initiated_by} />
           {run.acting_for ? (
-            <span className="block text-caption text-muted-foreground">Acting for {displayName(run.acting_for)}</span>
+            <span className="block text-caption text-muted-foreground">Acting for <PersonName id={run.acting_for} /></span>
           ) : null}
         </Field>
 

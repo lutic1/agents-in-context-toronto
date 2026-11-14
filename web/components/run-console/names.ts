@@ -66,3 +66,12 @@ export function sourceLabel(ref: string): string {
   const at = ref.indexOf(":");
   return at >= 0 ? ref.slice(at + 1) : ref;
 }
+
+/**
+ * The Audit view's link to one entry. The Audit view (B03) puts `id="entry-<decision_id>"` on
+ * each entry (`entryAnchor` in `components/audit/audit-entry.tsx`), so the fragment is
+ * `#entry-<decision_id>`. A bare `#<decision_id>` matches nothing there.
+ */
+export function auditEntryHref(runId: string, decisionId: string): string {
+  return `/runs/${encodeURIComponent(runId)}/audit#entry-${encodeURIComponent(decisionId)}`;
+}
