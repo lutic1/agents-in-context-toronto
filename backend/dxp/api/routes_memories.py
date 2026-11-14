@@ -37,8 +37,8 @@ async def _reviewer(request: Request) -> tuple[m.Principal, m.Grant]:
     if reviewer.kind != "person":
         raise ApiError(403, "forbidden", "Memories are for Reviewers only.")
     grant = await policy_sets.current_grant(reviewer.id)
-    if not grant.team_id:
-        raise ApiError(403, "forbidden", "The Reviewer's grant names no Team.")
+    if grant is None or not grant.team_id:
+        raise ApiError(403, "forbidden", "The Reviewer has no grant for a Team.")
     return reviewer, grant
 
 

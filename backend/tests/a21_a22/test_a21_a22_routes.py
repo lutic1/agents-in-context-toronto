@@ -182,6 +182,23 @@ async def test_every_route_needs_a_reviewers_key(client, database, fake_gate, me
     assert fake_gate.calls == []
 
 
+@pytest.mark.parametrize(("method", "path", "body"), [
+    ("GET", "/memories", None), ("GET", "/memories/mem_x", None),
+    ("POST", "/memories/mem_x/correct", {"text": "t", "note": "n"}), ("POST", "/memories/mem_x/revoke", {"note": "n"}),
+])
+async def test_a_reviewer_with_no_grant_is_forbidden_not_a_server_error(client, database, fake_gate, monkeypatch, method, path, body):
+    from dxp.gate import policy_sets
+
+    async def no_grant(grant_id):
+        return None
+
+    monkeypatch.setattr(policy_sets, "current_grant", no_grant)
+    response = client.request(method, API + path, json=body, headers=KEY)
+    assert response.status_code == 403, response.text
+    assert set(response.json()) == {"error"} and response.json()["error"]["code"] == "forbidden"
+    assert fake_gate.calls == []
+
+
 def test_the_frozen_route_contract_is_unchanged():
     from dxp.api.app import create_app
 

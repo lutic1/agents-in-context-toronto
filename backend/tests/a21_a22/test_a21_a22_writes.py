@@ -92,10 +92,14 @@ async def test_a_missing_request_id_is_generated_before_the_gate(database, fake_
     assert decision.request_id and fake_gate.calls[0][0].request_id == decision.request_id
 
 
-async def test_without_a_source_decision_the_id_comes_from_the_gate_decision(database, fake_gate):
-    created, decision = await create_m1(source=MemorySource(report_id="rep_setup"))
-    assert created.id == identity.derive("mem_", TEAM, decision.id)
-    assert fake_gate.calls[0][1].target.memory_id is None
+@pytest.mark.parametrize("source", [
+    MemorySource(report_id="rep_setup"), MemorySource(decision_id="dec_reject"), MemorySource(),
+    MemorySource(decision_id=" ", report_id="rep_setup"), None,
+])
+async def test_create_needs_the_source_decision_and_report_before_the_gate(database, fake_gate, source):
+    with pytest.raises(ValueError, match="source"):
+        await create_m1(source=source)
+    assert fake_gate.calls == [] and database.memories == [] and database.events == []
 
 
 async def test_tags_keep_only_assay_and_claim_kind_and_either_may_be_missing(database, fake_gate):
@@ -112,21 +116,44 @@ async def test_create_needs_a_team_and_a_text(database, fake_gate, changes):
     assert fake_gate.calls == [] and database.memories == []
 
 
-async def test_an_allowed_action_is_set_done_with_its_result(database, fake_gate, monkeypatch):
+def gate_with_actions(database, fake_gate, monkeypatch):
+    """The fake gate, also inserting the queued action an allowed Decision gets (AD-19)."""
+    import dxp.gate
+
     evaluate = fake_gate.evaluate
 
     async def with_action(ctx, action):
         decision = await evaluate(ctx, action)
-        await database.collection("actions").insert_one({"_id": "act_1", "decision_id": decision.id, "status": "queued"})
-        return decision.model_copy(update={"action_id": "act_1"})
+        if decision.outcome != "allowed":
+            return decision
+        action_id = f"act_{len(fake_gate.calls)}"
+        await database.collection("actions").insert_one({"_id": action_id, "decision_id": decision.id, "status": "queued"})
+        return decision.model_copy(update={"action_id": action_id})
 
-    import dxp.gate
     monkeypatch.setattr(dxp.gate, "evaluate", with_action)
+    return database.collection("actions").documents
+
+
+class WriteFailed(Exception):
+    """Stands in for a pymongo WriteError (a validator rejection) or a lost connection."""
+
+
+async def test_an_allowed_action_is_set_done_with_its_result(database, fake_gate, monkeypatch):
+    actions = gate_with_actions(database, fake_gate, monkeypatch)
     created, _ = await create_m1()
-    action = database.collection("actions").documents[0]
+    action = actions[0]
     assert action["status"] == "done"
     assert action["result"] == {"proposal_ids": [], "value_ids": [], "report_id": "rep_setup",
                                 "memory_id": created.id, "task_id": None}
+
+
+async def test_a_failed_write_after_an_allowed_create_marks_the_action_failed(database, fake_gate, monkeypatch):
+    actions = gate_with_actions(database, fake_gate, monkeypatch)
+    database.collection("memories").fail_next_insert = WriteFailed("Document failed validation")
+    with pytest.raises(WriteFailed):
+        await create_m1()
+    assert [a["status"] for a in actions] == ["failed"]
+    assert database.memories == [] and database.events == []
 
 
 # --- correct --------------------------------------------------------------
@@ -224,8 +251,62 @@ async def test_a_revocation_that_races_a_correction_stands(database, fake_gate, 
     monkeypatch.setattr(dxp.gate, "evaluate", racing)
     with pytest.raises(store.MemoryStateError):
         await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_correct"))
-    assert all(d["status"] != "active" for d in database.memories)
+    # The correction wrote nothing: no successor exists and the revocation stands.
+    assert [(d["version"], d["status"]) for d in database.memories] == [(1, "revoked")]
     assert (await store.get(m1.id)).status == "revoked"
+    assert [e["status"] for e in database.events] == ["active", "revoked"]
+
+
+async def test_the_old_version_is_marked_corrected_before_the_successor_is_written(database, fake_gate, monkeypatch):
+    m1, _ = await create_m1()
+    memories = database.collection("memories")
+    seen = []
+    insert_one = memories.insert_one
+
+    async def watching(document, **kwargs):
+        seen.append([(d["version"], d["status"]) for d in memories.documents])
+        # A revocation arriving now finds no active version and is refused.
+        with pytest.raises(store.MemoryStateError):
+            await memory.revoke(m1.id, "note", reviewer_ctx(request_id="req_revoke"))
+        await insert_one(document, **kwargs)
+
+    monkeypatch.setattr(memories, "insert_one", watching)
+    changed, _ = await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert seen == [[(1, "corrected")]]
+    assert [(d["version"], d["status"]) for d in database.memories] == [(1, "corrected"), (2, "active")]
+    assert changed.version == 2
+
+
+async def test_a_failed_successor_insert_restores_the_old_version_and_fails_the_action(database, fake_gate, monkeypatch):
+    m1, _ = await create_m1()
+    actions = gate_with_actions(database, fake_gate, monkeypatch)
+    database.collection("memories").fail_next_insert = WriteFailed("Document failed validation")
+    with pytest.raises(WriteFailed):
+        await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert [(d["version"], d["status"], d["text"]) for d in database.memories] == [(1, "active", M1_TEXT)]
+    assert [a["status"] for a in actions] == ["failed"] and len(database.events) == 1
+    # The memory can still be corrected afterwards.
+    changed, _ = await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_d"))
+    assert (changed.version, changed.status) == (2, "active")
+
+
+async def test_a_lost_race_marks_the_action_failed(database, fake_gate, monkeypatch):
+    m1, _ = await create_m1()
+    actions = gate_with_actions(database, fake_gate, monkeypatch)
+    memories = database.collection("memories")
+    update_one = memories.update_one
+
+    async def revoked_first(query, update, **kwargs):
+        # Another request revokes the version between the gate and the guard.
+        next(d for d in memories.documents if d["_id"] == query["_id"])["status"] = "revoked"
+        monkeypatch.setattr(memories, "update_one", update_one)
+        return await update_one(query, update, **kwargs)
+
+    monkeypatch.setattr(memories, "update_one", revoked_first)
+    with pytest.raises(store.MemoryStateError):
+        await memory.correct(m1.id, "new wording", "note", reviewer_ctx(request_id="req_c"))
+    assert [(d["version"], d["status"]) for d in database.memories] == [(1, "revoked")]
+    assert [a["status"] for a in actions] == ["failed"]
 
 
 # --- revoke ---------------------------------------------------------------
@@ -276,3 +357,31 @@ async def test_list_latest_is_one_entry_per_memory_for_the_team_only(database, f
     assert [item.id for item in await store.list_latest(TEAM, "revoked")] == [m2.id]
     assert await store.list_latest(TEAM, "corrected") == []
     assert all(item.team_id == TEAM for item in listed)
+
+
+# --- stored form ----------------------------------------------------------
+
+
+async def test_stored_versions_have_the_ids_and_types_the_memories_validator_requires(database, fake_gate, monkeypatch):
+    """The patterns of A03's `memories` validator, checked without Atlas."""
+    import re
+    from datetime import datetime
+
+    from a21_a22_fakes import dec, install_hex_gate, rep
+
+    install_hex_gate(fake_gate, monkeypatch)
+    source = MemorySource(decision_id=dec("reject"), report_id=rep("setup"))
+    created, _ = await create_m1(source=source)
+    await memory.correct(created.id, "new wording", "note", reviewer_ctx(request_id="req_2"))
+    await memory.revoke(created.id, "note", reviewer_ctx(request_id="req_3"))
+    decision_id, memory_ref = re.compile(r"^dec_[0-9a-f]{16}$"), re.compile(r"^mem_[0-9a-f]{16}@v[1-9][0-9]*$")
+    assert len(database.memories) == 2
+    for document in database.memories:
+        assert memory_ref.match(document["_id"]) and re.match(r"^mem_[0-9a-f]{16}$", document["memory_id"])
+        assert document["_id"] == f"{document['memory_id']}@v{document['version']}"
+        assert decision_id.match(document["decision_id"]) and decision_id.match(document["source"]["decision_id"])
+        assert isinstance(document["created_at"], datetime) and "embedding" not in document
+        assert all(document[key] for key in ("team_id", "author", "text"))
+        assert set(document["tags"]) == {"assay", "claim_kind"}
+    first, second = database.memories
+    assert first["supersedes"] is None and second["supersedes"] == first["_id"]

@@ -197,10 +197,13 @@ async def create(team_id: str, text: str, tags: dict[str, Any], source: MemorySo
     if ctx.principal.id != reviewer.id:
         raise ValueError("the context's principal is not the Reviewer")
     source = MemorySource.model_validate(source or {})
+    # The store and the gate both need them: checked here, before any Decision is written.
+    _require_text(source.decision_id, "source.decision_id")
+    _require_text(source.report_id, "source.report_id")
     tags = {"assay": (tags or {}).get("assay"), "claim_kind": (tags or {}).get("claim_kind")}
     ctx = _with_request_id(ctx)
     # One memory per source decision: a repeat of the same step finds the stored memory.
-    memory_id = identity.derive("mem_", team_id, source.decision_id) if source.decision_id else None
+    memory_id = identity.derive("mem_", team_id, source.decision_id)
     decision = await gate.evaluate(ctx, ProposedAction(
         kind="create_memory",
         destination=DESTINATION,
@@ -209,12 +212,14 @@ async def create(team_id: str, text: str, tags: dict[str, Any], source: MemorySo
     ))
     if decision.outcome != "allowed":
         return None, decision  # type: ignore[return-value]
-    memory_id = memory_id or identity.derive("mem_", team_id, decision.id)
     document = new_memory(memory_id, team_id, reviewer.id, source.model_dump(), text, tags, decision.id, _stamp(ctx), _now())
     try:
         await database.collection(COLLECTION).insert_one(document)
     except DuplicateKeyError:
         document = await latest_document(memory_id)
+    except Exception:
+        await _fail_action(decision)
+        raise
     else:
         await _emit(document, decision, ctx)
     await _finish_action(decision, document)
@@ -235,18 +240,25 @@ async def correct(memory_id: str, text: str, note: str, ctx: RunContext) -> tupl
         return to_model(current), decision
     successor, superseded = corrected_successor(current, text, ctx.principal.id, decision.id, _stamp(ctx), _now())
     memories = database.collection(COLLECTION)
+    # The guard: only one request moves this version from active to corrected. A revocation or
+    # another correction that got there first leaves no match, and nothing else is written.
     try:
-        # The unique (memory_id, version) index lets only one correction of a version through.
-        await memories.insert_one(successor)
-    except DuplicateKeyError as exc:
+        claimed = await memories.update_one({"_id": current["_id"], "status": ACTIVE}, {"$set": {"status": CORRECTED}})
+    except Exception:
         await _fail_action(decision)
-        raise MemoryStateError(f"memory {current['_id']} was changed by another request") from exc
-    changed = await memories.update_one({"_id": current["_id"], "status": ACTIVE}, {"$set": {"status": CORRECTED}})
-    if changed.matched_count == 0:
-        # The old version was revoked meanwhile: the revocation stands for the memory.
-        await memories.update_one({"_id": successor["_id"], "status": ACTIVE}, {"$set": {"status": REVOKED}})
+        raise
+    if claimed.matched_count == 0:
         await _fail_action(decision)
         raise MemoryStateError(f"memory {current['_id']} was changed by another request")
+    try:
+        await memories.insert_one(successor)
+    except Exception as exc:
+        # Put the old version back, so the memory is not left with no active version.
+        await memories.update_one({"_id": current["_id"], "status": CORRECTED}, {"$set": {"status": ACTIVE}})
+        await _fail_action(decision)
+        if isinstance(exc, DuplicateKeyError):
+            raise MemoryStateError(f"memory {current['_id']} was changed by another request") from exc
+        raise
     await _emit(superseded, decision, ctx)
     await _emit(successor, decision, ctx)
     await _finish_action(decision, successor)
@@ -265,8 +277,12 @@ async def revoke(memory_id: str, note: str, ctx: RunContext) -> tuple[Memory, De
     if decision.outcome != "allowed":
         return to_model(current), decision
     gone = revoked(current)
-    changed = await database.collection(COLLECTION).update_one(
-        {"_id": current["_id"], "status": ACTIVE}, {"$set": {"status": REVOKED}})
+    try:
+        changed = await database.collection(COLLECTION).update_one(
+            {"_id": current["_id"], "status": ACTIVE}, {"$set": {"status": REVOKED}})
+    except Exception:
+        await _fail_action(decision)
+        raise
     if changed.matched_count == 0:
         await _fail_action(decision)
         raise MemoryStateError(f"memory {current['_id']} was changed by another request")

@@ -10,6 +10,7 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any
 
+from dxp import identity
 from dxp.api.models import DecisionCause, Grant, Principal, RunContext, Stamp
 from pymongo.errors import DuplicateKeyError
 
@@ -17,6 +18,30 @@ TEAM = "team_lbdx"
 OTHER_TEAM = "team_other"
 CLAIM = "outcome_claim_without_results"
 M1_TEXT = "Terminated trial with no posted results: describe its status; do not state outcomes"
+
+
+def dec(name: str) -> str:
+    """A decision ID in the stored form, `dec_<16 hex>` (A03's validators)."""
+    return identity.derive("dec_", "a21_a22", name)
+
+
+def rep(name: str) -> str:
+    """A report ID in the stored form, `rep_<16 hex>`."""
+    return identity.derive("rep_", "a21_a22", name)
+
+
+def install_hex_gate(fake_gate: Any, monkeypatch: Any) -> None:
+    """A01's fake gate, with each Decision given an ID the validators accept (`dec_<16 hex>`),
+    derived from the kind and the request ID so a retry is a new Decision."""
+    import dxp.gate
+
+    evaluate = fake_gate.evaluate
+
+    async def hex_ids(ctx: Any, action: Any) -> Any:
+        decision = await evaluate(ctx, action)
+        return decision.model_copy(update={"id": identity.derive("dec_", action.kind, ctx.request_id or "-")})
+
+    monkeypatch.setattr(dxp.gate, "evaluate", hex_ids)
 
 
 def _value(document: dict[str, Any], dotted: str) -> Any:
@@ -59,6 +84,7 @@ class FakeCollection:
         self.unique = unique
         self.documents: list[dict[str, Any]] = []
         self.writes: list[tuple[str, Any]] = []
+        self.fail_next_insert: Exception | None = None
 
     def find(self, query: dict[str, Any] | None = None, *args: Any, **kwargs: Any) -> FakeCursor:
         return FakeCursor([copy.deepcopy(d) for d in self.documents if _matches(d, query or {})])
@@ -68,6 +94,9 @@ class FakeCollection:
         return found[0] if found else None
 
     async def insert_one(self, document: dict[str, Any], **kwargs: Any) -> None:
+        if self.fail_next_insert is not None:
+            error, self.fail_next_insert = self.fail_next_insert, None
+            raise error
         for held in self.documents:
             if held["_id"] == document["_id"] or any(
                 all(held.get(k) == document.get(k) for k in keys) for keys in self.unique
