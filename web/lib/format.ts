@@ -18,7 +18,7 @@ export function formatPolicySet(policySetVersion: string, policyCount?: number):
     : policySetVersion;
   const short = `ps_${body.slice(0, 4)}…`;
   if (policyCount === undefined) return short;
-  return `${short} (${policyCount} ${policyCount === 1 ? "policy" : "policies"})`;
+  return `${short} (${policyCount} policies)`;
 }
 
 /** The same policy set split in two, so a caller can set the hash in the mono face and the count in body text. */
@@ -31,7 +31,7 @@ export function formatPolicySetParts(
     : policySetVersion;
   return {
     hash: `ps_${body.slice(0, 4)}…`,
-    count: policyCount === undefined ? "" : `(${policyCount} ${policyCount === 1 ? "policy" : "policies"})`,
+    count: policyCount === undefined ? "" : `(${policyCount} policies)`,
   };
 }
 
@@ -44,12 +44,18 @@ export function shortId(id: string, keep = 8): string {
 
 /**
  * A date such as "14 Nov 2026". A date-only string ("2024-07-17", a registry
- * date) is shown as written, never shifted by the viewer's time zone; a full
+ * date; "2024-07" and "2024" too) is shown as written, never shifted by the viewer's time zone; a full
  * timestamp is shown in the viewer's time zone, so use the time helpers in
  * client components (a server render runs in UTC and would not match the
  * browser). Empty for a missing value.
  */
 export function formatDate(value: string | number | Date | null | undefined): string {
+  // Registry dates can be "YYYY-MM" or "YYYY": shown as written, with no day invented.
+  if (typeof value === "string") {
+    const partial = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+    if (partial) return `${MONTHS[Number(partial[2]) - 1]} ${partial[1]}`;
+    if (/^\d{4}$/.test(value)) return value;
+  }
   const date = toDate(value);
   if (!date) return "";
   const dateOnly = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);

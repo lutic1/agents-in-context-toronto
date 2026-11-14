@@ -31,6 +31,7 @@ export function SignedInChip() {
         title={error ? error.message : undefined}
       >
         Signed in as: unavailable
+        {error ? <span className="sr-only">. {error.message}</span> : null}
       </div>
     );
   }
@@ -43,7 +44,7 @@ export function SignedInChip() {
       aria-label={`Signed in as ${name}`}
     >
       <span
-        className="flex size-7 items-center justify-center rounded-full bg-ink-deep text-[12px] font-bold text-primary-foreground"
+        className="flex size-7 items-center justify-center rounded-full bg-ink-deep text-caption font-bold text-primary-foreground"
         aria-hidden="true"
       >
         {initials(name)}

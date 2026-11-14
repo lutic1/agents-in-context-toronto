@@ -11,6 +11,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 const UNREACHABLE_TOAST = "api-unreachable";
 const RETRY_MS = 5000;
 
+/** Retry anything except a client error that retrying cannot fix (4xx other than 408 and 429). */
+function shouldRetry(error: unknown): boolean {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+    return error.status === 408 || error.status === 429;
+  }
+  return true;
+}
+
 /**
  * Client providers for the whole app: one SWR configuration, tooltips and the
  * toaster. When the API cannot be reached, exactly one toast says so
@@ -22,7 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <SWRConfig
       value={{
         errorRetryInterval: RETRY_MS,
-        shouldRetryOnError: (error) => isUnreachable(error),
+        shouldRetryOnError: (error) => shouldRetry(error),
         onError: (error) => {
           if (isUnreachable(error)) {
             toast.error("Couldn't reach the API. Retrying in 5 seconds.", {
@@ -35,8 +43,8 @@ export function Providers({ children }: { children: ReactNode }) {
           toast.dismiss(UNREACHABLE_TOAST);
         },
         onErrorRetry: (error, _key, config, revalidate, { retryCount }) => {
-          if (error instanceof ApiError && !isUnreachable(error)) return;
-          if (retryCount >= 50) return;
+          // Polled keys keep coming back by themselves: no retry cap.
+          if (!shouldRetry(error)) return;
           setTimeout(() => revalidate({ retryCount }), config.errorRetryInterval);
         },
       }}

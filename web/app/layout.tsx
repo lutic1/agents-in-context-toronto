@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     "A discovery agent for lung cancer diagnostic evidence. Every claim and relationship is backed by quotes.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"

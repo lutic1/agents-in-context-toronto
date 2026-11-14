@@ -43,8 +43,8 @@ export function TopBar() {
   const onReports = pathname.startsWith("/reports");
 
   return (
-    <header className="glass-panel-strong sticky top-0 z-40 rounded-none border-x-0 border-t-0 border-b border-border">
-      <div className="mx-auto flex h-16 w-full max-w-content items-center gap-8 px-8">
+    <header className="glass-panel-strong sticky top-0 z-40 rounded-none">
+      <div className="mx-auto flex min-h-16 w-full max-w-content flex-wrap items-center gap-x-8 gap-y-2 px-8 py-2">
         <Wordmark />
         <nav aria-label="Main" className="flex items-center gap-1">
           <NavItem href="/runs" label="Run console" Icon={SquareTerminal} active={onRunConsole} />
@@ -100,7 +100,7 @@ function NavItem({
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2 rounded-md px-3 py-2 text-table font-semibold text-foreground transition-colors",
-        active ? "bg-ink-deep text-primary-foreground" : "hover:bg-ink-tint",
+        active ? "bg-ink-tint text-foreground" : "hover:bg-ink-tint",
       )}
     >
       <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
