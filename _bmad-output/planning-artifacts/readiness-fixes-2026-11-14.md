@@ -1,6 +1,8 @@
 ---
 title: Readiness fixes after the pivot audit
-status: draft (follows two audits; for Luis to confirm before 10:45)
+status: approved
+approved_by: Luis
+approved: 2026-11-14
 created: 2026-11-14
 supplements: sprint-change-proposal-2026-11-13.md
 ---
@@ -213,6 +215,7 @@ Two independent audits of the D1 to D15 changes found the gaps below. These deci
   20. NCT05935384
 
   A05 processes them in this order.
+- **D31 is replaced by V34** (discovery-agent proposal, section 11). There are no hand-written aliases. Only exact FDA trade names, after `normalise_name()`, resolve to a seeded Diagnostic. Unresolved names such as "FoundationOne Liquid" are listed in the report's uncertainties and never mapped to an approved product. The original D31 text below is kept for history only.
 - **D31. Hand-written aliases, written during the event by A02.** "FoundationOne Liquid" maps to FoundationOne Liquid CDx, "Guardant360" to Guardant360 CDx, and "FoundationOne" (when not followed by "Liquid") to FoundationOne CDx.
   - The ID alias of a seeded Diagnostic is `normalise_name()` of the FDA list's trade-name column, and the row ID is the PMA or 510(k) number column.
   - A08 passes the seeded alias list into the extraction prompt, and the extracted assay name must be one of them or `new`.
