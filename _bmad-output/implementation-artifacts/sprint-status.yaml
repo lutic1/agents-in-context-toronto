@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-13-2026 23:40
-last_updated: 11-14-2026 08:00
+last_updated: 11-14-2026 10:22
 project: DxProvida (DxP)
 project_key: NOKEY
 tracking_system: file-system
@@ -115,6 +115,7 @@ development_status:
   9-9-live-action-feed-through-change-streams: backlog
   9-10-spoken-audit-briefing: backlog
   9-11-rejection-drafts-a-policy-for-explicit-approval: backlog
+  9-12-live-run-updates-through-change-streams: backlog
   epic-9-retrospective: optional
 
   epic-10: backlog
@@ -130,6 +131,7 @@ development_status:
   10-10-report-page-with-decisions-and-the-memory-panel: backlog
   10-11-ten-second-elevenlabs-briefing-inside-the-report: backlog
   10-12-heygen-avatar-explaining-the-finding: backlog
+  10-13-revert-an-approval: backlog
   epic-10-retrospective: optional
 
 # Who builds each story, its PR IDs and its scope (core, supporting, stretch, deferred; cut and superseded stories are deferred).
@@ -355,6 +357,10 @@ owners:
     owner: "Luis"
     prs: ""
     scope: deferred
+  9-12-live-run-updates-through-change-streams:
+    owner: "Gregorio"
+    prs: "A27, B02, B03"
+    scope: supporting
   10-1-discovery-scan-of-clinicaltrials-gov-within-one-research-sco:
     owner: "Luis"
     prs: "A05, B02, I1"
@@ -403,6 +409,10 @@ owners:
     owner: "Vlad"
     prs: "B08"
     scope: supporting
+  10-13-revert-an-approval:
+    owner: "Gregorio"
+    prs: "A26, B04"
+    scope: supporting
 
 # Open items
 action_items:
@@ -417,6 +427,10 @@ action_items:
   - epic: 10
     action: "OD2: at 10:45 set the scan cursor and verify the demo anchor live (update date, status, results). NCT04712877 is the expected candidate (the API on 14 Nov showed lastUpdatePostDate 2026-11-12; a reviewer saw 17 Jul 2024 on the history page). Never claim it studies FoundationOne Liquid CDx (V33 to V36)"
     owner: "Luis"
+    status: open
+  - epic: 9
+    action: "OD5 (reopened, V48): at 10:45 with OD1 confirm change streams on the Atlas Sandbox tier and a long-lived streaming response on Modal and through the Vercel proxy; decide by 11:45, else live_stream stays off and the screens poll, labelled"
+    owner: "Gregorio"
     status: open
   - epic: 10
     action: "OD3 and OD7: ElevenLabs key and quota; HeyGen paid plan or wallet and one timed render at 10:45 (if not finished by 12:00, B08 is not built)"
