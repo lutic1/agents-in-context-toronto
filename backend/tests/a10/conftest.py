@@ -45,7 +45,6 @@ class World:
     draft2_text: str = "This study is recruiting; no results posted."
     redraft_text: str | None = None  # draft 2's headline on the redraft (attempt 1)
     link_dx: str = OUT_OF_SCOPE_DX  # the Diagnostic the record's mention resolves to
-    file_notifies: bool = True  # A19+A20's reports.file dispatches the alert itself (_notify)
     extract_fail: set[str] = field(default_factory=set)
     with_memories: bool = True
     slack: list[dict[str, Any]] = field(default_factory=list)
@@ -240,32 +239,38 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
                 "new_quote": {"version_id": new_item["version_id"]},
                 "related_quote": {"version_id": related_item["version_id"]}, "similarity": related_item["score"]}
 
-    # A19+A20's real contract (story/10.2-retrieval-report, 5529e8d): one report dict with
-    # top-level updates [{finding_id, change}] and drafts [d1, d2]; reports.file gates each draft
-    # in one call and writes only when the last is allowed.
+    # A19+A20's agreed contract (#19 at fee345d, #38 on main): reports.draft returns the final
+    # draft at the top level and `drafts`, each self-contained; `updates` [{finding_id, change}]
+    # only on the final draft, memories_used only on a draft after draft 1.
     async def draft(item: dict[str, Any], findings: list[Any], related_: list[Any], memories: list[Any]) -> dict[str, Any]:
         log("reports.draft", {"item": item, "findings": findings, "related": related_, "memories": memories})
         attempt = int(item.get("attempt") or 0)
         second = w.redraft_text if attempt and w.redraft_text else w.draft2_text
-        drafts = [{"draft": 1, "headline": w.draft1_text}]
+        contents = [{"draft": 1, "headline": w.draft1_text}]
         if memories:
-            drafts.append({"draft": 2, "headline": second})
-        return {
-            "draft": drafts[-1]["draft"], "attempt": attempt, "run_id": item["run_id"], "scope_id": item["scope_id"],
-            "source_ref": item["source_ref"], "version_id": item["version_id"], "headline": drafts[-1]["headline"],
-            "memories_used": [{"memory_id": "mem_m1", "effect": {"before": "a", "after": "b"}}] if memories else [],
-            "updates": [
-                {"finding_id": f"f_{item['version_id']}_record", "change": {
-                    "field": "evidence_collection", "value": item["source_ref"], "diagnostic_id": None, "scope_id": SCOPE_ID}},
-                {"finding_id": f"f_{item['version_id']}_f1cdx", "change": {
-                    "field": "trials", "value": "NCT04712877", "diagnostic_id": w.link_dx,
-                    "mention": {"name": "FoundationOne CDx", "field": "otherNames"}}},
-            ],
-            "drafts": drafts,
-        }
+            contents.append({"draft": 2, "headline": second})
+        shared = {"attempt": attempt, "run_id": item["run_id"], "scope_id": item["scope_id"], "team_id": item.get("team_id"),
+                  "source_ref": item["source_ref"], "version_id": item["version_id"]}
+        updates = [
+            {"finding_id": f"f_{item['version_id']}_record", "change": {
+                "field": "evidence_collection", "value": item["source_ref"], "diagnostic_id": None, "scope_id": SCOPE_ID}},
+            {"finding_id": f"f_{item['version_id']}_f1cdx", "change": {
+                "field": "trials", "value": "NCT04712877", "diagnostic_id": w.link_dx,
+                "mention": {"name": "FoundationOne CDx", "field": "otherNames"}}},
+        ]
+        drafts = []
+        for index, one in enumerate(contents):
+            is_final = index == len(contents) - 1
+            out = {**shared, **one,
+                   "memories_used": [{"memory_id": "mem_m1", "effect": {"before": "a", "after": "b"}}]
+                   if is_final and one["draft"] > 1 else []}
+            if is_final:
+                out["updates"] = updates
+            drafts.append(out)
+        return {**drafts[-1], "drafts": drafts}
 
-    def decide(ctx: RunContext, kind: str, target: str, blocked: str | None, admission: str | None = None) -> dict[str, Any]:
-        adm = admission or ctx.admission_id
+    def decide(ctx: RunContext, kind: str, target: str, blocked: str | None) -> dict[str, Any]:
+        adm = ctx.admission_id
         assert adm in w.admitted and w.releases[adm] == 0, "check 5: no admission held"
         dec = {"_id": f"dec_{len(w.decisions):04d}", "id": f"dec_{len(w.decisions):04d}", "run_id": ctx.run_id,
                "kind": kind, "target": target, "outcome": "blocked" if blocked else "allowed",
@@ -274,27 +279,27 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         db["decisions"].docs[dec["_id"]] = dec
         return dec
 
-    async def file(d: dict[str, Any], ctx: RunContext) -> dict[str, Any]:
-        log("reports.file", d)
+    async def file(d: dict[str, Any], ctx: RunContext, final: bool = True) -> dict[str, Any]:
+        # #19's _check_shape: one draft per call; a non-final draft carries no updates.
+        if len(d.get("drafts") or []) > 1:
+            raise ValueError("reports.file takes one draft per call")
+        if not final and d.get("updates"):
+            raise ValueError("a non-final draft carries no updates")
+        log("reports.file", {**d, "final": final, "admission_id": ctx.admission_id})
         from dxp import identity
         report_id = identity.derive("rep_", ctx.run_id, d["source_ref"])
         suffix = f".r{d['attempt']}" if d.get("attempt") else ""
-        decisions = []
-        for one in d.get("drafts") or [d]:
-            blocked = "showed" in one.get("headline", "")
-            decisions.append(decide(ctx, "file_proposal", f"{report_id}|draft{one['draft']}{suffix}",
-                                    "evidence_checks:claim_performed_or_results" if blocked else None,
-                                    one.get("admission_id")))
-        dec = decisions[-1]
-        if dec["outcome"] != "allowed":
-            return dec
-        blocked_earlier = next((x["id"] for x in decisions[:-1] if x["outcome"] == "blocked"), None)
+        blocked = "showed" in d.get("headline", "")
+        dec = decide(ctx, "file_proposal", f"{report_id}|draft{d['draft']}{suffix}",
+                     "evidence_checks:claim_performed_or_results" if blocked else None)
+        if not final or dec["outcome"] != "allowed":
+            return dec  # gate only, or blocked: nothing written
         db["reports"].docs[report_id] = {"_id": report_id, "run_id": ctx.run_id, "version_id": d["version_id"],
                                          "status": "pending", "draft": d["draft"], "diagnostic_ids": [],
                                          "memories_used": d.get("memories_used"), "script_hash": "h",
-                                         "blocked_draft_decision_id": blocked_earlier}
+                                         "blocked_draft_decision_id": d.get("blocked_draft_decision_id")}
         for update in d.get("updates") or []:
-            change = update["change"]
+            change = {**update["change"], "report_id": report_id}  # keeps the caller's admission_id (D22)
             change_ctx = ctx.model_copy(update={"admission_id": change.get("admission_id")})
             out_of_scope = change.get("diagnostic_id") == OUT_OF_SCOPE_DX
             cdec = decide(change_ctx, "file_proposal", change["field"], "team_scope" if out_of_scope else None)
@@ -305,15 +310,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
                                              "diagnostic_id": change.get("diagnostic_id")}
         db["reports"].docs[report_id]["diagnostic_ids"] = sorted(
             {p["diagnostic_id"] for p in db["proposals"].docs.values() if p["report_id"] == report_id and p["diagnostic_id"]})
-        if w.file_notifies:  # A19's _notify: dispatch under the report's ctx, swallow any error
-            try:
-                await dxp.actions.dispatch(ProposedAction(
-                    kind="notify_slack", destination="slack:#all-mango-db-hackathon",
-                    target=Target(report_id=report_id, scope_id=SCOPE_ID),
-                    inputs={"source_ref": d["source_ref"]}), ctx)
-            except Exception:
-                pass
-        return dec
+        return dec  # never creates or sends notify_slack (#38)
 
     async def dispatch(action: Any, ctx: RunContext) -> dict[str, Any]:
         log("actions.dispatch", action)

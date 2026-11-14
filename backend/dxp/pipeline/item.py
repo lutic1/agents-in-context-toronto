@@ -9,15 +9,18 @@ Rules kept here:
   `item_key = "<source_ref>|<kind>|<diagnostic_id or '-'>|<target>"`; every admission is
   released once, in a `finally`, whatever the action's outcome. A refused admission means
   that action is not attempted (`runs.admit` counts it).
-- Two gated drafts (V21): `reports.draft()` returns one report dict whose `drafts` are draft 1
-  (no memories) and draft 2 (with them); one `reports.file()` call gates each as a
-  report-level `file_proposal` (targets `"<report_id>|draft1"`, `|draft2`), each its own
-  Decision, and writes the report only when the last is allowed. If the last is blocked, the
-  item redrafts once (`attempt: 1`, targets `|draft<n>.r1`, new Decisions); a second block
-  ends the item with nothing filed (V7).
-- One `notify_slack` per filed report, through `actions.dispatch()` (V11). A blocked report
-  gets no alert. A blocked alert (A09 raises `ActionBlocked`) is a blocked step, not an item
-  failure. The run never calls ElevenLabs or HeyGen (V29).
+- Two gated drafts (V21): `reports.draft()` returns the final draft at the top level and
+  `drafts`, each self-contained (draft 1 without memories, draft 2 with them). Each draft is
+  filed with its own `reports.file(draft, ctx, final)` call under its own admission: every
+  draft but the last with `final=False` (gate only, nothing written, no `updates`), the last
+  with `final=True` (#38). Targets are `"<report_id>|draft1"`, `|draft2`. If the last is
+  blocked, the item redrafts once (`attempt: 1`, targets `|draft<n>.r1`, new Decisions); a
+  second block ends the item with nothing filed (V7).
+- One `notify_slack` per filed report, dispatched by the run alone through
+  `actions.dispatch()` after the final `reports.file` succeeds (V11; `reports.file` never
+  sends it). A blocked report gets no alert. A blocked alert (A09 raises `ActionBlocked`) is a
+  blocked step, not an item failure. The version is marked processed only after the alert's
+  outcome is recorded. The run never calls ElevenLabs or HeyGen (V29).
 - The node never raises: an error becomes a failure line with a code, never source text.
 """
 
@@ -158,10 +161,10 @@ def report_id_for(run_id: str, source_ref: str) -> str:
 
 
 def check_report(drafted: Any, version_id: str) -> dict[str, Any]:
-    """`reports.draft()` (A19+A20) returns one report dict: the report's fields at the top level
-    (`updates` as `[{ finding_id, change }]`, `memories_used`, `source_ref`, `version_id`,
-    `scope_id`, `discovery`, `related`, `retrieval`, `source_fields`, ...) and `drafts`, the
-    composed drafts to gate in order (draft 1 without memories, draft 2 with them, V21)."""
+    """`reports.draft()` (A19+A20) returns the final draft's fields at the top level and
+    `drafts`, the self-contained drafts to file in order (draft 1 without memories, draft 2 with
+    them, V21). Only the final draft carries `updates`, as `[{finding_id, change}]`. Every
+    draft is pinned to the item's version (V40)."""
     drafted = plain(drafted)
     if not isinstance(drafted, dict):
         raise ItemFailed("draft_shape")
@@ -169,7 +172,14 @@ def check_report(drafted: Any, version_id: str) -> dict[str, Any]:
     if drafted.get("version_id") not in (None, version_id):
         raise ItemFailed("draft_version_mismatch")
     drafted["version_id"] = version_id  # V40: the report uses the version this item pinned
-    drafted["drafts"] = [dict(plain(d)) for d in drafted.get("drafts") or []] or None
+    drafts = []
+    for one in drafted.get("drafts") or []:
+        one = dict(plain(one))
+        if one.get("version_id") not in (None, version_id):
+            raise ItemFailed("draft_version_mismatch")
+        one["version_id"] = version_id
+        drafts.append(one)
+    drafted["drafts"] = drafts or None
     return drafted
 
 
@@ -319,39 +329,66 @@ async def relate_all(new_item: dict[str, Any], related: list[dict[str, Any]]) ->
     return out
 
 
+def plain_draft(one: Any) -> dict[str, Any]:
+    """A self-contained draft as `reports.file` takes it: one draft, never the `drafts` list."""
+    out = dict(plain(one))
+    out.pop("drafts", None)
+    return out
+
+
 async def file_report(drafted: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo,
                       result: ItemResult) -> Any:
-    """One `reports.file(drafted, ctx)` call (A19+A20), which gates every draft in order and
-    writes only when the last one is allowed. Before it, one admission per action (D22): one
-    per draft target and one per update. Returns the final Decision, or None when an admission
-    was refused (nothing attempted). Every admission is released once, after the call."""
+    """File the drafts with A19+A20's contract (#38, Luis's rulings of 14 Nov):
+    `reports.file(draft, ctx, final)` once per draft, in order, each draft under its own
+    admission. Every draft but the last is filed with `final=False` (gate only: its Decision
+    is recorded, nothing is written) and carries no `updates`. The last is filed with
+    `final=True`, carrying the updates `[{finding_id, change}]`, each `change` holding its own
+    `admission_id` (D22), and `blocked_draft_decision_id` (the first blocked earlier draft).
+    `reports.file` never sends the alert; `notify` does, after this returns allowed.
+
+    Every admission (one per draft target, one per update of the final draft) is taken before
+    any `reports.file` call. If any is refused (the run is stopping), every admission held is
+    released and nothing is filed: no draft is gated and no report is written without one of
+    its updates. Returns the final Decision, or None when an admission was refused. Every
+    admission is released once, after the calls."""
     source_ref = item["source_ref"]
+    drafts = [plain_draft(one) for one in (drafted.get("drafts") or [drafted])]
+    targets = draft_targets({**drafted, "drafts": drafts}, report_id)
+    final_draft = drafts[-1]
+    raw_updates = final_draft.get("updates")
+    if raw_updates is None:
+        raw_updates = drafted.get("updates") or []
     held: list[str] = []
     try:
-        draft_admission = None
-        for one, target in draft_targets(drafted, report_id):
+        draft_admissions: list[str] = []
+        for _, target in targets:
             adm = await admit(info.run_id, item_key(source_ref, "file_proposal", None, target))
             if adm is None:
                 return None  # not admitted: the run is stopping; nothing attempted
             held.append(adm)
-            draft_admission = adm
-            if one is not None:
-                one["admission_id"] = adm  # per-draft admission, if reports.file reads it
+            draft_admissions.append(adm)
         updates = []
-        for update in drafted.get("updates") or []:
+        for update in raw_updates:
             update = dict(plain(update))
             change = dict(plain(update.get("change") or {}))
             key = item_key(source_ref, "file_proposal", change.get("diagnostic_id"),
                            change_target(update.get("finding_id"), change))
             adm = await admit(info.run_id, key)
             if adm is None:
-                continue  # that change is not attempted
+                return None  # (4) a refused change: release everything, file nothing
             held.append(adm)
             change["admission_id"] = adm  # A06's ledger.file gates the change under it
-            update["change"] = change
-            updates.append(update)
-        drafted["updates"] = updates
-        decision = await reports.file(drafted, with_admission(info.ctx, draft_admission))
+            updates.append({"finding_id": update.get("finding_id"), "change": change})
+
+        blocked_earlier = None
+        for one, adm in zip(drafts[:-1], draft_admissions[:-1]):
+            gate_only = {k: v for k, v in one.items() if k != "updates"}  # non-final drafts carry no updates
+            decision = await reports.file(gate_only, with_admission(info.ctx, adm), final=False)
+            result.draft_decisions.append(decision)
+            if outcome(decision) == "blocked" and blocked_earlier is None:
+                blocked_earlier = get(decision, "id") or get(decision, "_id")
+        final = {**final_draft, "updates": updates, "blocked_draft_decision_id": blocked_earlier}
+        decision = await reports.file(final, with_admission(info.ctx, draft_admissions[-1]), final=True)
     finally:
         await release(held)
     result.draft_decisions.append(decision)
@@ -363,15 +400,12 @@ async def filed_report(report_id: str) -> dict[str, Any] | None:
 
 
 async def notify(report: dict[str, Any], item: dict[str, Any], report_id: str, info: RunInfo) -> Any:
-    """The report's one notify_slack (V11), called only after `reports.file` has committed the
-    report (A09 reads it outside any transaction). If `reports.file` already dispatched it
-    (A19+A20's `_notify`), that action is the alert and nothing is sent again. Otherwise it is
-    dispatched here with its own admission. A blocked alert, an unconfigured sender and a
-    report A09 cannot read are non-fatal: the item is still done. Returns the Action or a
-    marker."""
-    existing = await progress.notify_action(report_id)
-    if existing is not None:
-        return existing
+    """The report's one notify_slack (V11). A10 is its only sender (Luis's ruling, 14 Nov):
+    `reports.file` never creates it, so it is dispatched here once, with its own admission,
+    only after the final `reports.file` has committed the report (A09 reads it outside any
+    transaction). A blocked alert, an unconfigured sender and a report A09 cannot read are
+    non-fatal: the item is still done. Returns the Action, a marker, or None when the alert's
+    admission was refused (nothing attempted, outcome not recorded)."""
     # Same rule as A09's action ID: the stored report's first diagnostic_ids entry (written by
     # reports.file after ledger.file), else "-" (V43), so admission key and action ID line up.
     diagnostic_ids = [d for d in report.get("diagnostic_ids") or [] if d]
@@ -479,11 +513,15 @@ async def process(source_ref: str, info: RunInfo) -> ItemResult:
                 break
         if decision is not None and outcome(decision) == "allowed":
             result.filed = True
-            await progress.mark_processed(source_ref, info.scope_id, version_id, info.run_id)
             report = await filed_report(report_id) or {}
             step = "notify"
             await tracker.step(source_ref, step)
             result.alert = await notify(report, item, report_id, info)
+            # (6) Processed only once the alert's outcome is recorded (sent, blocked, or not
+            # sent with a failure line). If notify raised, or its admission was refused, the
+            # version stays unprocessed so a rerun sends the alert (A09's action ID keeps it one).
+            if result.alert is not None:
+                await progress.mark_processed(source_ref, info.scope_id, version_id, info.run_id)
 
         result.status = "done"
         await tracker.item_done(source_ref, early_research=early)

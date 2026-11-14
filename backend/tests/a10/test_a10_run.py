@@ -56,7 +56,8 @@ async def test_one_admission_per_action_with_the_d22_item_keys(world: World) -> 
     assert keys[1] == f"{ANCHOR}|file_proposal|-|{report_id}|draft2"
     assert keys[2].startswith(f"{ANCHOR}|file_proposal|-|p_")  # scope update: "-" for the Diagnostic (V43)
     assert keys[3].startswith(f"{ANCHOR}|file_proposal|{OUT_OF_SCOPE_DX}|p_")
-    assert keys[2] != keys[3] and len(keys) == len(set(keys)) == 4
+    assert keys[4] == f"{ANCHOR}|notify_slack|-|{report_id}"  # A10's own alert admission
+    assert keys[2] != keys[3] and len(keys) == len(set(keys)) == 5
     # each draft and each change was gated under its own admission
     by_target = {d["target"]: d["admission_id"] for d in world.decisions}
     assert world.admitted[by_target[f"{report_id}|draft1"]] == keys[0]
@@ -65,15 +66,149 @@ async def test_one_admission_per_action_with_the_d22_item_keys(world: World) -> 
     assert world.admitted[by_target["trials"]] == keys[3]
 
 
-async def test_reports_file_alert_is_the_one_alert(world: World) -> None:
-    """A19+A20's reports.file dispatches the alert itself: A10 sends nothing again."""
+def file_calls(w: World) -> list[dict[str, Any]]:
+    return w.args("reports.file")
+
+
+async def test_item5_each_draft_is_filed_on_its_own_and_draft1_is_gate_only(world: World) -> None:
+    """(5) Probe: draft 1 must not go through the full reports.file. Each draft is its own
+    reports.file(draft, ctx, final) call under its own admission; draft 1 is final=False with no
+    updates, and nothing is written until the final draft's call."""
+    import dxp.reports
+
+    real_file = dxp.reports.file
+    reports_before_call: list[int] = []
+
+    async def spy(d: dict[str, Any], ctx: Any, final: bool = True) -> Any:
+        reports_before_call.append(len(world.db["reports"].docs) + len(world.db["proposals"].docs))
+        return await real_file(d, ctx, final)
+
+    dxp.reports.file = spy
     await pipeline.run(RUN_ID)
-    assert len(world.slack) == 1 and len(world.args("actions.dispatch")) == 1
-    assert not any("|notify_slack|" in k for k in world.admitted.values())
+    calls = file_calls(world)
+    report_id = next(iter(world.db["reports"].docs))
+    assert [(c["draft"], c["final"]) for c in calls] == [(1, False), (2, True)]
+    assert "drafts" not in calls[0] and "drafts" not in calls[1]  # one draft per call
+    assert "updates" not in calls[0] and calls[0]["memories_used"] == []  # non-final drafts carry no updates
+    assert len(calls[1]["updates"]) == 2
+    assert reports_before_call == [0, 0]  # the gate-only call wrote nothing
+    # each draft under its own admission, keyed on its own target
+    assert world.admitted[calls[0]["admission_id"]] == f"{ANCHOR}|file_proposal|-|{report_id}|draft1"
+    assert world.admitted[calls[1]["admission_id"]] == f"{ANCHOR}|file_proposal|-|{report_id}|draft2"
+    # draft 1's Decision is recorded and named on the report filed from draft 2
+    draft1 = next(d for d in world.decisions if d["target"] == f"{report_id}|draft1")
+    assert draft1["outcome"] == "blocked" and calls[1]["blocked_draft_decision_id"] == draft1["id"]
+    assert released_once(world)
+
+
+async def test_item5_a_single_draft_is_filed_final(world: World) -> None:
+    world.with_memories = False  # no memories: draft 1 is the only and final draft
+    world.draft1_text = "This study is recruiting."
+    await pipeline.run(RUN_ID)
+    assert [(c["draft"], c["final"]) for c in file_calls(world)] == [(1, True)]
+    assert len(world.db["reports"].docs) == 1 and len(world.slack) == 1
+
+
+async def test_update_shape_is_finding_id_and_change_with_its_admission(world: World) -> None:
+    """The agreed update shape (#19/#24): [{finding_id, change{field, value, diagnostic_id, ...,
+    admission_id}}], read from the final draft; each change keeps its own admission (D22)."""
+    await pipeline.run(RUN_ID)
+    final = file_calls(world)[-1]
+    vid = version_id_for(ANCHOR)
+    assert [set(u) for u in final["updates"]] == [{"finding_id", "change"}, {"finding_id", "change"}]
+    assert [u["finding_id"] for u in final["updates"]] == [f"f_{vid}_record", f"f_{vid}_f1cdx"]
+    for update in final["updates"]:
+        change = update["change"]
+        assert {"field", "value", "diagnostic_id", "admission_id"} <= set(change)
+        assert "|file_proposal|" in world.admitted[change["admission_id"]]
+    assert len({u["change"]["admission_id"] for u in final["updates"]}) == 2
+
+
+async def test_item7_a10_is_the_only_alert_sender(world: World) -> None:
+    """(7) Probe: notify must not defer to an alert reports.file may have sent. reports.file
+    sends none; A10 dispatches the one notify_slack, after the final reports.file returns."""
+    from dxp import identity
+
+    report_id = identity.derive("rep_", RUN_ID, ANCHOR)
+    # an existing notify_slack action for the report no longer suppresses A10's dispatch;
+    # A09's derived action ID keeps a repeat to one post.
+    world.db["actions"].docs["act_old"] = {"_id": "act_old", "kind": "notify_slack", "target": {"report_id": report_id}}
+    await pipeline.run(RUN_ID)
+    assert len(world.args("actions.dispatch")) == 1 and len(world.slack) == 1
+    assert world.admitted[world.slack[0]["admission_id"]] == f"{ANCHOR}|notify_slack|-|{report_id}"
+    names = world.names()
+    last_file = max(i for i, n in enumerate(names) if n == "reports.file")
+    assert file_calls(world)[-1]["final"] is True and last_file < names.index("actions.dispatch")
+
+
+async def test_item4_a_refused_change_admission_files_nothing(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """(4) Probe: a stop lands after the draft admissions and before the change admissions.
+    Every admission held is released, no draft is gated, no report is filed without its update,
+    no alert is sent and the version stays unprocessed, so a resumed run retries the item."""
+    import dxp.runs
+
+    real_admit = dxp.runs.admit
+
+    async def admit(run_id: str, key: str) -> Any:
+        if "|p_" in key and world.run["status"] == "running":
+            world.run["status"] = "stopping"  # POST /runs/<id>/stop between the admissions
+        return await real_admit(run_id, key)
+
+    monkeypatch.setattr(dxp.runs, "admit", admit)
+    await pipeline.run(RUN_ID)
+    assert world.refused and world.refused[0].startswith(f"{ANCHOR}|file_proposal|-|p_")
+    assert "reports.file" not in world.names() and world.decisions == []
+    assert world.db["reports"].docs == {} and world.db["proposals"].docs == {}
+    assert world.slack == [] and "actions.dispatch" not in world.names()
+    assert released_once(world) and len(world.admitted) == 2  # the two draft admissions, released once
+    assert "processed" not in world.db["source_items"].docs[ANCHOR]
+    assert world.run["status"] == "stopped"
+
+
+async def test_item6_processed_only_after_the_alert_outcome(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    """(6) Probe: the alert raises. The version must stay unprocessed so a rerun sends it."""
+    import dxp.actions
+
+    real_dispatch = dxp.actions.dispatch
+    attempts: list[int] = []
+
+    async def dispatch(action: Any, ctx: Any) -> Any:
+        attempts.append(1)
+        if len(attempts) == 1:
+            world.calls.append(("actions.dispatch", action))
+            raise RuntimeError("slack down")
+        return await real_dispatch(action, ctx)
+
+    monkeypatch.setattr(dxp.actions, "dispatch", dispatch)
+    await pipeline.run(RUN_ID)
+    assert world.run["counts"]["failed"] == 1
+    assert world.run["failures"] == [{"source_ref": ANCHOR, "error": "notify: RuntimeError"}]
+    assert "processed" not in world.db["source_items"].docs[ANCHOR]
+    assert released_once(world)
+
+    # the rerun is not skipped: it sends the alert, then marks the version processed
+    world.run["status"] = "running"
+    await pipeline.run(RUN_ID)
+    assert len(world.slack) == 1
+    assert list(world.db["source_items"].docs[ANCHOR]["processed"][SCOPE_ID]) == [version_id_for(ANCHOR)]
+
+
+async def test_item6_mark_processed_runs_after_the_alert(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dxp.pipeline import progress
+
+    real_mark = progress.mark_processed
+
+    async def mark(*args: Any) -> None:
+        world.calls.append(("progress.mark_processed", args[0]))
+        await real_mark(*args)
+
+    monkeypatch.setattr(progress, "mark_processed", mark)
+    await pipeline.run(RUN_ID)
+    names = world.names()
+    assert names.index("actions.dispatch") < names.index("progress.mark_processed")
 
 
 async def test_the_alert_carries_the_report_and_no_diagnostic(world: World) -> None:
-    world.file_notifies = False  # A10 dispatches it
     await pipeline.run(RUN_ID)
     report_id = next(iter(world.db["reports"].docs))
     action = world.slack[0]["action"]
@@ -388,7 +523,6 @@ async def test_an_unsent_alert_is_non_fatal_with_a_failure_line(world: World, mo
 
 async def test_an_alert_for_a_report_with_a_diagnostic_uses_it_in_the_admission_key(world: World) -> None:
     world.link_dx = "dx_g360"  # an in-scope link: filed, so the stored report names it
-    world.file_notifies = False
     await pipeline.run(RUN_ID)
     report = next(iter(world.db["reports"].docs.values()))
     assert report["diagnostic_ids"] == ["dx_g360"]

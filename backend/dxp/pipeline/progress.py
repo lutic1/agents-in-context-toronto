@@ -156,11 +156,6 @@ async def load_report(report_id: str) -> dict[str, Any] | None:
     return await store.db()["reports"].find_one({"_id": report_id})
 
 
-async def notify_action(report_id: str) -> dict[str, Any] | None:
-    """The report's notify_slack action, if one exists already (reads only)."""
-    return await store.db()["actions"].find_one({"target.report_id": report_id, "kind": "notify_slack"})
-
-
 async def load_finding(finding_id: str) -> dict[str, Any] | None:
     return await store.db()["findings"].find_one({"_id": finding_id})
 
