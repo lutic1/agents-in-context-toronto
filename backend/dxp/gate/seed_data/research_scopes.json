@@ -1,0 +1,29 @@
+{
+  "//": [
+    "The research scope (Story 10.1, AD-25, V1, V25, V34, V35, V36). Loaded by python -m dxp.gate.seed; only discovery (A05) moves the cursor afterwards.",
+    "assays are the four exact D45 trade-name strings. aliases are search terms only and never resolve a name to a Diagnostic (V34).",
+    "The scope rule that excludes every Diagnostic outside the four plasma assays (so a link to the tissue test FoundationOne CDx fails check 2, V35) is enforced through scope.diagnostic_ids on lbdx@v1 and sam@v1, derived from these same four strings.",
+    "team_name becomes team_id the same way as in grants.json."
+  ],
+  "research_scopes": [
+    {
+      "_id": "scope_plasma_ctdna_nsclc",
+      "name": "Plasma ctDNA genotyping assays in NSCLC",
+      "team_name": "Team Liquid Biopsy Dx",
+      "assays": [
+        "FoundationOne Liquid CDx",
+        "Guardant360 CDx",
+        "Guardant360® Liquid CDx",
+        "Agilent Resolution ctDx FIRST assay"
+      ],
+      "aliases": ["ctDNA", "cell-free DNA", "liquid biopsy"],
+      "condition": "non-small cell lung cancer",
+      "source": "clinicaltrials.gov",
+      "cursor": {
+        "//": "OD2 CURSOR: WAITING ON LUIS. Set last_update_post_date to the YYYY-MM-DD cursor Luis chooses at 10:45 from the live ClinicalTrials.gov API (V36). The seed refuses to run while it is null.",
+        "last_update_post_date": null,
+        "set_by_run_id": null
+      }
+    }
+  ]
+}
