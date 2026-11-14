@@ -126,6 +126,10 @@ INTENTS: tuple[Intent, ...] = (
 )
 _BY_NAME = {intent.name: intent for intent in INTENTS}
 
+# "What is this report about?" has no keyword of any intent. `question.asks_what_about` routes it here: the record's
+# own conditions, design, phase and status lines. It is never matched by keyword, so it is not in INTENTS.
+ABOUT = Intent("about", frozenset({"conditions", "design", "phase", "status"}), _words("about summary summarise summarize overview"))
+
 # Words that carry no content of their own. Anything else in a question must be an intent keyword or appear in
 # the record (the vocabulary guard). The words about "the record" itself are here, so "the accepted record" never
 # has to be in the record.
@@ -139,7 +143,7 @@ STOPWORDS = frozenset(
     reports accepted trial trials study studies entry listing listed state states stated according per you your yours they them their
     theirs studied cover covers covered address addressed given give gives use used uses using located take takes place planned plan plans
     appear appears kind kinds sort type types number whether either regarding concerning related information info details detail know
-    i ii iii iv know exactly actually get gets got make makes made
+    i ii iii iv know exactly actually get gets got make makes made ask asks asked
     """.split()
 )
 

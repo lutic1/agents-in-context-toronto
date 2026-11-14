@@ -32,9 +32,9 @@ __all__ = [
 
 PERSONA = "DxP's evidence guide"
 
-FRAME_INTRO = "Here's what the accepted record says."
+FRAME_INTRO = "Here's what this report's record says."
 FRAME_ONLY_RECORD = "I can only answer from this record."
-FRAME_NOT_IN_RECORD = "The accepted record doesn't answer that."
+FRAME_NOT_IN_RECORD = "This report's record doesn't answer that."
 FRAME_QUOTES = "These are the quotes it rests on."
 
 ALLOWLIST: tuple[str, ...] = (FRAME_INTRO, FRAME_ONLY_RECORD, FRAME_NOT_IN_RECORD, FRAME_QUOTES)

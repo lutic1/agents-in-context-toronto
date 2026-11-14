@@ -71,7 +71,7 @@ def test_interview_shapes_and_kind() -> None:
     assert m.InterviewRequest(question="Has it posted results?").question
     with pytest.raises(ValidationError):
         m.InterviewRequest(question="")
-    answer = m.InterviewResponse(answer="The accepted record doesn't answer that.", refused=True,
+    answer = m.InterviewResponse(answer="This report's record doesn't answer that.", refused=True,
                                  refusal_reason="not_in_record", decision_id="dec_1")
     assert answer.citations == [] and answer.refused
 

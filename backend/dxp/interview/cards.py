@@ -593,3 +593,39 @@ def load_cards(report: dict[str, Any], raw_texts: dict[str, str | None] | None =
         field = resolve_field(shown, sections_for(version_id))
         cards.append(Card(quote_id_for(source_ref, version_id, field, shown), shown, source_ref, version_id, field))
     return cards[:MAX_CARDS]
+
+
+# --- the record's own labelled lines --------------------------------------------------------------------------
+
+# The intents that may fall back to the pinned version's own labelled lines when no discovery quote answers them, and
+# the fields of the lines each may use, in this order.
+RECORD_LINE_INTENTS: dict[str, tuple[str, ...]] = {
+    "status": ("status",),
+    "results": ("results",),
+    "design": ("design",),
+    "about": ("conditions", "design", "phase", "status"),
+}
+
+
+def record_line_cards(report: dict[str, Any], raw_texts: dict[str, str | None], fields: tuple[str, ...]) -> list[Card]:
+    """Cards made from the pinned version's own raw text: each line whose leading label is of one of `fields`,
+    whitespace-normalised and verbatim. The same usability checks as a discovery quote apply (`_usable`; the line is
+    found because it IS the raw text); the caller still applies the shape, claim and source checks, and the answer is
+    verified against the raw text like any other. Ordered by `fields`, then by position in the record."""
+    pinned = pinned_version(report)
+    source_ref = report.get("source_ref")
+    raw = raw_texts.get(pinned) if pinned else None
+    if not isinstance(raw, str) or not isinstance(source_ref, str) or not source_ref:
+        return []
+    found: dict[str, list[Card]] = {f: [] for f in fields}
+    seen: set[str] = set()
+    for line in raw.split("\n"):
+        shown = normalise_text(line)
+        if not shown or shown in seen:
+            continue
+        field = field_for_label(_label_of(shown))
+        if field not in found or not _usable(shown, pinned, source_ref, True):
+            continue
+        seen.add(shown)
+        found[field].append(Card(quote_id_for(source_ref, pinned, field, shown), shown, source_ref, pinned, field))
+    return [card for f in fields for card in found[f]]
