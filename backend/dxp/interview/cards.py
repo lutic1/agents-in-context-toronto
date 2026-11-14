@@ -512,7 +512,10 @@ def resolve_field(text: str, sections: _Sections | None) -> str:
 
 
 def _quote_version(report: dict[str, Any], quote: dict[str, Any]) -> Any:
-    return quote.get("version_id") or report.get("version_id")
+    # No fallback to the report's version: every real discovery quote carries the report's own pinned
+    # version_id (reports.draft, V40), so a quote without one is unusable, not "this report's"
+    # (Gregorio, #56 part 3 item 2).
+    return quote.get("version_id")
 
 
 def pinned_version(report: dict[str, Any]) -> str | None:

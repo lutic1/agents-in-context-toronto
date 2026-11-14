@@ -73,12 +73,6 @@ def test_cards_are_pinned_to_their_version_and_source() -> None:
     assert all(c.version_id == VERSION_ID and c.source_ref == SOURCE_REF for c in loaded())
 
 
-def test_a_quote_without_its_own_version_uses_the_reports() -> None:
-    report = make_report()
-    report["discovery"]["quotes"] = [{"text": Q_STATUS, "quote_found": True}]
-    assert loaded(report)[0].version_id == VERSION_ID
-
-
 def test_a_quote_without_a_version_is_not_a_card() -> None:
     report = make_report(version_id=None)
     report["discovery"]["quotes"] = [{"text": Q_STATUS, "quote_found": True}]
