@@ -13,12 +13,12 @@
    `filter.advanced = AREA[LastUpdatePostDate]RANGE[<cursor>,MAX]`, every page up to a fixed cap;
 5. writes each result as an immutable source version and points its `source_items` document at
    it (`sources.load.store_record`, window "discovered", `scope_ids`);
-6. advances the cursor, by one conditional update on the scope's `version` and current cursor
-   (adding 1 to `version`),
-   only when every page was read and the run is still `running`; a failed, blocked or stopped
-   scan leaves it where it was, so nothing is skipped;
-7. records the action `delivered` with `{ http_status, cursor_from, cursor_to, source_refs, count }`,
-   `Run.scan { cursor_from, cursor_to, query, source_refs }` and one `scan_finished` event, so the
+6. records the action `delivered` with `{ http_status, cursor_from, cursor_to, source_refs, count }`
+   FIRST, then advances the cursor, by one conditional update on the scope's `version` and current
+   cursor (adding 1 to `version`), only when every page was read, the run is still `running` and
+   the action was settled; a failed, blocked or stopped scan, or a failed settle, leaves it where
+   it was, so nothing is skipped and the cursor never moves while the action is `dispatching`;
+7. records `Run.scan { cursor_from, cursor_to, query, source_refs }` and one `scan_finished` event, so the
    run audit shows the sources fetched with the cursor used and the cursor after (V14).
 
 `search_source` is a read: a timeout or error is `failed` and raises `ScanError`; the cursor is
@@ -135,10 +135,12 @@ async def _claim(action_id: str) -> dict[str, Any] | None:
     return await _db()["actions"].find_one({"_id": action_id}) or {"_id": action_id, "status": "missing"}
 
 
-async def _settle(action_id: str | None, status: str, result: dict[str, Any]) -> None:
-    """`dispatching` -> `delivered` | `failed` with the observed result, through the actions module."""
-    if action_id:
-        await actions.record_source_result(action_id, status=status, result=result)
+async def _settle(action_id: str | None, status: str, result: dict[str, Any]) -> bool:
+    """`dispatching` -> `delivered` | `failed` with the observed result, through the actions module.
+    True when this call settled the action (or there is no action to settle)."""
+    if not action_id:
+        return True
+    return bool(await actions.record_source_result(action_id, status=status, result=result))
 
 
 async def _run_status(run_id: str | None) -> str | None:
@@ -255,10 +257,28 @@ async def run_scan(
         seen = max((r["last_update_post_date"] for r in records if r.get("last_update_post_date")), default=None)
         new_cursor = max(cursor, seen) if seen else cursor
 
-        if advance_cursor and outcome.complete and await _run_status(ctx.run_id) == "running":
-            cond: dict[str, Any] = {"_id": scope_id, "cursor.last_update_post_date": raw_cursor}
-            if "version" in scope:
-                cond["version"] = scope["version"]
+        cond: dict[str, Any] = {"_id": scope_id, "cursor.last_update_post_date": raw_cursor}
+        if "version" in scope:
+            cond["version"] = scope["version"]
+        will_advance = (
+            advance_cursor
+            and outcome.complete
+            and await _run_status(ctx.run_id) == "running"
+            and await _db()[SCOPES].find_one(cond, {"_id": 1}) is not None  # nobody moved it since our read
+        )
+
+        # The action is settled BEFORE the cursor moves (PR #27 review, item e): a failure to settle
+        # raises or returns False and leaves the cursor where it was, so the cursor can never have
+        # moved while the action is still `dispatching`. The result's cursor_to is the cursor this
+        # scan sets; Run.scan records whether the conditional update below then matched.
+        outcome.status = "done"
+        settled = await _settle(
+            outcome.action_id, "delivered",
+            {"http_status": outcome.http_status, "cursor_from": cursor,
+             "cursor_to": new_cursor if will_advance else cursor,
+             "source_refs": outcome.source_refs, "count": len(outcome.source_refs)},
+        )
+        if will_advance and settled:
             res = await _db()[SCOPES].update_one(
                 cond,
                 {
@@ -270,12 +290,6 @@ async def run_scan(
         if outcome.cursor_advanced:
             outcome.cursor_to = new_cursor
 
-        outcome.status = "done"
-        await _settle(
-            outcome.action_id, "delivered",
-            {"http_status": outcome.http_status, "cursor_from": cursor, "cursor_to": outcome.cursor_to,
-             "source_refs": outcome.source_refs, "count": len(outcome.source_refs)},
-        )
         await runs.record_scan(
             ctx.run_id,
             {"cursor_from": cursor, "cursor_to": outcome.cursor_to, "query": query,

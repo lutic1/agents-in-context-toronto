@@ -126,6 +126,7 @@ async def test_cursor_update_is_conditional_on_version(fakedb, events, fake_runs
     outcome = await scan_mod.run_scan(SCOPE_ID, discover_run)
     assert outcome.status == "done" and not outcome.cursor_advanced
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
+    assert fakedb["actions"].docs[scan_gate.action_ids[0]]["result"]["cursor_to"] == "2026-11-11"
 
 
 async def test_changed_known_trial_is_a_new_version(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
@@ -191,3 +192,59 @@ async def test_capped_search_never_moves_the_cursor(fakedb, events, fake_runs, f
     assert outcome.complete and not outcome.cursor_advanced
     assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"
     assert scan_gate.calls[0][1].inputs["requested_count"] == 5
+
+
+async def test_action_is_settled_before_the_cursor_moves(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    """Review item (e): the delivered settle happens before the cursor update."""
+    setup_results(ctgov_fake)
+    order: list[str] = []
+    real_settle, real_update = fake_actions.record_source_result, fakedb["research_scopes"].update_one
+
+    async def settle(action_id, *, status, result):
+        order.append(f"settle:{status}")
+        return await real_settle(action_id, status=status, result=result)
+
+    async def update_one(*a, **k):
+        order.append("cursor")
+        return await real_update(*a, **k)
+
+    scan_mod.actions.record_source_result = settle
+    fakedb["research_scopes"].update_one = update_one
+    outcome = await scan_mod.run_scan(SCOPE_ID, discover_run)
+    assert outcome.cursor_advanced
+    assert order == ["settle:dispatching", "settle:delivered", "cursor"]
+
+
+async def test_failed_settle_leaves_the_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    """Review item (e), Luis's probe: the settle fails; the cursor must not have moved while the
+    action is still `dispatching`."""
+    setup_results(ctgov_fake)
+    real_settle = fake_actions.record_source_result
+
+    async def settle(action_id, *, status, result):
+        if status == "delivered":
+            raise RuntimeError("settle failed")
+        return await real_settle(action_id, status=status, result=result)
+
+    scan_mod.actions.record_source_result = settle
+    with pytest.raises(RuntimeError):
+        await scan_mod.run_scan(SCOPE_ID, discover_run)
+    scope = fakedb["research_scopes"].docs[SCOPE_ID]
+    assert scope["cursor"]["last_update_post_date"] == "2026-11-11" and scope["version"] == 1
+    assert fakedb["actions"].docs[scan_gate.action_ids[0]]["status"] == "dispatching"
+
+
+async def test_unsettled_action_leaves_the_cursor(fakedb, events, fake_runs, fake_actions, scan_gate, ctgov_fake, discover_run) -> None:
+    """Review item (e): the settle reports the action was not `dispatching` (False); no cursor move."""
+    setup_results(ctgov_fake)
+    real_settle = fake_actions.record_source_result
+
+    async def settle(action_id, *, status, result):
+        if status == "delivered":
+            return False
+        return await real_settle(action_id, status=status, result=result)
+
+    scan_mod.actions.record_source_result = settle
+    outcome = await scan_mod.run_scan(SCOPE_ID, discover_run)
+    assert not outcome.cursor_advanced
+    assert fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["last_update_post_date"] == "2026-11-11"

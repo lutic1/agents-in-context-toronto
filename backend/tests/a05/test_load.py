@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from dxp.sources import ctgov, load
 
 from .conftest import SCOPE_ID, scope_doc, study
@@ -44,7 +46,9 @@ async def test_changed_record_writes_second_version_and_keeps_first(fakedb) -> N
     assert fakedb["source_versions"].docs[first.version_id] == first_doc  # never overwritten
     assert fakedb["source_versions"].docs[second.version_id]["previous_version_id"] == first.version_id
     item = fakedb["source_items"].docs["clinicaltrials.gov:NCT00000001"]
-    assert item["current_version_id"] == second.version_id and item["window"] == "discovered"
+    # the item keeps the window it was first stored in; the new version carries its own
+    assert item["current_version_id"] == second.version_id and item["window"] == "prior"
+    assert fakedb["source_versions"].docs[second.version_id]["window"] == "discovered"
     assert set(item["sets"]) == {"prior", "discover"}
 
 
@@ -56,11 +60,13 @@ async def test_same_date_new_content_is_a_new_version(fakedb) -> None:
 
 async def test_older_fetch_never_moves_pointer_back(fakedb) -> None:
     new = await load.store_record(rec("NCT00000001", "2026-11-12", "New."), window="discovered", set_name="discover")
-    old = await load.store_record(rec("NCT00000001", "2026-10-01", "Old."), window="discovered", set_name="discover")
-    assert not old.moved
+    before = dict(fakedb["source_versions"].docs)
+    old = await load.store_record(rec("NCT00000001", "2026-10-01", "Old."), window="prior", set_name="prior")
+    assert not old.moved and old.stale and not old.new_version
     assert fakedb["source_items"].docs["clinicaltrials.gov:NCT00000001"]["current_version_id"] == new.version_id
-    assert old.version_id in fakedb["source_versions"].docs
-    assert fakedb["source_versions"].docs[old.version_id]["previous_version_id"] is None
+    # review item (d): the stale check runs before any insert, so the older fetch is not stored at all
+    assert old.version_id == new.version_id and fakedb["source_versions"].docs == before
+    assert fakedb["source_items"].docs["clinicaltrials.gov:NCT00000001"]["window"] == "discovered"
 
 
 def test_manifest_is_the_d30_list() -> None:
@@ -102,3 +108,42 @@ async def test_setup_item_window(fakedb, ctgov_fake) -> None:
     s = await load.load_nct("NCT05715229")
     item = fakedb["source_items"].docs[s.source_ref]
     assert item["window"] == "setup" and item["sets"] == ["nct:NCT05715229"] and item["overall_status"] == "TERMINATED"
+
+
+async def test_store_record_never_changes_an_existing_window(fakedb) -> None:
+    """Review item (a): a discovered trial stored again as prior keeps window "discovered"."""
+    r = rec("NCT04712877", "2026-11-12")
+    await load.store_record(r, window="discovered", set_name="discover", scope_id=SCOPE_ID)
+    again = await load.store_record(r, window="prior", set_name="prior", scope_id=SCOPE_ID)
+    assert not again.moved
+    item = fakedb["source_items"].docs["clinicaltrials.gov:NCT04712877"]
+    assert item["window"] == "discovered" and set(item["sets"]) == {"discover", "prior"}
+
+
+async def test_prior_refused_once_a_scan_has_moved_the_cursor(fakedb, ctgov_fake) -> None:
+    """Review item (a), Luis's probe: run prior, scan (cursor moves past the anchor's 11-12 update),
+    run prior again. The rerun must refuse, fetch nothing, and leave the anchor "discovered"."""
+    fakedb["research_scopes"].docs[SCOPE_ID] = scope_doc("2026-11-11")
+    ctgov_fake.studies = {"NCT04712877": study("NCT04712877", "2026-11-12"), "NCT00000002": study("NCT00000002", "2026-10-31")}
+    ids = ["NCT04712877", "NCT00000002"]
+    first = await load.load_prior(SCOPE_ID, nct_ids=ids)
+    assert [n for n, _ in first.left_for_scan] == ["NCT04712877"]
+    # the scan stores the anchor as discovered and advances the cursor (as discovery.scan does)
+    await load.store_record(rec("NCT04712877", "2026-11-12"), window="discovered", set_name="discover", scope_id=SCOPE_ID)
+    fakedb["research_scopes"].docs[SCOPE_ID]["cursor"] = {
+        "last_update_post_date": "2026-11-13", "set_at": None, "set_by_run_id": "run_x"}
+    fakedb["research_scopes"].docs[SCOPE_ID]["version"] = 2
+    requests = len(ctgov_fake.requests)
+    with pytest.raises(load.CursorMovedError):
+        await load.load_prior(SCOPE_ID, nct_ids=ids)
+    assert len(ctgov_fake.requests) == requests  # refused before any fetch
+    assert fakedb["source_items"].docs["clinicaltrials.gov:NCT04712877"]["window"] == "discovered"
+
+
+@pytest.mark.parametrize("moved_cursor,version", [({"last_update_post_date": "2026-11-11", "set_at": None, "set_by_run_id": "run_x"}, 1),
+                                            ({"last_update_post_date": "2026-11-11", "set_at": None, "set_by_run_id": None}, 2)])
+async def test_prior_refused_on_either_sign_of_a_moved_cursor(fakedb, ctgov_fake, moved_cursor, version) -> None:
+    fakedb["research_scopes"].docs[SCOPE_ID] = {**scope_doc("2026-11-11", version=version), "cursor": moved_cursor}
+    with pytest.raises(load.CursorMovedError):
+        await load.load_prior(SCOPE_ID, nct_ids=["NCT00000002"])
+    assert ctgov_fake.requests == []

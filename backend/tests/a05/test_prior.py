@@ -25,9 +25,11 @@ def finding(version_id: str, ref: str, dx: str | None) -> dict:
         {"field": "biomarkers", "raw": "x", "value": "x", "label": "X", "quote": "x",
          "check": {"quote_found": False, "supported": False, "confidence": 0.2, "flags": []}},
     ]
+    stage = None if dx is None else {"stage": "clinical_validation", "quote": "q",
+                                     "check": {"quote_found": True, "supported": True, "confidence": 0.9, "flags": []}}
     return {"id": f"f_{dx or '-'}", "source_ref": ref, "version_id": version_id, "diagnostic_id": dx,
             "target": "diagnostic" if dx else "scope_collection", "summary": "s", "values": values,
-            "stage_evidence": None, "prompt_version": "test"}
+            "stage_evidence": stage, "prompt_version": "test"}
 
 
 @pytest.fixture
@@ -53,20 +55,45 @@ def pipeline_fakes(monkeypatch, fakedb, ctgov_fake):
     return calls
 
 
-async def test_prior_extracts_and_files_once_per_change(fakedb, pipeline_fakes) -> None:
+async def test_prior_files_only_evidence_collection_entries(fakedb, pipeline_fakes) -> None:
+    """V54 (R19): each trial-level Finding is filed once, as an entry in the scope's evidence
+    collection, pinned to its version; nothing else is filed and nothing is filed twice."""
     run = await prior.file_prior(SCOPE_ID, ctx=seed_ctx())
-    assert run.extracted == ["NCT00000002"] and run.findings == 2 and run.changes == 2
+    assert run.extracted == ["NCT00000002"] and run.findings == 1 and run.changes == 1
+    assert run.diagnostic_skipped == 1
     files = pipeline_fakes["file"]
-    value_change = next(c for _, c in files if c["field"] == "sample_types")
     vid = fakedb["source_items"].docs["clinicaltrials.gov:NCT00000002"]["current_version_id"]
-    assert value_change["evidence"]["version_id"] == vid and value_change["evidence"]["source_date"] == "2026-10-31"
-    scope_change = next(c for _, c in files if c["field"] == "evidence_collection")
-    assert scope_change["diagnostic_id"] is None and scope_change["scope_id"] == SCOPE_ID
-    assert all(c["field"] != "biomarkers" for _, c in files)  # an unchecked value is not filed
-    assert set(fakedb["findings"].docs) == {"f_dx_1", "f_-"}
+    (fid, change), = files
+    assert fid == "f_-" and change["field"] == "evidence_collection" and change["value"] == "clinicaltrials.gov:NCT00000002"
+    assert change["diagnostic_id"] is None and change["scope_id"] == SCOPE_ID
+    assert change["evidence"]["version_id"] == vid and change["evidence"]["source_date"] == "2026-10-31"
+    assert set(fakedb["findings"].docs) == {"f_-"}
     # again: nothing is extracted or filed twice
     again = await prior.file_prior(SCOPE_ID, ctx=seed_ctx())
-    assert again.already_filed == ["NCT00000002"] and len(pipeline_fakes["extract"]) == 1 and len(files) == 2
+    assert again.already_filed == ["NCT00000002"] and len(pipeline_fakes["extract"]) == 1 and len(files) == 1
+
+
+async def test_prior_load_files_no_diagnostic_value(fakedb, pipeline_fakes) -> None:
+    """Review item (c), Luis's ruling V54 (R19), V37: the extraction returns a Diagnostic Finding with a
+    checked value (sample_types) and a checked lifecycle stage; the prior load files neither, and
+    stores no Diagnostic Finding."""
+    await prior.file_prior(SCOPE_ID, ctx=seed_ctx())
+    filed = pipeline_fakes["file"]
+    assert filed, "the trial-level Finding is still filed"
+    for _, change in filed:
+        assert change["field"] == "evidence_collection" and change["diagnostic_id"] is None
+        assert change["field"] not in {"sample_types", "biomarkers", "lifecycle_stage"} and "check" not in change
+    assert not any(d.get("diagnostic_id") for d in fakedb["findings"].docs.values())
+    # changes_for itself returns nothing for a Diagnostic Finding, whatever its checks say
+    assert prior.changes_for(finding("sv_x", "clinicaltrials.gov:NCT00000002", "dx_1"), "2026-10-31", SCOPE_ID) == []
+
+
+async def test_prior_refused_after_a_scan(fakedb, pipeline_fakes) -> None:
+    """Review item (a) through the pipeline: once a scan has moved the cursor, nothing is extracted or filed."""
+    fakedb["research_scopes"].docs[SCOPE_ID]["cursor"]["set_by_run_id"] = "run_x"
+    with pytest.raises(prior.source_load.CursorMovedError):
+        await prior.file_prior(SCOPE_ID, ctx=seed_ctx())
+    assert pipeline_fakes["extract"] == [] and pipeline_fakes["file"] == []
 
 
 async def test_seed_key_required(monkeypatch) -> None:

@@ -11,7 +11,10 @@ Every fetch (the discovery scan, the prior collection and the setup item) goes t
 
 A version is never overwritten or deleted. A changed record (a new `lastUpdatePostDate` or a new
 content hash) gets a new version and the pointer moves; an unchanged one changes nothing but its
-set and scope membership. The pointer never moves back to an older `last_update_post_date`.
+set and scope membership. A fetch older than the current version is not stored at all (checked
+before any insert, so lineage stays a single chain), and the pointer never moves back. An existing
+item's `window` is never rewritten: it keeps the window it was first stored in (each version keeps
+its own).
 
 Command line (setup, I1 step 1):
 
@@ -82,6 +85,7 @@ class Stored:
     new_version: bool  # this call inserted the version document
     moved: bool  # this call moved current_version_id
     last_update_post_date: str | None = None
+    stale: bool = False  # the fetch was older than the current version: nothing stored, current kept
 
     @property
     def changed(self) -> bool:
@@ -130,7 +134,11 @@ async def store_record(
         now = _now()
         item = await items.find_one({"_id": ref}, {"current_version_id": 1, "last_update_post_date": 1})
         prev = (item or {}).get("current_version_id")
+        # Checked before any insert (lineage): a fetch older than the current version is not stored.
         stale = item is not None and prev is not None and (item.get("last_update_post_date") or "") > (lupd or "")
+        if stale:
+            await items.update_one({"_id": ref}, {"$set": {"updated_at": now}, "$addToSet": membership})
+            return Stored(ref, prev, prev, False, False, item.get("last_update_post_date"), stale=True)
 
         if prev != vid:
             try:
@@ -140,8 +148,7 @@ async def store_record(
                         "source_ref": ref,
                         **{k: record.get(k) for k in _COPIED},
                         "window": window,
-                        # an older fetch than the current version is stored but not chained after it
-                        "previous_version_id": None if stale else prev,
+                        "previous_version_id": prev,
                         "run_id": run_id,
                         "fetched_at": now,
                     }
@@ -150,16 +157,15 @@ async def store_record(
             except DuplicateKeyError:
                 pass  # the same version is already stored: immutable, never rewritten
 
-        if prev == vid or stale:
-            await items.update_one({"_id": ref}, {"$set": {"window": window, "updated_at": now}, "$addToSet": membership})
+        if prev == vid:
+            # never rewrite an existing item's window: the window it was first stored in stays
+            await items.update_one({"_id": ref}, {"$set": {"updated_at": now}, "$addToSet": membership})
             return Stored(ref, vid, prev, new_version, False, lupd)
 
         current = {k: record.get(k) for k in _COPIED}
-        current.update(
-            {"source_date": lupd, "current_version_id": vid, "window": window, "fetched_at": now, "updated_at": now}
-        )
+        current.update({"source_date": lupd, "current_version_id": vid, "fetched_at": now, "updated_at": now})
         if item is None:
-            doc = {"_id": ref, **current, "sets": [set_name], "scope_ids": [scope_id] if scope_id else [], "created_at": now}
+            doc = {"_id": ref, **current, "window": window, "sets": [set_name], "scope_ids": [scope_id] if scope_id else [], "created_at": now}
             try:
                 await items.insert_one(doc)
                 return Stored(ref, vid, None, new_version, True, lupd)
@@ -232,16 +238,37 @@ async def scope_document(scope_id: str) -> dict[str, Any]:
     return scope
 
 
+class CursorMovedError(RuntimeError):
+    """The scope's cursor has moved (a scan ran): loading prior now would absorb discovered trials."""
+
+
+def cursor_moved(scope: dict[str, Any]) -> str | None:
+    """Why the scope's cursor counts as moved, or None while it is still the seeded one: a scan set it
+    (`cursor.set_by_run_id` not null) or advanced the scope (`version` > 1, V50)."""
+    by = (scope.get("cursor") or {}).get("set_by_run_id")
+    if by is not None:
+        return f"cursor set by run {by}"
+    version = scope.get("version")
+    if isinstance(version, int) and version > 1:
+        return f"scope version {version}"
+    return None
+
+
 async def load_prior(scope_id: str, *, cursor: str | None = None, nct_ids: list[str] | None = None) -> PriorLoad:
     """The prior collection (Story 1.4, AD-16): every manifest trial last updated strictly before the
     scope's cursor, excluding the setup item, stored with window "prior" and set "prior".
 
     A trial on or after the cursor is left for the discovery scan; a trial that fails to fetch is
-    reported by NCT ID and the rest still load.
+    reported by NCT ID and the rest still load. Refused (`CursorMovedError`) once the cursor has moved,
+    so a rerun after a scan can never turn a discovered trial into prior evidence.
     """
     data = manifest()
+    scope = await scope_document(scope_id)
+    moved = cursor_moved(scope)
+    if moved:
+        raise CursorMovedError(f"{scope_id}: the prior collection is loaded only before the first scan ({moved})")
     if cursor is None:
-        cursor = cursor_text(((await scope_document(scope_id)).get("cursor") or {}).get("last_update_post_date"))
+        cursor = cursor_text((scope.get("cursor") or {}).get("last_update_post_date"))
     if not cursor:
         raise ValueError(f"{scope_id}: the scope has no cursor (OD2)")
     ids = nct_ids if nct_ids is not None else data["nct_ids"]
@@ -297,7 +324,11 @@ async def _main(argv: list[str] | None = None) -> int:
             if not args.scope:
                 print("--scope is required with --set prior", file=sys.stderr)
                 return 2
-            result = await load_prior(args.scope)
+            try:
+                result = await load_prior(args.scope)
+            except CursorMovedError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
             for line in result.lines():
                 print(line)
             return 1 if result.failed else 0

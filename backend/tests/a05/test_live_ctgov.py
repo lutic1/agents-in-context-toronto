@@ -32,9 +32,11 @@ async def test_scan_query_with_condition_alias_finds_anchor() -> None:
     assert res.complete and "NCT04712877" in ids
 
 
-async def test_scan_query_without_alias_report() -> None:
-    """Records (does not require) whether the scope condition alone finds the anchor (OD2 question)."""
-    q = build_query(scope_doc(CURSOR), CURSOR)
+async def test_scan_query_without_condition_alias_misses_anchor() -> None:
+    """Review item (b): with `condition_aliases=[]` the plain condition does not find the anchor,
+    which lists its condition only as "NSCLC" (V51)."""
+    q = build_query(scope_doc(CURSOR, condition_aliases=[]), CURSOR)
+    assert "NSCLC" not in q["query.cond"]
     res = await ctgov.search(q["query.term"], q["query.cond"], CURSOR)
     ids = {s["protocolSection"]["identificationModule"]["nctId"] for s in res.studies}
-    print(f"condition only: {len(ids)} results, anchor found: {'NCT04712877' in ids}")
+    assert res.complete and "NCT04712877" not in ids

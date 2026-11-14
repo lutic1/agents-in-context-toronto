@@ -6,11 +6,13 @@ Run once in setup (I1 step 1), from a laptop with `DXP_SEED_KEY`, after `python 
    `python -m dxp.sources.load --set prior --scope <scope_id>`): the D30 trials in
    `sources/selected.json` last updated strictly before the scope's cursor, excluding the setup item
    NCT05715229, each fetched by NCT ID and stored as an immutable source version (V40);
-2. extracts each loaded version with `llm.extract` and stores its Findings (insert-if-absent on
-   the Finding ID `derive("f_", version_id, diagnostic_id)`);
-3. files each checked value through `ledger.file(finding_id, [change], "baseline", ctx)`, once per
-   change (D46), under the seed grant `seed@v1`, so the values are accepted knowledge (applied as
-   `unreviewed`) to relate new trials to; it sends no Slack alert and files no pending report.
+2. extracts each loaded version with `llm.extract` and stores its trial-level Finding (insert-if-absent
+   on the Finding ID);
+3. files that Finding through `ledger.file(finding_id, [change], "baseline", ctx)` under the seed
+   grant `seed@v1`, ONLY as an entry in the scope's evidence collection,
+   `source_items.collections.<scope_id>` (V54, V35, AD-25). No Diagnostic field value and no
+   `lifecycle_stage` is filed from a prior trial (V54, V37: a mention is not proof of use); Diagnostic
+   Findings are counted and dropped. It sends no Slack alert and files no pending report.
 
 Running it again changes nothing: versions are insert-if-absent, a version already filed is not
 extracted again (`source_items.prior_filed_version_id`), and the ledger's derived IDs make a
@@ -84,52 +86,30 @@ async def seeded_trade_names() -> list[str]:
     return names
 
 
+def is_trial_level(finding: Any) -> bool:
+    """The record-level Finding (no `diagnostic_id`): the only kind the prior collection files (V54)."""
+    return not _get(finding, "diagnostic_id")
+
+
 def changes_for(finding: Any, source_date: str | None, scope_id: str) -> list[dict[str, Any]]:
-    """One change per checked value of a Diagnostic Finding; for the record-level Finding, the
-    trial added to the scope's evidence collection (V35, V43). Every change pins its version."""
+    """V54 (R19): the prior collection files each trial-level Finding only as an entry in the scope's
+    evidence collection, `source_items.collections.<scope_id>` (V35, AD-25), pinned to its version.
+
+    A Diagnostic Finding files nothing: no Diagnostic field value and no `lifecycle_stage` is filed
+    from a prior trial, because a mention is not proof of use (V37) and a baseline value would
+    become accepted knowledge without review."""
+    if not is_trial_level(finding):
+        return []
     fid, ref, vid = _get(finding, "id"), _get(finding, "source_ref"), _get(finding, "version_id")
-    dx = _get(finding, "diagnostic_id")
-    base_evidence = {"source_ref": ref, "version_id": vid, "finding_id": fid, "source_date": source_date}
-    if not dx:
-        return [
-            {
-                "field": EVIDENCE_COLLECTION,
-                "value": ref,
-                "diagnostic_id": None,
-                "scope_id": scope_id,
-                "evidence": dict(base_evidence),
-            }
-        ]
-    changes: list[dict[str, Any]] = []
-    for v in _get(finding, "values") or []:
-        check = _get(v, "check")
-        passed = _get(v, "value") is not None and bool(_get(check, "quote_found")) and bool(_get(check, "supported"))
-        if not passed:
-            continue
-        changes.append(
-            {
-                "field": _get(v, "field"),
-                "value": _get(v, "value"),
-                "label": _get(v, "label"),
-                "diagnostic_id": dx,
-                "evidence": {**base_evidence, "quote": _get(v, "quote")},
-                "check": _dump(check) if check is not None else {},
-            }
-        )
-    stage = _get(finding, "stage_evidence")
-    if stage is not None:
-        check = _get(stage, "check")
-        if bool(_get(check, "quote_found")) and bool(_get(check, "supported")):
-            changes.append(
-                {
-                    "field": "lifecycle_stage",
-                    "value": _get(stage, "stage"),
-                    "diagnostic_id": dx,
-                    "evidence": {**base_evidence, "quote": _get(stage, "quote")},
-                    "check": _dump(check) if check is not None else {},
-                }
-            )
-    return changes
+    return [
+        {
+            "field": EVIDENCE_COLLECTION,
+            "value": ref,
+            "diagnostic_id": None,
+            "scope_id": scope_id,
+            "evidence": {"source_ref": ref, "version_id": vid, "finding_id": fid, "source_date": source_date},
+        }
+    ]
 
 
 @dataclass
@@ -140,6 +120,7 @@ class PriorRun:
     not_relevant: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
     findings: int = 0
+    diagnostic_skipped: int = 0  # Diagnostic Findings neither stored nor filed (V54)
     changes: int = 0
     outcomes: dict[str, int] = field(default_factory=dict)
 
@@ -148,8 +129,8 @@ class PriorRun:
         out += [f"{n} extraction FAILED: {e}" for n, e in self.failed.items()]
         out.append(
             f"baseline filing: {len(self.extracted)} extracted, {len(self.already_filed)} already filed, "
-            f"{len(self.not_relevant)} not relevant, {len(self.failed)} failed; {self.findings} findings, "
-            f"{self.changes} changes filed ({', '.join(f'{k} {v}' for k, v in sorted(self.outcomes.items())) or 'none'})"
+            f"{len(self.not_relevant)} not relevant, {len(self.failed)} failed; {self.findings} trial-level findings, "
+            f"{self.diagnostic_skipped} Diagnostic findings not filed (V54), {self.changes} evidence-collection entries filed ({', '.join(f'{k} {v}' for k, v in sorted(self.outcomes.items())) or 'none'})"
         )
         return out
 
@@ -182,6 +163,9 @@ async def file_prior(scope_id: str = DEFAULT_SCOPE, *, ctx: RunContext | None = 
             result.extracted.append(nct)
         now = datetime.now(UTC)
         for finding in _get(extraction, "findings") or []:
+            if not is_trial_level(finding):
+                result.diagnostic_skipped += 1  # V54: no Diagnostic value is filed from a prior trial
+                continue
             doc = _dump(finding)
             fid = doc.pop("id")
             await db["findings"].update_one(
@@ -217,7 +201,7 @@ async def _main(argv: list[str] | None = None) -> int:
         for line in lines:
             print(line)
         return 1 if failed else 0
-    except PermissionError as exc:
+    except (PermissionError, source_load.CursorMovedError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     finally:
