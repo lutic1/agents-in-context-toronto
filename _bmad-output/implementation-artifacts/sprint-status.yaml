@@ -385,12 +385,12 @@ owners:
     scope: core
   10-8-approval-promotes-the-report-and-authorises-one-follow-up-ta:
     owner: "Luis"
-    prs: "A24+A25, I3"
+    prs: "A24, B04, I3"
     scope: core
   10-9-the-follow-up-task-runs-under-its-own-grant-and-gate:
     owner: "Luis"
-    prs: "A24+A25, B02, I3"
-    scope: core
+    prs: "A25, B04, I3b"
+    scope: supporting
   10-10-report-page-with-decisions-and-the-memory-panel:
     owner: "Vlad"
     prs: "B04, I3"
@@ -415,7 +415,7 @@ action_items:
     owner: "Luis"
     status: open
   - epic: 10
-    action: "OD2: at 10:45 set the scan cursor and confirm the live API still returns NCT04712877 updated after it, RECRUITING, without results"
+    action: "OD2: at 10:45 set the scan cursor and verify the demo anchor live (update date, status, results). NCT04712877 is the expected candidate (the API on 14 Nov showed lastUpdatePostDate 2026-11-12; a reviewer saw 17 Jul 2024 on the history page). Never claim it studies FoundationOne Liquid CDx (V33 to V36)"
     owner: "Luis"
     status: open
   - epic: 10

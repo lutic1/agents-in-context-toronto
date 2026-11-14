@@ -321,3 +321,112 @@ Update together:
 - the earlier change proposals (a pointer to this file);
 - `sprint-status.yaml` (scopes);
 - `README.md` (the one-line description and the loop).
+
+## 10. Review of PR #8: decisions V25 to V32
+
+A review of PR #8 found that the direction is strong, but the plan is not yet a low-risk build. These decisions fix that, and they win over V1 to V24 where they differ.
+
+### What the demo claims
+
+- **V25. Frame the discovery honestly, as a new trial signal worth investigating.**
+  - NCT04712877 ("Testing Tumor Tissue and Blood to Help Select Personalized Treatments for Patients With Suspected Lung Cancers") is RECRUITING with no results. It pairs FoundationOne Liquid (blood) with FoundationOne CDx (tissue) to find 12 actionable drivers in stage IA2 to III disease, for neoadjuvant trial eligibility.
+  - The report's headline is: "New trial signal: plasma genotyping with FoundationOne Liquid CDx is being studied in early-stage (IA2 to III) lung cancer, alongside tissue testing. No results yet."
+  - The expected relationship to the prior collection (advanced NSCLC use) is `extends` (a new setting). The model must back it with two checked quotes, and if it cannot, the item is shown without a relationship.
+  - Nothing in the report, the Slack alert, the briefing or the avatar says or implies the trial showed assay performance.
+  - The research scope becomes "Plasma ctDNA genotyping assays in NSCLC" (all stages), so the early-stage trial is in scope.
+- **V26. Define the gap first, then make the follow-up answer it.**
+  - Every report names one evidence gap. For the demo: "Has any study posted results for FoundationOne Liquid CDx in early-stage (resectable) NSCLC?"
+  - The recommended task answers exactly that gap: search ClinicalTrials.gov for NSCLC trials naming FoundationOne Liquid CDx in early-stage disease, and report which have posted results (at most 5).
+  - "None with posted results" is a valid, honest answer, and the task reports it as such.
+  - The task's findings are filed as pending related evidence. They are never accepted knowledge.
+- **V27. Approved is not accepted for the task.**
+  - Approval promotes the report's own updates to accepted knowledge, and authorises the follow-up task.
+  - Anything the task finds stays pending until a Reviewer decides on it.
+  - The report page, the Audit view and the demo narration say this in words, for example: "Approved: 1 update accepted. Follow-up task authorised; its findings will be pending review."
+
+### What must ship, and what gets cut
+
+- **V28. A hard core cut line.**
+  - **Core: never cut.**
+    - discovery;
+    - an evidence relationship with quotes;
+    - a memory changing the report;
+    - a policy block;
+    - the Slack notification opening the report;
+    - the human decision (approve with promotion, or reject or correct with a memory);
+    - the audit trail;
+    - stop.
+  - **Core, but cheap:** the recommended task and its authorisation, which is a record created at approval.
+  - **Supporting, cut in this order:**
+    1. the HeyGen avatar;
+    2. the ElevenLabs briefing;
+    3. the memory correct and revoke screen (memory creation and use stay core);
+    4. **follow-up task execution**, the first substantial feature cut;
+    5. a second discovery item.
+  - A24 (decision, promotion, task authorisation) and A25 (task execution) are split again, so A25 can be cut without touching the core.
+- **V29. Media is on demand, and never gates anything.**
+  - The report page has "Generate briefing" and "Render avatar" buttons, behind the `briefing` and `avatar` flags. Nothing renders automatically per report.
+  - For the demo, one avatar render is requested for the demo report only, as soon as it is filed.
+  - The report, the Slack alert, the decision, the task and the rehearsal never wait on either service.
+  - The script is built only from the report's fields and is always shown as text. If ElevenLabs or HeyGen fails, the text stays correct and the player says "unavailable".
+  - The 10:45 HeyGen check is an account check, off the critical path. If it fails, B08 is not built.
+
+### The schedule
+
+- **V30. One float number.**
+  - With A25 and media off the core path: I3 becomes "approval, promotion, authorisation and audit" (14:45 to 15:00).
+  - The rehearsal runs 15:00 to 16:10: pass 1 as core acceptance, a reset, pass 2, and a reset for the video.
+  - That gives **20 minutes of hard float at the 16:30 freeze**. This is the only float figure in the plan.
+  - If A25 is merged by 14:30 and the loop is green by 14:30, the follow-up task joins I3 (to 15:15) and uses 15 of those 20 minutes. Otherwise A25 is cut.
+- **V31. L1 and L2 are risks with a proof step and a fallback, not assumptions.**
+  - **L1 (draft starts):** only A06 and A08 start at 10:45 as drafts, because their shapes are the most stable. A19 with A20, and A21 with A22, start after the contract (11:45).
+    - Rework risk: each draft carries a 20-minute rebase budget after the contract freeze.
+    - Any contract change after 11:45 goes through the contract keeper, with the rebase cost stated.
+  - **L2 (second merge desk):** Vlad merges only PRs that are already green in CI and passed by Luis's review agent and the contract keeper, and only A05, A13, A14 and A09.
+    - A failing CI or a conflict sends the PR back to its author and never waits on Vlad's desk.
+    - Vlad's review is a scope and secrets check, not a backend review; the backend review is the agent's.
+  - **Proof step at 12:30:** the first two merges through Vlad's desk (A05, A13) show the flow works, timed against the 10-minute budget.
+  - **Fallback if L1 or L2 fails by 13:00:** go to one desk, and apply the V28 cut line at once (A25, B06 and B08 out). That takes three merges off Luis's queue. The core then fits with one rehearsal pass and no float. This is stated in the schedule as the emergency path.
+- **V32. Show the longitudinal value in the narrative.**
+  - The demo states that the scope cursor and the Team's memories accumulate over time.
+  - The scan only looks at what changed since the last scan, and M1 came from a correction earlier in the day.
+  - The pitch names the bigger value from the original brief: team-specific, longitudinal intelligence on the diagnostics a team follows. The demo shows one turn of that loop.
+
+## 11. Registry check: decisions V33 to V36
+
+A second review checked the registry and challenged the demo's anchor. On 14 Nov, Claude fetched the live record through the ClinicalTrials.gov API v2:
+- `lastUpdatePostDate` is 2026-11-12, `overallStatus` is RECRUITING and `hasResults` is false.
+- The official title is "LEADER Neoadjuvant Screening Trial: LCMC4 Evaluation of Actionable Drivers in Early Stage Lung Cancers".
+- There is one intervention, "ctDNA, tumor NGS" (DIAGNOSTIC_TEST), with `otherNames` "FoundationOne CDx" and "FoundationOne Liquid".
+
+The reviewer saw a latest posted update of 17 July 2024 on the record-history page. That page could not be read here, so the update date is treated as unverified until 10:45 (OD2). In either case, the record never names "FoundationOne Liquid CDx". Treating "FoundationOne Liquid" as that FDA-approved product was our own assumption (D31), not something the registry states. These decisions replace V25 to V27 where they differ.
+
+- **V33. Change the question, not the anchor's honesty.**
+  - The demo signal is now: "This study investigates molecular profiling using blood (ctDNA) and tumour tissue in early-stage (IA2 to III) lung cancer, to find actionable drivers before surgery. No results posted."
+  - No report, alert, briefing, avatar or narration says the trial studies FoundationOne Liquid CDx, or that it shows any assay's performance.
+  - **The gap:** "Have early-stage NSCLC studies that combine plasma ctDNA with tissue profiling posted results?"
+  - **The follow-up task** (when it runs; it is still the first substantial cut): search ClinicalTrials.gov for early-stage NSCLC trials that combine ctDNA or plasma testing with tissue profiling, and report which have posted results (at most 5). "None with posted results" is a valid answer.
+- **V34. No unverified alias.**
+  - The hand-written alias "FoundationOne Liquid" → FoundationOne Liquid CDx (D31) is removed.
+  - An extracted name that matches no seeded alias exactly stays as it appears in the source. The report lists it under **uncertainties**, for example: "The record names 'FoundationOne Liquid'. Whether this is the FDA-approved FoundationOne Liquid CDx is not stated." It is never mapped to an approved product.
+  - The aliases "Guardant360" → Guardant360 CDx and "FoundationOne" → FoundationOne CDx are removed for the same reason. Only exact FDA trade-name matches (after `normalise_name()`) resolve to a seeded Diagnostic.
+- **V35. What the allowed and blocked actions are now.**
+  - **Allowed:** the report files one pending knowledge update that adds NCT04712877 to the scope's evidence collection, as an early-stage plasma-plus-tissue profiling study. On approval, it is accepted into the collection; no assay record is changed.
+  - **Blocked (guaranteed):** the record names "FoundationOne CDx" exactly. A proposed link from the trial to FoundationOne CDx (a tissue test outside the Team's plasma scope) is blocked by check 2.
+  - **Blocked (if it occurs):** an unsupported performance or results claim in the first draft (V21).
+- **V36. Anchor verification and conditional timing.**
+  - At 10:45 (OD2), the live API is queried for the scan. The demo anchor is whichever in-scope early-stage trial is actually updated after the chosen cursor, with its update date, status and results verified in the response.
+  - NCT04712877 is the expected candidate. If it is not updated after the cursor, the scan's real result is used and the framing follows V33, with no claim about which assay it studies.
+  - **Timing is conditional.** The 20 minutes of hard float (V30) is a forecast. It holds only if the merge milestones are met, including the L2 proof at 12:30 and the 13:00 desk decision. Otherwise the emergency path applies: one desk, the V28 cut line, one rehearsal pass and no float.
+- **V37. A name in the record is a mention, not proof of use.**
+  - NCT04712877 lists "FoundationOne CDx" and "FoundationOne Liquid" only as alternate names (`otherNames`) of a generic intervention, "ctDNA, tumor NGS".
+  - DxP records each one as **a name present in the record**, never as evidence that the trial used that product.
+  - The FDA treats FoundationOne CDx (tissue) and FoundationOne Liquid CDx (plasma cfDNA) as separate devices, and the report must not merge them.
+  - **The deterministic blocked case:**
+    - The agent proposes linking the record's "FoundationOne CDx" mention to the Team's plasma research scope.
+    - The gate blocks that link before it is filed, because the configured scope excludes the tissue assay (check 2).
+    - One blocked Decision is recorded, citing the mention and the scope rule.
+  - **The report:**
+    - It keeps the original wording verbatim ("ctDNA, tumor NGS"; other names "FoundationOne CDx", "FoundationOne Liquid").
+    - It states under uncertainties: "The trial's intervention field is ambiguous: it lists assay names as alternate names of a generic ctDNA and tumour NGS intervention, and does not say which assay was used for which sample."
+  - Acceptance criteria, the demo script and narration use the words "mention" or "named in the record", never "uses" or "studies", for both names.
